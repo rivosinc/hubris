@@ -708,7 +708,6 @@ fn link_task(
     name: &str,
     allocs: &Allocations,
 ) -> Result<()> {
-    println!("linking task '{}'", name);
     let task_toml = &cfg.toml.tasks[name];
     generate_task_linker_script(
         "memory.x",
@@ -1287,6 +1286,7 @@ fn link(
     cmd.arg("-m").arg(m);
     cmd.arg("-z").arg("common-page-size=0x20");
     cmd.arg("-z").arg("max-page-size=0x20");
+    cmd.arg("-rustc-lld-flavor=ld");
 
     cmd.current_dir(working_dir);
 
