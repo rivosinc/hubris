@@ -1963,7 +1963,7 @@ name = "hypocalls"
 version = "0.1.0"
 dependencies = [
  "abi",
- "lpc55_romapi",
+ "lpc55_flash",
  "num-derive",
  "num-traits",
  "serde",
@@ -2124,6 +2124,31 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "vcell",
+]
+
+[[package]]
+name = "lpc55-update-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 1.0.0",
+ "drv-update-api",
+ "hypocalls",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "lpc55_flash"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "drv-update-api",
+ "lpc55_romapi",
 ]
 
 [[package]]
@@ -3591,6 +3616,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-secure"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "hypocalls",
+ "lpc55_flash",
+ "userlib",
+]
+
+[[package]]
 name = "task-sensor"
 version = "0.1.0"
 dependencies = [
@@ -3867,7 +3902,6 @@ dependencies = [
  "drv-i2c-api",
  "drv-i2c-devices",
  "hubris-num-tasks",
- "hypocalls",
  "num-traits",
  "riscv 0.8.1",
  "riscv-semihosting",
