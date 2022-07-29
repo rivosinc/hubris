@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    build_util::expose_m_profile();
+    build_util::expose_cpu_info();
 
     generate_consts()?;
     generate_statics()?;

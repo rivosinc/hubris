@@ -30,13 +30,59 @@ use crate::{
 /// padded that a bit.
 pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 
+#[derive(Copy, Clone)]
+enum ArchTarget {
+    ARM,
+    RISCV,
+}
+
+struct ArchConsts<'a> {
+    /// Objcopy string
+    objcopy_cmd: &'a str,
+
+    /// Objcopy target format
+    objcopy_target: &'a str,
+
+    /// Link script to use
+    link_script: &'a str,
+
+    /// Kernel link script to use
+    kernel_link_script: &'a str,
+
+    /// Relocatable linker script
+    rlink_script: &'a str,
+
+    /// Temporary linker script
+    tlink_script: &'a str,
+}
+
+const ARM_CONSTS: ArchConsts<'static> = ArchConsts {
+    objcopy_cmd: "arm-none-eabi-objcopy",
+    objcopy_target: "elf32-littlearm",
+    link_script: "build/arm-task-link.x",
+    kernel_link_script: "build/arm-kernel-link.x",
+    rlink_script: "build/arm-task-rlink.x",
+    tlink_script: "build/arm-task-tlink.x",
+};
+
+const RISCV_CONSTS: ArchConsts<'static> = ArchConsts {
+    objcopy_cmd: "riscv64-unknown-elf-objcopy",
+    objcopy_target: "elf32-littleriscv",
+    link_script: "build/riscv-task-link.x",
+    kernel_link_script: "build/riscv-kernel-link.x",
+    rlink_script: "build/riscv-task-rlink.x",
+    // riscv-task-link.x doesn't do flash fill currently, so there's no point
+    // in having a separate linker script.
+    tlink_script: "build/riscv-task-tlink.x",
+};
+
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
 /// of individual arguments to functions.
 ///
 /// It should be trivial to calculate and kept constant during the build;
 /// mutable build information should be accumulated elsewhere.
-struct PackageConfig {
+struct PackageConfig<'a> {
     /// Path to the `app.toml` file being built
     app_toml_file: PathBuf,
 
@@ -70,9 +116,15 @@ struct PackageConfig {
     /// allows us to force a rebuild when the linker scripts change, which
     /// is not normally tracked by `cargo build`.
     link_script_hash: u64,
+
+    /// Target architecture
+    arch_target: ArchTarget,
+
+    /// Architecture-specific constants
+    arch_consts: ArchConsts<'a>,
 }
 
-impl PackageConfig {
+impl PackageConfig<'_> {
     fn new(app_toml_file: &Path, verbose: bool, edges: bool) -> Result<Self> {
         let toml = Config::from_file(app_toml_file)?;
         let dist_dir = Path::new("target").join(&toml.name).join("dist");
@@ -102,11 +154,28 @@ impl PackageConfig {
             .ok_or_else(|| anyhow!("Could not get host from rustc"))?
             .to_string();
 
+        // xtask is built for the host system so we need to go with the target
+        // specified in the app toml to decide which binutils and support files
+        // to use
+        let arch_target = if toml.target.starts_with("thumb") {
+            ArchTarget::ARM
+        } else if toml.target.starts_with("riscv") {
+            ArchTarget::RISCV
+        } else {
+            bail!("unsupported target");
+        };
+
+        let arch_consts = match arch_target {
+            ArchTarget::ARM => ARM_CONSTS,
+            ArchTarget::RISCV => RISCV_CONSTS,
+        };
+
         let mut extra_hash = fnv::FnvHasher::default();
-        for f in ["task-link.x", "task-rlink.x", "kernel-link.x"] {
-            let file_data = std::fs::read(Path::new("build").join(f))?;
+        for f in [arch_consts.link_script, arch_consts.rlink_script, arch_consts.kernel_link_script] {
+            let file_data = std::fs::read(Path::new(f))?;
             file_data.hash(&mut extra_hash);
         }
+
 
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
@@ -119,6 +188,8 @@ impl PackageConfig {
             host_triple,
             remap_paths: Self::remap_paths()?,
             link_script_hash: extra_hash.finish(),
+            arch_target,
+            arch_consts,
         })
     }
 
@@ -354,7 +425,7 @@ pub fn package(
             &cfg.img_file("combined.srec", image_name),
         )?;
 
-        translate_srec_to_other_formats(&cfg.img_dir(image_name), "combined")?;
+        translate_srec_to_other_formats(&cfg, image_name, "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
@@ -387,7 +458,7 @@ pub fn package(
                 kentry,
                 &cfg.img_file("final.srec", image_name),
             )?;
-            translate_srec_to_other_formats(&cfg.img_dir(image_name), "final")?;
+            translate_srec_to_other_formats(&cfg, image_name, "final")?;
 
             // The 'enable-dice' key causes the build to create a CMPA image
             // with DICE enabled, however the CFPA & keystore must be setup too
@@ -525,18 +596,23 @@ fn secure_update(
 }
 
 /// Convert SREC to other formats for convenience.
-fn translate_srec_to_other_formats(dist_dir: &Path, name: &str) -> Result<()> {
-    let src = dist_dir.join(format!("{}.srec", name));
+fn translate_srec_to_other_formats(
+    cfg: &PackageConfig,
+    image_name: &str,
+    name: &str,
+) -> Result<()> {
+    let src = cfg.img_dir(image_name).join(format!("{}.srec", name));
     for (out_type, ext) in [
-        ("elf32-littlearm", "elf"),
+        (cfg.arch_consts.objcopy_target, "elf"),
         ("ihex", "ihex"),
         ("binary", "bin"),
     ] {
         objcopy_translate_format(
+            &cfg.arch_consts.objcopy_cmd,
             "srec",
             &src,
             out_type,
-            &dist_dir.join(format!("{}.{}", name, ext)),
+            &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
         )?;
     }
     Ok(())
@@ -693,6 +769,7 @@ fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
 /// Checks the buildstamp file and runs `cargo clean` if invalid
 fn check_rebuild(toml: &Config) -> Result<()> {
     let buildstamp_file = Path::new("target").join("buildstamp");
+
     let rebuild = match std::fs::read(&buildstamp_file) {
         Ok(contents) => {
             if let Ok(contents) = std::str::from_utf8(&contents) {
@@ -747,7 +824,7 @@ struct LoadSegment {
 /// Builds a specific task, return `true` if anything changed
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
     // Use relocatable linker script for this build
-    fs::copy("build/task-rlink.x", "target/link.x")?;
+    fs::copy(cfg.arch_consts.rlink_script, "target/link.x")?;
     if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
@@ -772,6 +849,7 @@ fn link_task(
     println!("linking task '{}'", name);
     let task_toml = &cfg.toml.tasks[name];
     generate_task_linker_script(
+        cfg.arch_target,
         "memory.x",
         &allocs.tasks[name],
         Some(&task_toml.sections),
@@ -782,7 +860,7 @@ fn link_task(
         image_name,
     )
     .context(format!("failed to generate linker script for {}", name))?;
-    fs::copy("build/task-link.x", "target/link.x")?;
+    fs::copy(&cfg.arch_consts.link_script, "target/link.x")?;
     if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
@@ -801,13 +879,14 @@ fn link_task(
 fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
 
-    let memories = cfg
+    let memories: BTreeMap<String, Range<u32>> = cfg
         .toml
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
         .collect();
 
     generate_task_linker_script(
+        cfg.arch_target,
         "memory.x",
         &memories, // ALL THE SPACE
         Some(&task_toml.sections),
@@ -818,7 +897,7 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         &cfg.toml.image_names[0],
     )
     .context(format!("failed to generate linker script for {}", name))?;
-    fs::copy("build/task-tlink.x", "target/link.x")?;
+    fs::copy(cfg.arch_consts.tlink_script, "target/link.x")?;
     if cfg.toml.need_tz_linker(name) {
         fs::copy("build/trustzone.x", "target/trustzone.x")?;
     } else {
@@ -895,13 +974,14 @@ fn build_kernel(
     allocs.hash(&mut image_id);
 
     generate_kernel_linker_script(
+        cfg.arch_target,
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
         &cfg.toml.image_memories("flash".to_string())?,
     )?;
 
-    fs::copy("build/kernel-link.x", "target/link.x")?;
+    fs::copy(&cfg.arch_consts.kernel_link_script, "target/link.x")?;
 
     let image_id = image_id.finish();
 
@@ -964,8 +1044,9 @@ fn update_image_header(
     if elf.header.container()? != Container::Little {
         bail!("where did you get a big-endian image?");
     }
-    if elf.header.e_machine != goblin::elf::header::EM_ARM {
-        bail!("this is not an ARM file");
+    if elf.header.e_machine != goblin::elf::header::EM_ARM
+        && elf.header.e_machine != goblin::elf::header::EM_RISCV {
+        bail!("this is not an ARM or RISC-V file");
     }
 
     // Good enough.
@@ -1131,7 +1212,26 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
     Ok(())
 }
 
+fn generate_linker_aliases(
+    arch_target: ArchTarget,
+    linkscr: &mut File,
+) -> Result<()> {
+    match arch_target {
+        ArchTarget::ARM => {}
+        ArchTarget::RISCV => {
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_TEXT\", FLASH);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_RODATA\", FLASH);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_DATA\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_BSS\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_HEAP\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_STACK\", STACK);")?;
+        }
+    }
+    Ok(())
+}
+
 fn generate_task_linker_script(
+    arch_target: ArchTarget,
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     sections: Option<&IndexMap<String, String>>,
@@ -1206,10 +1306,13 @@ fn generate_task_linker_script(
         writeln!(linkscr, "}} INSERT AFTER .uninit")?;
     }
 
+    generate_linker_aliases(arch_target, &mut linkscr)?;
+
     Ok(())
 }
 
 fn generate_kernel_linker_script(
+    arch_target: ArchTarget,
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
@@ -1286,6 +1389,9 @@ fn generate_kernel_linker_script(
         )
         .unwrap();
     }
+
+    generate_linker_aliases(arch_target, &mut linkscr)?;
+
     Ok(())
 }
 
@@ -1316,10 +1422,12 @@ fn build(
         .iter()
         .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
         .collect();
+
     cmd.env(
         "RUSTFLAGS",
         &format!(
-            "-C link-arg=-z -C link-arg=common-page-size=0x20 \
+            "
+             -C link-arg=-z -C link-arg=common-page-size=0x20 \
              -C link-arg=-z -C link-arg=max-page-size=0x20 \
              -C llvm-args=--enable-machine-outliner=never \
              -C overflow-checks=y \
@@ -1439,6 +1547,8 @@ fn link(
         "thumbv6m-none-eabi"
         | "thumbv7em-none-eabihf"
         | "thumbv8m.main-none-eabihf" => "armelf",
+        "riscv32imc-unknown-none-elf"
+        | "riscv32imac-unknown-none-elf" => "elf32lriscv",
         _ => bail!("No target emulation for '{}'", cfg.toml.target),
     };
     cmd.arg(src_file);
@@ -1696,6 +1806,8 @@ pub struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
+    plic: (u32, u32),
+    timer: (u32, u32),
 }
 
 /// Generate the application descriptor table that the kernel uses to find and
@@ -1718,6 +1830,8 @@ pub fn make_kconfig(
     let mut regions = vec![];
     let mut task_descs = vec![];
     let mut irqs = vec![];
+    let mut plic = (0x0, 0x0);
+    let mut timer = (0x0, 0x0);
 
     // Region 0 is the NULL region, used as a placeholder. It gives no access to
     // memory.
@@ -1742,7 +1856,22 @@ pub fn make_kconfig(
         .collect::<HashSet<_>>();
 
     let power_of_two_required = toml.mpu_power_of_two_required();
+
     for (name, p) in toml.peripherals.iter() {
+        // TODO: Get rid of this eventually and make a proper implementation of
+        //       the configuration for these peripherals.
+        if toml.target.as_str().contains("riscv") {
+            if name == "plic" {
+                plic = (p.address, p.size);
+                continue;
+            } else if name == "mtime" {
+                timer.0 = p.address;
+                continue;
+            } else if name == "mtimecmp" {
+                timer.1 = p.address;
+                continue;
+            }
+        }
         if power_of_two_required && !p.size.is_power_of_two() {
             panic!("Memory region for peripheral '{}' is required to be a power of two, but has size {}", name, p.size);
         }
@@ -1972,10 +2101,18 @@ pub fn make_kconfig(
         }
     }
 
+    if toml.target.as_str().contains("riscv")
+        && ((timer.0 == 0x0) || (timer.1 == 0x0))
+    {
+        bail!("mtime or mtimecmp has not been set.");
+    }
+
     Ok(KernelConfig {
         irqs,
         tasks: task_descs,
         regions,
+        plic,
+        timer,
     })
 }
 
@@ -2033,8 +2170,10 @@ fn load_elf(
     if elf.header.container()? != Container::Little {
         bail!("where did you get a big-endian image?");
     }
-    if elf.header.e_machine != goblin::elf::header::EM_ARM {
-        bail!("this is not an ARM file");
+    if elf.header.e_machine != goblin::elf::header::EM_ARM
+        && elf.header.e_machine != goblin::elf::header::EM_RISCV
+    {
+        bail!("this is not an ARM or RISC-V file");
     }
 
     let mut flash = 0;
@@ -2274,12 +2413,13 @@ fn write_srec(
 }
 
 fn objcopy_translate_format(
+    cmd_str: &str,
     in_format: &str,
     src: &Path,
     out_format: &str,
     dest: &Path,
 ) -> Result<()> {
-    let mut cmd = Command::new("arm-none-eabi-objcopy");
+    let mut cmd = Command::new(cmd_str);
     cmd.arg("-I")
         .arg(in_format)
         .arg("-O")

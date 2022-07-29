@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    build_util::expose_m_profile();
+    build_util::expose_cpu_info();
 
     let out_dir = std::env::var("OUT_DIR")?;
     let dest_path = std::path::Path::new(&out_dir).join("jefe_config.rs");

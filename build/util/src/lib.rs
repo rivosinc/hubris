@@ -7,13 +7,16 @@ use serde::de::DeserializeOwned;
 use std::collections::BTreeMap;
 use std::env;
 
-/// Exposes the CPU's M-profile architecture version. This isn't available in
-/// rustc's standard environment.
+/// Exposes information about the CPU as cfg variables that isn't
+/// available in rustc's standard environment. 
 ///
-/// This will set one of `cfg(armv6m`), `cfg(armv7m)`, or `cfg(armv8m)`
-/// depending on the value of the `TARGET` environment variable.
-pub fn expose_m_profile() {
-    let target = env::var("TARGET").unwrap();
+/// For ARM targets, this will set one of `cfg(armv6m`), `cfg(armv7m)`, or 
+/// `cfg(armv8m)` depending on the value of the `TARGET` environment variable.
+///
+/// For RISC-V targets, this will set `riscv_no_atomics` if the target doesn't
+/// implement the `A` extension.
+pub fn expose_cpu_info() {
+    let mut target = env::var("TARGET").unwrap();
 
     if target.starts_with("thumbv6m") {
         println!("cargo:rustc-cfg=armv6m");
@@ -22,6 +25,12 @@ pub fn expose_m_profile() {
         println!("cargo:rustc-cfg=armv7m");
     } else if target.starts_with("thumbv8m") {
         println!("cargo:rustc-cfg=armv8m");
+    } else if target.starts_with("riscv32") {
+        target.truncate(target.find('-').unwrap());
+        if !target.contains('a') && !target.contains('g') {
+            eprintln!("RISC-V target does not support atomics, using fake atomics");
+            println!("cargo:rustc-cfg=riscv_no_atomics");
+        }
     } else {
         println!("Don't know the target {}", target);
         std::process::exit(1);
