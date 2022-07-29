@@ -128,7 +128,6 @@ gateway-messages = { git = "https://github.com/oxidecomputer/management-gateway-
 gimlet-inspector-protocol = { git = "https://github.com/oxidecomputer/gimlet-inspector-protocol", version = "0.1.0" }
 hif = { git = "https://github.com/oxidecomputer/hif", default-features = false }
 humpty = { git = "https://github.com/oxidecomputer/humpty", default-features = false, version = "0.1.3" }
-hubtools = { git = "https://github.com/oxidecomputer/hubtools", default-features = false, version = "0.4.6" }
 idol = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 idol-runtime = { git = "https://github.com/oxidecomputer/idolatry.git", default-features = false }
 lpc55_sign = { git = "https://github.com/oxidecomputer/lpc55_support", default-features = false }
@@ -140,6 +139,13 @@ tlvc = { git = "https://github.com/oxidecomputer/tlvc", default-features = false
 tlvc-text = { git = "https://github.com/oxidecomputer/tlvc", default-features = false, version = "0.3.0" }
 transceiver-messages = { git = "https://github.com/oxidecomputer/transceiver-control/", default-features = false }
 vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-features = false }
+
+# Rivos forks and repos
+hubtools = { git = "https://github.com/rivosinc/hubtools", rev="65ef2b6c969cf9e08241d7a4948600439a9cb4eb", default-features = false }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
+riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features" }
+riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-pseudo-atomics", rev = "3fcc10418101d3aad0a7464b2e31d130d410db40" }
+tock-registers = { version = "0.8.1" }
 
 [workspace.lints.rust]
 elided_lifetimes_in_paths = "warn"

@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 
 fn main() -> Result<()> {
-    build_util::expose_m_profile()?;
+    build_util::expose_cpu_info()?;
 
     let cfg = build_util::task_maybe_config::<Config>()?.unwrap_or_default();
 

@@ -48,6 +48,7 @@ fn execdata(_arg: u32) {
     }
 }
 
+#[cfg(target_arch = "arm")]
 static BXLR: [u16; 1] = [0x4770u16];
 
 #[inline(never)]

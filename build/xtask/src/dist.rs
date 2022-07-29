@@ -21,6 +21,8 @@ use path_slash::{PathBufExt, PathExt};
 use sha3::{Digest, Sha3_256};
 use zerocopy::AsBytes;
 
+use hubtools::TargetArch;
+
 use crate::{
     caboose_pos,
     config::{BuildConfig, CabooseConfig, Config},
@@ -46,13 +48,43 @@ pub const DEFAULT_KERNEL_STACK: u32 = 1024;
 /// without breaking CI.
 const HUBRIS_ARCHIVE_VERSION: u32 = 9;
 
+struct ArchConsts<'a> {
+    /// Link script to use
+    link_script: &'a str,
+
+    /// Kernel link script to use
+    kernel_link_script: &'a str,
+
+    /// Relocatable linker script
+    rlink_script: &'a str,
+
+    /// Temporary linker script
+    tlink_script: &'a str,
+}
+
+const ARM_CONSTS: ArchConsts<'static> = ArchConsts {
+    link_script: "lds/arm/task-link.x",
+    kernel_link_script: "lds/arm/kernel-link.x",
+    rlink_script: "lds/arm/task-rlink.x",
+    tlink_script: "lds/arm/task-tlink.x",
+};
+
+const RISCV_CONSTS: ArchConsts<'static> = ArchConsts {
+    link_script: "lds/riscv32/task-link.x",
+    kernel_link_script: "lds/riscv32/kernel-link.x",
+    rlink_script: "lds/riscv32/task-rlink.x",
+    // riscv-task-link.x doesn't do flash fill currently, so there's no point
+    // in having a separate linker script.
+    tlink_script: "lds/riscv32/task-tlink.x",
+};
+
 /// `PackageConfig` contains a bundle of data that's commonly used when
 /// building a full app image, grouped together to avoid passing a bunch
 /// of individual arguments to functions.
 ///
 /// It should be trivial to calculate and kept constant during the build;
 /// mutable build information should be accumulated elsewhere.
-pub struct PackageConfig {
+pub struct PackageConfig<'a> {
     /// Directory containing the `app.toml` file being built
     ///
     /// Files specified within the manifest are relative to this directory
@@ -85,9 +117,15 @@ pub struct PackageConfig {
     /// allows us to force a rebuild when the linker scripts change, which
     /// is not normally tracked by `cargo build`.
     link_script_hash: u64,
+
+    /// Target architecture
+    target_arch: TargetArch,
+
+    /// Architecture-specific constants
+    arch_consts: ArchConsts<'a>,
 }
 
-impl PackageConfig {
+impl PackageConfig<'_> {
     pub fn new(
         app_toml_file: &Path,
         verbose: bool,
@@ -121,9 +159,29 @@ impl PackageConfig {
             .ok_or_else(|| anyhow!("Could not get host from rustc"))?
             .to_string();
 
+        // xtask is built for the host system so we need to go with the target
+        // specified in the app toml to decide which binutils and support files
+        // to use
+        let target_arch = if toml.target.starts_with("thumb") {
+            TargetArch::ARM
+        } else if toml.target.starts_with("riscv") {
+            TargetArch::RISCV
+        } else {
+            bail!("unsupported target");
+        };
+
+        let arch_consts = match target_arch {
+            TargetArch::ARM => ARM_CONSTS,
+            TargetArch::RISCV => RISCV_CONSTS,
+        };
+
         let mut extra_hash = fnv::FnvHasher::default();
-        for f in ["task-link.x", "task-rlink.x", "kernel-link.x"] {
-            let file_data = std::fs::read(Path::new("build").join(f))?;
+        for f in [
+            arch_consts.link_script,
+            arch_consts.rlink_script,
+            arch_consts.kernel_link_script,
+        ] {
+            let file_data = std::fs::read(Path::new(f))?;
             file_data.hash(&mut extra_hash);
         }
 
@@ -144,6 +202,8 @@ impl PackageConfig {
             host_triple,
             remap_paths: Self::remap_paths()?,
             link_script_hash: extra_hash.finish(),
+            target_arch,
+            arch_consts,
         })
     }
 
@@ -410,6 +470,10 @@ pub fn package(
                 .map(|c| c.tasks.contains(&t.to_string()))
                 .unwrap_or(false) as usize;
 
+        if n > 7 {
+            bail!("Task {t} needs too many regions: {n} > 7");
+        }
+
         task_reqs.insert(
             t,
             TaskRequest {
@@ -625,10 +689,12 @@ pub fn package(
             &raw_output_sections,
             kentry,
             0xFF,
+            cfg.target_arch,
         )
         .context("constructing image from segments with hubtools")?;
 
         write_gdb_script(&cfg, image_name)?;
+
         let archive_name = build_archive(&cfg, image_name, raw_image)?;
 
         // Post-build modifications: populate a default caboose if requested
@@ -701,7 +767,7 @@ pub fn package(
         // Unzip the signed + caboose'd images into our build directory
         let archive = hubtools::RawHubrisArchive::load(&archive_name)
             .context("loading archive with hubtools")?;
-        for ext in ["elf", "bin"] {
+        for ext in ["elf", "bin", "ihex"] {
             let name = format!("final.{}", ext);
             let file_data = archive
                 .extract_file(&format!("img/{name}"))
@@ -875,8 +941,10 @@ fn build_archive(
     archive.copy(cfg.img_file("kernel", image_name), elf_dir.join("kernel"))?;
 
     let img_dir = PathBuf::from("img");
+
     archive.binary(img_dir.join("final.elf"), raw_image.to_elf()?)?;
     archive.binary(img_dir.join("final.bin"), raw_image.to_binary()?)?;
+    archive.binary(img_dir.join("final.ihex"), raw_image.to_ihex()?)?;
 
     //
     // To allow for the image to be flashed based only on the archive (e.g.,
@@ -1017,6 +1085,7 @@ fn check_task_names(toml: &Config, task_names: &[String]) -> Result<()> {
 /// Checks the buildstamp file and runs `cargo clean` if invalid
 fn check_rebuild(toml: &Config) -> Result<()> {
     let buildstamp_file = Path::new("target").join("buildstamp");
+
     let rebuild = match std::fs::read(&buildstamp_file) {
         Ok(contents) => {
             if let Ok(contents) = std::str::from_utf8(&contents) {
@@ -1071,7 +1140,7 @@ struct LoadSegment {
 /// Builds a specific task
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     // Use relocatable linker script for this build
-    fs::copy("build/task-rlink.x", "target/link.x")?;
+    fs::copy(cfg.arch_consts.rlink_script, "target/link.x")?;
     // Append any task-specific sections.
     {
         let task_toml = &cfg.toml.tasks[name];
@@ -1397,6 +1466,7 @@ fn link_task(
 
     let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
     generate_task_linker_script(
+        cfg.target_arch,
         "memory.x",
         &allocs.tasks[name],
         Some(&task_toml.sections),
@@ -1408,13 +1478,15 @@ fn link_task(
         image_name,
     )
     .context(format!("failed to generate linker script for {}", name))?;
-    fs::copy("build/task-link.x", "target/link.x")?;
+
+    fs::copy(cfg.arch_consts.link_script, "target/link.x")?;
 
     // Link the static archive
     link(
         cfg,
         format!("{}.elf", name),
         format!("{}/{}", image_name, name),
+        false,
     )
 }
 
@@ -1436,6 +1508,7 @@ fn link_dummy_task(
     let extern_regions = cfg.toml.extern_regions_for(name, image_name)?;
 
     generate_task_linker_script(
+        cfg.target_arch,
         "memory.x",
         &memories, // ALL THE SPACE
         Some(&task_toml.sections),
@@ -1447,10 +1520,10 @@ fn link_dummy_task(
         &cfg.toml.image_names[0],
     )
     .context(format!("failed to generate linker script for {}", name))?;
-    fs::copy("build/task-tlink.x", "target/link.x")?;
+    fs::copy(cfg.arch_consts.tlink_script, "target/link.x")?;
 
     // Link the static archive
-    link(cfg, format!("{}.elf", name), format!("{}.tmp", name))
+    link(cfg, format!("{}.elf", name), format!("{}.tmp", name), true)
 }
 
 fn task_size<'a>(
@@ -1518,6 +1591,7 @@ fn build_kernel(
     allocs.hash(&mut image_id);
 
     generate_kernel_linker_script(
+        cfg.target_arch,
         "memory.x",
         &allocs.kernel,
         cfg.toml.kernel.stacksize.unwrap_or(DEFAULT_KERNEL_STACK),
@@ -1525,7 +1599,7 @@ fn build_kernel(
         image_name,
     )?;
 
-    fs::copy("build/kernel-link.x", "target/link.x")?;
+    fs::copy(cfg.arch_consts.kernel_link_script, "target/link.x")?;
 
     let image_id = image_id.finish();
 
@@ -1593,8 +1667,10 @@ fn update_image_header(
     if elf.header.container()? != Container::Little {
         bail!("where did you get a big-endian image?");
     }
-    if elf.header.e_machine != goblin::elf::header::EM_ARM {
-        bail!("this is not an ARM file");
+    if elf.header.e_machine != goblin::elf::header::EM_ARM
+        && elf.header.e_machine != goblin::elf::header::EM_RISCV
+    {
+        bail!("this is not an ARM or RISC-V file, no header section");
     }
 
     // Good enough.
@@ -1744,7 +1820,26 @@ fn check_task_priorities(toml: &Config) -> Result<()> {
     Ok(())
 }
 
+fn generate_linker_aliases(
+    target_arch: TargetArch,
+    linkscr: &mut File,
+) -> Result<()> {
+    match target_arch {
+        TargetArch::ARM => {}
+        TargetArch::RISCV => {
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_TEXT\", FLASH);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_RODATA\", FLASH);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_DATA\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_BSS\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_HEAP\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_STACK\", STACK);")?;
+        }
+    }
+    Ok(())
+}
+
 fn generate_task_linker_script(
+    target_arch: TargetArch,
     name: &str,
     map: &BTreeMap<String, ContiguousRanges>,
     sections: Option<&IndexMap<String, String>>,
@@ -1794,6 +1889,8 @@ fn generate_task_linker_script(
     append_image_names(&mut linkscr, images, image_name)?;
     append_extern_regions(&mut linkscr, extern_regions)?;
     append_task_sections(&mut linkscr, sections)?;
+
+    generate_linker_aliases(target_arch, &mut linkscr)?;
 
     Ok(())
 }
@@ -1866,6 +1963,7 @@ fn append_task_sections(
 }
 
 fn generate_kernel_linker_script(
+    target_arch: TargetArch,
     name: &str,
     map: &BTreeMap<String, Range<u32>>,
     stacksize: u32,
@@ -1936,6 +2034,9 @@ fn generate_kernel_linker_script(
     .unwrap();
 
     append_image_names(&mut linkscr, images, image_name)?;
+
+    generate_linker_aliases(target_arch, &mut linkscr)?;
+
     Ok(())
 }
 
@@ -1971,20 +2072,28 @@ fn build(
             );
             output
         });
-    cmd.env(
-        "RUSTFLAGS",
-        format!(
-            "-C link-arg=-z -C link-arg=common-page-size=0x20 \
-             -C link-arg=-z -C link-arg=max-page-size=0x20 \
-             -C llvm-args=--enable-machine-outliner=never \
-             -Z emit-stack-sizes \
-             -C overflow-checks=y \
-             -C metadata={} \
-             {}
-             ",
-            cfg.link_script_hash, remap_path_prefix,
-        ),
+
+    let mut rustflags: String = format!(
+        "
+         -C link-arg=-z -C link-arg=common-page-size=0x20 \
+         -C link-arg=-z -C link-arg=max-page-size=0x20 \
+         -C llvm-args=--enable-machine-outliner=never \
+         -Z emit-stack-sizes \
+         -C overflow-checks=y \
+         -C metadata={} \
+         {}
+         ",
+        cfg.link_script_hash, remap_path_prefix,
     );
+
+    match cfg.target_arch {
+        TargetArch::RISCV => {
+            rustflags.push_str(" -C link-arg=--orphan-handling=error")
+        }
+        TargetArch::ARM => {}
+    }
+
+    cmd.env("RUSTFLAGS", &rustflags);
     cmd.arg("--");
 
     // We use attributes to conditionally import based on feature flags;
@@ -2139,6 +2248,7 @@ fn link(
     cfg: &PackageConfig,
     src_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
     dst_file: impl AsRef<Path> + AsRef<std::ffi::OsStr>,
+    dummy: bool,
 ) -> Result<()> {
     let mut ld = cfg.sysroot.clone();
     ld.extend([
@@ -2169,6 +2279,9 @@ fn link(
         "thumbv6m-none-eabi"
         | "thumbv7em-none-eabihf"
         | "thumbv8m.main-none-eabihf" => "armelf",
+        "riscv32imc-unknown-none-elf" | "riscv32imac-unknown-none-elf" => {
+            "elf32lriscv"
+        }
         _ => bail!("No target emulation for '{}'", cfg.toml.target),
     };
     cmd.arg(src_file);
@@ -2178,6 +2291,15 @@ fn link(
     cmd.arg("-m").arg(m);
     cmd.arg("-z").arg("common-page-size=0x20");
     cmd.arg("-z").arg("max-page-size=0x20");
+    if dummy {
+        // relaxation can cause trouble if relaxation is more efficient during
+        // the dummy link than during the final link, leaving not enough FLASH
+        // space and thus getting a link error.
+        // As a solution we disable the relaxation during the dummy link,
+        // possibliy ending up with a bigger memory allocation than needed but
+        // a success link every time.
+        cmd.arg("--no-relax");
+    }
 
     cmd.current_dir(working_dir);
 
@@ -2862,8 +2984,10 @@ fn get_elf_entry_point(input: &Path) -> Result<u32> {
     if elf.header.container()? != Container::Little {
         bail!("where did you get a big-endian image?");
     }
-    if elf.header.e_machine != goblin::elf::header::EM_ARM {
-        bail!("this is not an ARM file");
+    if elf.header.e_machine != goblin::elf::header::EM_ARM
+        && elf.header.e_machine != goblin::elf::header::EM_RISCV
+    {
+        bail!("this is not an ARM or RISC-V file");
     }
 
     Ok(elf.header.e_entry as u32)
@@ -2882,7 +3006,11 @@ fn load_elf(
 
     // Checked in get_elf_entry_point above, but we'll re-check them here
     assert_eq!(elf.header.container()?, Container::Little);
-    assert_eq!(elf.header.e_machine, goblin::elf::header::EM_ARM);
+    if elf.header.e_machine != goblin::elf::header::EM_ARM
+        && elf.header.e_machine != goblin::elf::header::EM_RISCV
+    {
+        bail!("this is not an ARM or RISC-V file");
+    }
 
     let mut flash = 0;
 

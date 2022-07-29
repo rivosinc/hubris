@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 fn main() {
-    match build_util::expose_m_profile() {
+    match build_util::expose_cpu_info() {
         Ok(_) => (),
         Err(e) => println!("cargo:warn={e}"),
     }

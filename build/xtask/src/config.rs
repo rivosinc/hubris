@@ -449,8 +449,11 @@ impl Config {
 
     fn mpu_alignment(&self) -> MpuAlignment {
         // ARMv6-M and ARMv7-M require that memory regions be a power of two.
-        // ARMv8-M does not.
+        // ARMv8-M and RISC-V does not.
         match self.target.as_str() {
+            "riscv32imc-unknown-none-elf" | "riscv32imac-unknown-none-elf" => {
+                MpuAlignment::Chunk(16)
+            }
             "thumbv8m.main-none-eabihf" => MpuAlignment::Chunk(32),
             "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
                 MpuAlignment::PowerOfTwo
@@ -713,6 +716,16 @@ impl BuildConfig<'_> {
             "proc_macro_span",
             "proc_macro_span_shrink",
             "provide_any",
+        ]);
+        // nightly features that our dependencies use by riscv:
+        nightly_features.extend([
+            "asm_sym",
+            "cmse_nonsecure_entry",
+            "const_trait_impl",
+            "const_default_impls",
+            "const_cell_into_inner",
+            "core_intrinsics",
+            "fn_align",
         ]);
 
         cmd.arg(format!("-Zallow-features={}", nightly_features.join(",")));
