@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     )
     .unwrap();
 
-    build_util::expose_m_profile();
+    build_util::expose_cpu_info();
 
     let cfg = build_util::task_maybe_config::<Config>()?.unwrap_or_default();
     let out_dir = std::env::var("OUT_DIR")?;

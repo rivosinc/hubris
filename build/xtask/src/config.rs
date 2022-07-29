@@ -338,9 +338,13 @@ impl Config {
     fn mpu_alignment(&self) -> MpuAlignment {
         // ARMv6-M and ARMv7-M require that memory regions be a power of two.
         // ARMv8-M does not.
+        // RISC-V currently sets the PMP regions to NAPOT, so the alignment must
+        // also be power of two for those targets.
         match self.target.as_str() {
             "thumbv8m.main-none-eabihf" => MpuAlignment::Chunk(32),
-            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
+            "thumbv7em-none-eabihf" | "thumbv6m-none-eabi"
+                | "riscv32imc-unknown-none-elf"
+                | "riscv32imac-unknown-none-elf" => {
                 MpuAlignment::PowerOfTwo
             }
             t => panic!("Unknown mpu requirements for target '{}'", t),
@@ -585,7 +589,8 @@ impl BuildConfig<'_> {
 
         cmd.arg(
             "-Zallow-features=asm_sym,asm_const,named-profiles,naked_functions,\
-cmse_nonsecure_entry,array_methods,backtrace,proc_macro_span",
+cmse_nonsecure_entry,array_methods,backtrace,proc_macro_span,const_trait_impl,\
+const_default_impls,const_cell_into_inner,core_intrinsics,fn_align",
         );
 
         cmd.arg(subcommand);
