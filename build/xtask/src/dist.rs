@@ -606,6 +606,13 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
     archive
         .copy(chip_dir.join("openocd.gdb"), debug_dir.join("openocd.gdb"))?;
 
+    // Copy `qemu.sh` into the archive if it exists;
+    // not all target may support qemu
+    let qemu_sh = chip_dir.join("qemu.sh");
+    if qemu_sh.exists() {
+        archive.copy(qemu_sh, debug_dir.join("qemu.sh"))?;
+    }
+
     archive.finish()?;
     Ok(())
 }
