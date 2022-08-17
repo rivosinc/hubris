@@ -3,7 +3,17 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicBool, Ordering};
+
+use core::sync::atomic::Ordering;
+
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        use riscv_pseudo_atomics::atomic::AtomicBool;
+    }
+    else {
+        use core::sync::atomic::AtomicBool;
+    }
+}
 
 #[cfg(armv6m)]
 use armv6m_atomic_hack::AtomicBoolExt;

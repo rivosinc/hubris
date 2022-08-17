@@ -22,7 +22,7 @@ cfg_if::cfg_if! {
                 }
             };
         }
-    } else if #[cfg(feature = "log-semihosting")] {
+    } else if #[cfg(all(feature = "log-semihosting", target_arch = "arm"))] {
         #[macro_export]
         macro_rules! sys_log {
             ($s:expr) => {
@@ -30,6 +30,16 @@ cfg_if::cfg_if! {
             };
             ($s:expr, $($tt:tt)*) => {
                 { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); }
+            };
+        }
+    } else if #[cfg(all(feature = "log-semihosting", target_arch = "riscv32"))] {
+        #[macro_export]
+        macro_rules! sys_log {
+        ($s:expr) => {
+        { let _ = riscv_semihosting::hprintln!($s); }
+        };
+            ($s:expr, $($tt:tt)*) => {
+                { let _ = riscv_semihosting::hprintln!($s, $($tt)*); }
             };
         }
     } else if #[cfg(feature = "log-null")] {
