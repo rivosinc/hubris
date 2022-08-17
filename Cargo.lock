@@ -4219,6 +4219,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "paste",
+ "riscv-pseudo-atomics",
  "serde",
  "ssmarshal",
  "unwrap-lite",
