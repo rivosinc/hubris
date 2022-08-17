@@ -44,7 +44,15 @@
 //! 3. Compute the code corresponding to each task index as
 //!    `(HUBRIS_TASK_TABLE_SPACE + index * size) >> 4 & PINS_EXPOSED`.
 
-use core::sync::atomic::{AtomicPtr, Ordering};
+use core::sync::atomic::Ordering;
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        use riscv_pseudo_atomics::atomic::AtomicPtr;
+    }
+    else {
+        use core::sync::atomic::AtomicPtr;
+    }
+}
 
 /// Hooks that must be provided by the board setup code if it wants to enable
 /// kernel profiling.
@@ -129,12 +137,14 @@ pub(crate) fn event_syscall_exit() {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn event_secondary_syscall_enter() {
     if let Some(t) = table() {
         (t.secondary_syscall_enter)()
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn event_secondary_syscall_exit() {
     if let Some(t) = table() {
         (t.secondary_syscall_exit)()
