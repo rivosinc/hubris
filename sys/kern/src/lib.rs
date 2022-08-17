@@ -30,6 +30,7 @@
 #![feature(naked_functions)]
 #![feature(asm_sym)]
 #![feature(asm_const)]
+#![feature(fn_align)]
 // Require an unsafe block even in an unsafe fn, because unsafe fns are about
 // contract, not implementation.
 #![forbid(unsafe_op_in_unsafe_fn)]

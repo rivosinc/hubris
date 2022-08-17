@@ -7,7 +7,16 @@
 use crate::atomic::AtomicExt;
 use crate::task::Task;
 use core::mem::MaybeUninit;
-use core::sync::atomic::{AtomicBool, Ordering};
+
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        use riscv_pseudo_atomics::atomic::AtomicBool;
+    }
+    else {
+        use core::sync::atomic::AtomicBool;
+    }
+}
+use core::sync::atomic::Ordering;
 
 /// Tracks when a mutable reference to the task table is floating around in
 /// kernel code, to prevent production of a second one. This forms a sort of

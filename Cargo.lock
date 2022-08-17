@@ -356,7 +356,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "454f278bf469e2de0a4d22ea019d169d8944f86957c8207a39e3f66c32be2fc6"
 dependencies = [
  "cortex-m-rt-macros",
- "r0",
+ "r0 0.2.2",
 ]
 
 [[package]]
@@ -424,7 +424,7 @@ dependencies = [
  "bare-metal 1.0.0",
  "cfg-if",
  "cortex-m",
- "riscv",
+ "riscv 0.7.0",
 ]
 
 [[package]]
@@ -1809,8 +1809,13 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "cortex-m",
+ "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
+ "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic)",
+ "riscv-pseudo-atomics",
+ "riscv-rt",
+ "riscv-semihosting",
  "ron 0.7.0",
  "serde",
  "ssmarshal",
@@ -2442,6 +2447,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2a38df5b15c8d5c7e8654189744d8e396bddc18ad48041a500ce52d6948941f"
 
 [[package]]
+name = "r0"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd7a31eed1591dcbc95d92ad7161908e72f4677f8fabf2a32ca49b4237cbf211"
+
+[[package]]
 name = "radium"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2529,6 +2540,69 @@ dependencies = [
  "bare-metal 1.0.0",
  "bit_field",
  "riscv-target",
+]
+
+[[package]]
+name = "riscv"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e2856a701069e2d262b264750d382407d272d5527f7a51d3777d1805b4e2d3c"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+]
+
+[[package]]
+name = "riscv"
+version = "0.8.0"
+source = "git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic#c8a8576778a61c120a25939f6834d036d429f142"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+ "volatile-register",
+]
+
+[[package]]
+name = "riscv-pseudo-atomics"
+version = "0.1.0"
+source = "git+https://github.com/rivosinc/riscv-psuedo-atomics?branch=rivos/main#4a652974468bafbafe8b95603423e88904c98458"
+dependencies = [
+ "cfg-if",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "riscv-rt"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "527ddfacbbfeed89256163c2655b0392c4aa76dd95c0189dc05044bf2c47c3f8"
+dependencies = [
+ "r0 1.0.0",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-rt-macros",
+ "riscv-target",
+]
+
+[[package]]
+name = "riscv-rt-macros"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f38509d7b17c2f604ceab3e5ff8ac97bb8cd2f544688c512be75c715edaf4daf"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "riscv-semihosting"
+version = "0.0.1"
+source = "git+https://github.com/rivosinc/riscv-semihosting?branch=dev/fawaz/privilege-features#4e96e44f4518111678d6797b79d39c13d26d71d0"
+dependencies = [
+ "cfg-if",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -21,7 +21,15 @@
 //! are of course possible, but be careful of probe effect and keep the handler
 //! functions fast.
 
-use core::sync::atomic::{AtomicPtr, Ordering};
+use core::sync::atomic::Ordering;
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        use riscv_pseudo_atomics::atomic::AtomicPtr;
+    }
+    else {
+        use core::sync::atomic::AtomicPtr;
+    }
+}
 
 /// Hooks that must be provided by the board setup code if it wants to enable
 /// kernel profiling.
@@ -102,12 +110,14 @@ pub(crate) fn event_syscall_exit() {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn event_secondary_syscall_enter() {
     if let Some(t) = table() {
         (t.secondary_syscall_enter)()
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn event_secondary_syscall_exit() {
     if let Some(t) = table() {
         (t.secondary_syscall_exit)()
