@@ -84,7 +84,15 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicU32, Ordering};
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        use riscv_pseudo_atomics::atomic::AtomicU32;
+    }
+    else {
+        use core::sync::atomic::AtomicU32;
+    }
+}
+use core::sync::atomic::Ordering;
 use test_api::*;
 use userlib::*;
 use zerocopy::AsBytes;
@@ -103,7 +111,7 @@ cfg_if::cfg_if! {
                 cortex_m_semihosting::hprintln!($s, $($tt)*);
             };
         }
-    } else {
+    } else if #[cfg(feature = "log-itm")] {
         /// Helper macro for producing output on stimulus port 8.
         macro_rules! test_output {
             ($s:expr) => {
@@ -117,6 +125,17 @@ cfg_if::cfg_if! {
                     let stim = &mut (*cortex_m::peripheral::ITM::PTR).stim[8];
                     cortex_m::iprintln!(stim, $s, $($tt)*);
                 }
+            };
+        }
+    }
+    else if #[cfg(all(feature = "semihosting", target_arch = "riscv32"))] {
+        #[macro_export]
+        macro_rules! test_output {
+            ($s:expr) => {
+                { let _ = riscv_semihosting::hprintln!($s); }
+            };
+            ($s:expr, $($tt:tt)*) => {
+                { let _ = riscv_semihosting::hprintln!($s, $($tt)*); }
             };
         }
     }

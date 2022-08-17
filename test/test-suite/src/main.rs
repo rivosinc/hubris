@@ -62,6 +62,7 @@ test_cases! {
     test_fault_badmem,
     test_fault_stackoverflow,
     test_fault_execdata,
+    #[cfg(target_arch = "arm")]
     test_fault_illop,
     test_fault_nullexec,
     test_fault_textoob,
@@ -287,8 +288,10 @@ fn test_fault_badmem() {
 }
 
 fn test_fault_stackoverflow() {
+    #[cfg(target_arch = "arm")]
     let fault = test_fault(AssistOp::StackOverflow, 0);
 
+    #[cfg(target_arch = "arm")]
     match fault {
         FaultInfo::StackOverflow { .. } => {}
         #[cfg(armv6m)]
@@ -303,6 +306,7 @@ fn test_fault_execdata() {
     assert_fault_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
 }
 
+#[cfg(target_arch = "arm")]
 fn test_fault_illop() {
     let fault = test_fault(AssistOp::IllegalOperation, 0);
 
@@ -353,8 +357,11 @@ fn test_fault_buserror() {
         FaultInfo::BusError { .. } => {}
         #[cfg(armv6m)]
         FaultInfo::InvalidOperation(_) => {}
+
+        #[cfg(target_arch = "riscv32")]
+        FaultInfo::MemoryAccess { .. } => {}
         _ => {
-            panic!("expected BusFault; found {:?}", fault);
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
         }
     }
 }
@@ -369,6 +376,7 @@ fn test_fault_illinst() {
 /// Tests that division-by-zero results in a DivideByZero fault
 #[cfg(any(armv7m, armv8m))]
 fn test_fault_divzero() {
+    #[cfg(target_arch = "arm")]
     assert_fault_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
 }
 
@@ -1237,11 +1245,13 @@ fn test_floating_point(highregs: bool) {
 
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point_lowregs() {
+    #[cfg(not(target_arch = "riscv32"))]
     test_floating_point(false);
 }
 
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point_highregs() {
+    #[cfg(not(target_arch = "riscv32"))]
     test_floating_point(true);
 }
 

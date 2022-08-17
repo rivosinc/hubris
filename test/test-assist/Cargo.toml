@@ -4,20 +4,27 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-cortex-m = {version = "0.7", features = ["inline-asm"]}
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 hubris-num-tasks = {path = "../../sys/num-tasks"}
 zerocopy = "0.6.1"
 num-traits = { version = "0.2.12", default-features = false }
 test-api = {path = "../test-api"}
-cortex-m-semihosting = { version = "0.5.0", optional = true }
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
 
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
+cortex-m-semihosting = { version = "0.5.0", optional = true }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv = { version = "0.8" }
+riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", features = ["default", "user-mode"] }
+
 [features]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting"]
+
 
 [[bin]]
 name = "test-assist"
