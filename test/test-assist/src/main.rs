@@ -49,6 +49,7 @@ static BXLR: [u16; 1] = [0x4770u16];
 
 #[inline(never)]
 fn illop(_arg: u32) {
+    #[cfg(target_arch = "arm")]
     unsafe {
         // This should attempt to execute with the Thumb bit clear, so
         // should trap on an "illegal operation"
@@ -108,7 +109,10 @@ fn busfault(_arg: u32) {
 fn illinst(_arg: u32) {
     unsafe {
         // an illegal instruction
+        #[cfg(target_arch = "arm")]
         asm!("udf 0xde");
+        #[cfg(target_arch = "riscv32")]
+        asm!("unimp");
     }
 }
 
@@ -120,6 +124,7 @@ fn divzero(_arg: u32) {
         let p: u32 = 123;
         let q: u32 = 0;
         let _res: u32;
+        #[cfg(target_arch = "arm")]
         asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
     }
 }
@@ -133,6 +138,7 @@ fn eat_some_pi(highregs: bool) {
         pi[i] += i << 23;
     }
 
+    #[cfg(target_arch = "arm")]
     unsafe {
         if !highregs {
             asm!("vldm {0}, {{s0-s15}}", in(reg) &pi);
