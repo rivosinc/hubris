@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 cfg-if = { workspace = true }
-cortex-m = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf" }
@@ -16,8 +15,6 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
-
-[features]
 
 [[bin]]
 name = "test-runner"

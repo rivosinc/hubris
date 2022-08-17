@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cortex-m = { workspace = true }
 num-traits = { workspace = true }
 zerocopy = { workspace = true }
 
@@ -14,6 +13,12 @@ userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = { workspace = true }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv = { workspace = true }
 
 [features]
 

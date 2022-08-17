@@ -53,6 +53,7 @@ static BXLR: [u16; 1] = [0x4770u16];
 
 #[inline(never)]
 fn illop(_arg: u32) {
+    #[cfg(target_arch = "arm")]
     unsafe {
         // This should attempt to execute with the Thumb bit clear, so
         // should trap on an "illegal operation"
@@ -112,7 +113,31 @@ fn busfault(_arg: u32) {
 fn illinst(_arg: u32) {
     unsafe {
         // an illegal instruction
+        #[cfg(target_arch = "arm")]
         asm!("udf 0xde");
+        #[cfg(target_arch = "riscv32")]
+        asm!("unimp");
+    }
+}
+
+#[inline(never)]
+fn illaccess(_arg: u32) {
+    unsafe {
+        let x_ptr = _arg as *mut u32;
+
+        loop {
+            let mut x: u32 = x_ptr.read_volatile();
+            x += 1;
+            x_ptr.write_volatile(x);
+        }
+    }
+}
+
+#[inline(never)]
+fn illfunc(_arg: u32) {
+    unsafe {
+        let f: extern "C" fn() = core::mem::transmute(_arg);
+        f();
     }
 }
 
@@ -124,6 +149,7 @@ fn divzero(_arg: u32) {
         let p: u32 = 123;
         let q: u32 = 0;
         let _res: u32;
+        #[cfg(target_arch = "arm")]
         asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
     }
 }
@@ -137,6 +163,7 @@ fn eat_some_pi(highregs: bool) {
         *val += i << 23;
     }
 
+    #[cfg(target_arch = "arm")]
     unsafe {
         if !highregs {
             asm!("vldm {0}, {{s0-s15}}", in(reg) &pi);
@@ -167,6 +194,8 @@ fn main() -> ! {
         (AssistOp::StackOutOfBounds, stackoob),
         (AssistOp::BusError, busfault),
         (AssistOp::IllegalInstruction, illinst),
+        (AssistOp::IllegalAccess, illaccess),
+        (AssistOp::IllegalFunc, illfunc),
     ];
 
     const ALL_NOTIFICATIONS: u32 = !0;

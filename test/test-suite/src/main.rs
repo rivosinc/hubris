@@ -87,12 +87,16 @@ test_cases! {
     test_fault_badmem,
     test_fault_stackoverflow,
     test_fault_execdata,
+    #[cfg(target_arch = "arm")]
     test_fault_illop,
     test_fault_nullexec,
     test_fault_textoob,
     test_fault_stackoob,
     test_fault_buserror,
     test_fault_illinst,
+    test_fault_illaccess,
+    #[cfg(target_arch = "riscv32")]
+    test_fault_illfunc,
     #[cfg(any(armv7m, armv8m))]
     test_fault_divzero,
     test_fault_maxstatus,
@@ -317,8 +321,10 @@ fn test_fault_badmem() {
 }
 
 fn test_fault_stackoverflow() {
+    #[cfg(target_arch = "arm")]
     let fault = test_fault(AssistOp::StackOverflow, 0);
 
+    #[cfg(target_arch = "arm")]
     match fault {
         FaultInfo::StackOverflow { .. } => {}
         #[cfg(armv6m)]
@@ -333,6 +339,7 @@ fn test_fault_execdata() {
     assert_fault_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
 }
 
+#[cfg(target_arch = "arm")]
 fn test_fault_illop() {
     let fault = test_fault(AssistOp::IllegalOperation, 0);
 
@@ -383,8 +390,11 @@ fn test_fault_buserror() {
         FaultInfo::BusError { .. } => {}
         #[cfg(armv6m)]
         FaultInfo::InvalidOperation(_) => {}
+
+        #[cfg(target_arch = "riscv32")]
+        FaultInfo::MemoryAccess { .. } => {}
         _ => {
-            panic!("expected BusFault; found {:?}", fault);
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
         }
     }
 }
@@ -396,9 +406,40 @@ fn test_fault_illinst() {
     );
 }
 
+/// Verifies that one task cannot read from another's stack
+fn test_fault_illaccess() {
+    let x: i32 = 0x1337;
+    let x_ptr: *const i32 = &x;
+    let fault = test_fault(AssistOp::IllegalAccess, x_ptr as u32);
+    match fault {
+        FaultInfo::BusError { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
+
+        #[cfg(target_arch = "riscv32")]
+        FaultInfo::MemoryAccess { .. } => {}
+        _ => {
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
+        }
+    }
+}
+
+#[cfg(target_arch = "riscv32")]
+#[allow(clippy::fn_to_numeric_cast)]
+fn test_fault_illfunc() {
+    let fault = test_fault(AssistOp::IllegalFunc, test_fault_illfunc as u32);
+    match fault {
+        FaultInfo::IllegalText { .. } => {}
+        _ => {
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
+        }
+    }
+}
+
 /// Tests that division-by-zero results in a DivideByZero fault
 #[cfg(any(armv7m, armv8m))]
 fn test_fault_divzero() {
+    #[cfg(target_arch = "arm")]
     assert_fault_eq!(test_fault(AssistOp::DivZero, 0), FaultInfo::DivideByZero);
 }
 
@@ -1277,11 +1318,13 @@ fn test_floating_point(highregs: bool) {
 
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point_lowregs() {
+    #[cfg(not(target_arch = "riscv32"))]
     test_floating_point(false);
 }
 
 #[cfg(any(armv7m, armv8m))]
 fn test_floating_point_highregs() {
+    #[cfg(not(target_arch = "riscv32"))]
     test_floating_point(true);
 }
 
