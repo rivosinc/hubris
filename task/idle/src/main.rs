@@ -21,11 +21,21 @@ fn main() -> ! {
             // because an empty `loop {}` is technically UB and will be replaced
             // by a trap, bringing the system to a halt with no tasks runnable.
             // So, do not get clever and remove this.
+            #[cfg(target_arch = "arm")]
             cortex_m::asm::nop();
+            #[cfg(target_arch = "riscv32")]
+            unsafe {
+                riscv::asm::nop()
+            };
         } else {
             // Wait For Interrupt to pause the processor until an ISR arrives,
             // which could wake some higher-priority task.
+            #[cfg(target_arch = "arm")]
             cortex_m::asm::wfi();
+            #[cfg(target_arch = "riscv32")]
+            unsafe {
+                riscv::asm::wfi()
+            };
         }
     }
 }

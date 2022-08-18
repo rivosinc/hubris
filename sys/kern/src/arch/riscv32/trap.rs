@@ -319,7 +319,8 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::UserEnvCall) => {
             unsafe {
                 // Advance program counter past ecall instruction.
-                task.save_mut().set_pc(register::mepc::read() as u32 + 4);
+                let new_pc = task.save().pc() + 4;
+                task.save_mut().set_pc(new_pc);
                 let syscall_number = task.save().syscall_descriptor();
 
                 syscall_entry(syscall_number, task);
@@ -329,7 +330,20 @@ fn trap_handler(task: &mut task::Task) {
         // Exceptions.  Routed via the most appropriate FaultInfo.
         //
         Trap::Exception(Exception::IllegalInstruction) => unsafe {
-            handle_fault(task, FaultInfo::IllegalInstruction);
+            // if wfi instruction is not supported in U-mode, catch the
+            // exception and execute the wfi in M-mode instead
+            const WFI_INS: usize = 0x10500073;
+            let mtval = register::mtval::read();
+            if mtval == WFI_INS {
+                // advance program counter past the wfi
+                let new_pc = task.save().pc() + 4;
+                task.save_mut().set_pc(new_pc);
+
+                // trigger a wfi
+                asm!("wfi");
+            } else {
+                handle_fault(task, FaultInfo::IllegalInstruction);
+            }
         },
         Trap::Exception(Exception::LoadFault)
         | Trap::Exception(Exception::StoreFault) => unsafe {
