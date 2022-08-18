@@ -85,6 +85,11 @@ use abi::FaultInfo;
 use abi::FaultSource;
 use unwrap_lite::UnwrapLite;
 
+macro_rules! klog {
+    ($s:expr) => {};
+    ($s:expr, $($tt:tt)*) => {};
+}
+
 macro_rules! uassert {
     ($cond : expr) => {
         if !$cond {

@@ -722,7 +722,22 @@ fn explicit_panic(
     tasks: &mut [Task],
     caller: usize,
 ) -> Result<NextTask, UserError> {
-    // It's the easiest syscall!
+    // Make an attempt at printing the message.
+    let message = tasks[caller].save().as_panic_args().message;
+
+    if let Ok(uslice) = message {
+        if let Ok(slice) = tasks[caller].try_read(&uslice) {
+            // Plausible.
+            if slice.iter().all(|&c| c < 0x80) {
+                klog!("task @{} panicked: {}", caller, unsafe {
+                    core::str::from_utf8_unchecked(slice)
+                });
+            } else {
+                klog!("task @{} panicked: (message unprintable)", caller);
+            }
+        }
+    }
+
     Ok(task::force_fault(tasks, caller, FaultInfo::Panic))
 }
 
