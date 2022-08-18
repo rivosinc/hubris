@@ -1,0 +1,14 @@
+# QSPI-0 flash (32MB), skipping the first 64k bootloader
+[[flash]]
+address = 0x20010000
+size = 0x1FF0000
+read = true
+execute = true
+
+# RAM sections are currently mapped into DTIM, a small but fast SRAM.
+[[ram]]
+address = 0x80000000
+size = 16384
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise
