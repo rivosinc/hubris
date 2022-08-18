@@ -5,8 +5,8 @@ name = "tests-stm32h7"
 version = "0.1.0"
 
 [features]
-itm = ["panic-itm"]
-semihosting = ["panic-semihosting"]
+itm = ["panic-itm", "kern/klog-itm"]
+semihosting = ["panic-semihosting", "kern/klog-semihosting"]
 h743 = ["stm32h7/stm32h743"]
 h753 = ["stm32h7/stm32h753"]
 

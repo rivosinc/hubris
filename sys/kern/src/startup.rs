@@ -48,6 +48,8 @@ pub const HUBRIS_FAULT_NOTIFICATION: u32 = 1;
 ///
 /// This function may not be called reentrantly or from multiple cores.
 pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
+    klog!("starting: laziness");
+
     // Set our clock frequency so debuggers can find it as needed
     //
     // Safety: TODO it is not clear that this operation needs to be unsafe.
@@ -64,6 +66,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
         (&mut HUBRIS_TASK_TABLE_SPACE, &mut HUBRIS_REGION_TABLE_SPACE)
     };
 
+    klog!("starting: impatience");
     // Initialize our RAM data structures.
 
     // We currently just refer to the RegionDescs in Flash. No additional
@@ -120,6 +123,7 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
 
     crate::arch::apply_memory_protection(&task_table[first_task_index]);
     TASK_TABLE_IN_USE.store(false, Ordering::Release);
+    klog!("starting: hubris");
     crate::arch::start_first_task(
         tick_divisor,
         &mut task_table[first_task_index],

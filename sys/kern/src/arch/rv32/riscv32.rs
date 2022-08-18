@@ -45,6 +45,11 @@ use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
 use riscv::register::mstatus::MPP;
 
+macro_rules! klog {
+    ($s:expr) => {};
+    ($s:expr, $($tt:tt)*) => {};
+}
+
 #[allow(unused)]
 macro_rules! uassert {
     ($cond : expr) => {
