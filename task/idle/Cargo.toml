@@ -11,7 +11,12 @@ insomniac = []
 # The idle task cannot panic, so we deliberately don't request panic-messages
 # to keep the binary tiny.
 userlib = {path = "../../sys/userlib"}
+
+[target.'cfg(target_arch = "arm")'.dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv = { version = "0.7" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

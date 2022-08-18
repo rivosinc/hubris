@@ -3505,6 +3505,7 @@ name = "task-idle"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "riscv 0.7.0",
  "userlib",
 ]
 
