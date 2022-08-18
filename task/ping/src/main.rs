@@ -7,6 +7,8 @@
 
 use userlib::*;
 
+use core::arch::asm;
+
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]
 task_slot!(UART, usart_driver);
@@ -22,6 +24,7 @@ fn nullread() {
 // Only ARMv7-M and newer have hardware divide instructions
 #[cfg(any(armv7m, armv8m))]
 #[inline(never)]
+#[cfg(target_arch = "arm")]
 fn divzero() {
     unsafe {
         // Divide by 0
@@ -29,6 +32,14 @@ fn divzero() {
         let q: u32 = 0;
         let _res: u32;
         core::arch::asm!("udiv r2, r1, r0", in("r1") p, in("r0") q, out("r2") _res);
+    }
+}
+
+#[inline(never)]
+#[cfg(target_arch = "riscv32")]
+fn illinst() {
+    unsafe {
+        asm!("unimp");
     }
 }
 
@@ -40,8 +51,12 @@ fn main() -> ! {
 
     #[cfg(armv6m)]
     let faultme = [nullread];
+
     #[cfg(any(armv7m, armv8m))]
     let faultme = [nullread, divzero];
+
+    #[cfg(target_arch = "riscv32")]
+    let faultme = [nullread, illinst];
 
     let mut response = [0; 16];
     loop {
