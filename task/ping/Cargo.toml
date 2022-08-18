@@ -5,11 +5,13 @@ edition = "2021"
 
 [dependencies]
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
-drv-user-leds-api = { path = "../../drv/user-leds-api" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }
 idol.workspace = true
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = { workspace = true }
 
 [features]
 uart = []

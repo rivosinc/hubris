@@ -5376,6 +5376,7 @@ name = "task-ping"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "cortex-m",
  "drv-user-leds-api",
  "idol",
  "userlib",

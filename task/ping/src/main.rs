@@ -36,6 +36,14 @@ fn divzero() {
     }
 }
 
+#[cfg(target_arch = "riscv32")]
+#[inline(never)]
+fn illinst() {
+    unsafe {
+        core::arch::asm!("unimp");
+    }
+}
+
 #[export_name = "main"]
 fn main() -> ! {
     let peer = PEER.get_task_id();
@@ -44,8 +52,12 @@ fn main() -> ! {
 
     #[cfg(armv6m)]
     let faultme = [nullread];
+
     #[cfg(any(armv7m, armv8m))]
     let faultme = [nullread, divzero];
+
+    #[cfg(target_arch = "riscv32")]
+    let faultme = [nullread, illinst];
 
     let mut response = [0; 16];
     loop {
