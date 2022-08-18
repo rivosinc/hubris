@@ -12,11 +12,9 @@ num-traits = { version = "0.2.12", default-features = false }
 serde = {version = "1", default-features = false, features = ["derive"]}
 ssmarshal = {version = "1", default-features = false}
 zerocopy = "0.6.1"
-cortex-m = { version = "0.7", features = ["inline-asm"] }
-cortex-m-semihosting = { version = "0.5.0", optional = true }
-armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
 idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
 task-jefe-api = {path = "../jefe-api"}
+cfg-if = "1.0.0"
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
@@ -27,7 +25,19 @@ idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 [features]
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting" ]
+semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
 log-null = ["userlib/log-null"]
+panic-messages = ["userlib/panic-messages"]
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = { version = "0.7", features = ["inline-asm"] }
+cortex-m-semihosting = { version = "0.5.0", optional = true }
+armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv = { version = "0.8" }
+riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", optional = true, features = ["default", "user-mode"] }
+riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-psuedo-atomics", branch = "rivos/main", features = ["default", "user-mode"] }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,
 # since test builds don't work for cross compilation.

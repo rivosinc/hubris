@@ -44,7 +44,16 @@
 //!
 
 use crate::Disposition;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::Ordering;
+
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        use riscv_pseudo_atomics::atomic::AtomicU32;
+    }
+    else {
+        use core::sync::atomic::AtomicU32;
+    }
+}
 
 #[cfg(armv6m)]
 use armv6m_atomic_hack::AtomicU32Ext;
@@ -82,6 +91,9 @@ enum Trace {
 
 ringbuf!(Trace, 4, Trace::None);
 
+// NOTE: no_mangle currently also prevents the compiler from removing these
+//       symbols as an undocumented side effect. Should this change, the #[used]
+//       cfg will have the same effect.
 #[no_mangle]
 static JEFE_EXTERNAL_READY: AtomicU32 = AtomicU32::new(0);
 #[no_mangle]
