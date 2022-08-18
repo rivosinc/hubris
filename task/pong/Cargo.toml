@@ -4,12 +4,16 @@ version = "0.1.0"
 edition = "2018"
 
 [features]
+default = ["leds"]
+leds = []
 panic-messages = ["userlib/panic-messages"]
 
 [dependencies]
-cortex-m = {version = "0.7", features = ["inline-asm"]}
 userlib = {path = "../../sys/userlib"}
 drv-user-leds-api = {path = "../../drv/user-leds-api"}
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = {version = "0.7", features = ["inline-asm"]}
 
 [[bin]]
 name = "task-pong"
