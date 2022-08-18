@@ -7,6 +7,7 @@
 
 use userlib::*;
 
+#[cfg(feature = "leds")]
 task_slot!(USER_LEDS, user_leds);
 
 #[export_name = "main"]
@@ -16,9 +17,13 @@ pub fn main() -> ! {
 
     let mut response: u32 = 0;
 
-    let user_leds = drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+    #[cfg(feature = "leds")]
+    {
+        let user_leds =
+            drv_user_leds_api::UserLeds::from(USER_LEDS.get_task_id());
+        let mut current = 0;
+    }
 
-    let mut current = 0;
     let mut msg = [0; 16];
     let mut dl = INTERVAL;
     sys_set_timer(Some(dl), TIMER_NOTIFICATION);
@@ -36,6 +41,7 @@ pub fn main() -> ! {
             sys_set_timer(Some(dl), TIMER_NOTIFICATION);
 
             // Toggle the current LED -- and if we've run out, start over
+            #[cfg(feature = "leds")]
             loop {
                 match user_leds.led_toggle(current >> 1) {
                     Ok(_) => {
