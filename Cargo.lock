@@ -5118,7 +5118,6 @@ dependencies = [
  "armv6m-atomic-hack",
  "build-util",
  "cfg-if",
- "cortex-m",
  "hubpack",
  "hubris-num-tasks",
  "humpty",
