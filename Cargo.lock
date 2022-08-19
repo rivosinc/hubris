@@ -3628,6 +3628,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-hifive-inventor"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "kern",
+ "panic-halt",
+ "panic-semihosting",
+]
+
+[[package]]
 name = "tests-lpc55xpresso"
 version = "0.1.0"
 dependencies = [
