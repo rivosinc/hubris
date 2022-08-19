@@ -24,7 +24,7 @@ pub fn expose_cpu_info() {
         println!("cargo:rustc-cfg=armv7m");
     } else if target.starts_with("thumbv8m") {
         println!("cargo:rustc-cfg=armv8m");
-    } else if target.starts_with("riscv32") {
+    } else if target.starts_with("riscv") {
         target.truncate(target.find('-').unwrap());
         if !target.contains('a') && !target.contains('g') {
             eprintln!(
