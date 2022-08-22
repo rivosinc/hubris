@@ -3479,6 +3479,7 @@ dependencies = [
  "ssmarshal",
  "task-net-api",
  "userlib",
+ "zerocopy",
 ]
 
 [[package]]
@@ -3490,6 +3491,15 @@ dependencies = [
  "ssmarshal",
  "task-net-api",
  "userlib",
+]
+
+[[package]]
+name = "task-udprpc"
+version = "0.1.0"
+dependencies = [
+ "task-net-api",
+ "userlib",
+ "zerocopy",
 ]
 
 [[package]]
