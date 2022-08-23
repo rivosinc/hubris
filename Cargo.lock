@@ -990,6 +990,7 @@ dependencies = [
  "idol-runtime",
  "lpc55-pac",
  "num-traits",
+ "task-jefe-api",
  "userlib",
  "zerocopy",
 ]
