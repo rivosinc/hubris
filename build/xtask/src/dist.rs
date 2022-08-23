@@ -2144,6 +2144,8 @@ fn objcopy_translate_format(
         .arg(in_format)
         .arg("-O")
         .arg(out_format)
+        .arg("--gap-fill")
+        .arg("0xFF")
         .arg(src)
         .arg(dest);
 
