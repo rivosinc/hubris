@@ -32,7 +32,8 @@ pub const DEFAULT_KERNEL_STACK: AbiSize = 1024;
 #[derive(Copy, Clone)]
 enum ArchTarget {
     ARM,
-    RISCV,
+    RISCV32,
+    RISCV64,
 }
 
 struct ArchConsts<'a> {
@@ -64,7 +65,7 @@ const ARM_CONSTS: ArchConsts<'static> = ArchConsts {
     tlink_script: "lds/arm/task-tlink.x",
 };
 
-const RISCV_CONSTS: ArchConsts<'static> = ArchConsts {
+const RISCV32_CONSTS: ArchConsts<'static> = ArchConsts {
     objcopy_cmd: "riscv64-unknown-elf-objcopy",
     objcopy_target: "elf32-littleriscv",
     link_script: "lds/rv32/task-link.x",
@@ -73,6 +74,17 @@ const RISCV_CONSTS: ArchConsts<'static> = ArchConsts {
     // riscv-task-link.x doesn't do flash fill currently, so there's no point
     // in having a separate linker script.
     tlink_script: "lds/rv32/task-tlink.x",
+};
+
+const RISCV64_CONSTS: ArchConsts<'static> = ArchConsts {
+    objcopy_cmd: "riscv64-unknown-elf-objcopy",
+    objcopy_target: "elf64-littleriscv",
+    link_script: "build/riscv64-task-link.x",
+    kernel_link_script: "build/riscv64-kernel-link.x",
+    rlink_script: "build/riscv64-task-rlink.x",
+    // riscv-task-link.x doesn't do flash fill currently, so there's no point
+    // in having a separate linker script.
+    tlink_script: "build/riscv64-task-tlink.x",
 };
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
@@ -158,15 +170,18 @@ impl PackageConfig<'_> {
         // to use
         let arch_target = if toml.target.starts_with("thumb") {
             ArchTarget::ARM
-        } else if toml.target.starts_with("riscv") {
-            ArchTarget::RISCV
+        } else if toml.target.starts_with("riscv32") {
+            ArchTarget::RISCV32
+        } else if toml.target.starts_with("riscv64") {
+            ArchTarget::RISCV64
         } else {
             bail!("unsupported target");
         };
 
         let arch_consts = match arch_target {
             ArchTarget::ARM => ARM_CONSTS,
-            ArchTarget::RISCV => RISCV_CONSTS,
+            ArchTarget::RISCV32 => RISCV32_CONSTS,
+            ArchTarget::RISCV64 => RISCV64_CONSTS,
         };
 
         let mut extra_hash = fnv::FnvHasher::default();
@@ -883,15 +898,11 @@ fn update_image_header(
     map: &IndexMap<String, Range<AbiSize>>,
     all_output_sections: &mut BTreeMap<AbiSize, LoadSegment>,
 ) -> Result<bool> {
-    use goblin::container::Container;
     use zerocopy::AsBytes;
 
     let mut file_image = std::fs::read(input)?;
     let elf = goblin::elf::Elf::parse(&file_image)?;
 
-    if elf.header.container()? != Container::Little {
-        bail!("where did you get a big-endian image?");
-    }
     if elf.header.e_machine != goblin::elf::header::EM_ARM
         && elf.header.e_machine != goblin::elf::header::EM_RISCV
     {
@@ -993,9 +1004,17 @@ fn generate_linker_aliases(
 ) -> Result<()> {
     match arch_target {
         ArchTarget::ARM => {}
-        ArchTarget::RISCV => {
+        ArchTarget::RISCV32 => {
             writeln!(linkscr, "REGION_ALIAS(\"REGION_TEXT\", FLASH);")?;
             writeln!(linkscr, "REGION_ALIAS(\"REGION_RODATA\", FLASH);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_DATA\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_BSS\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_HEAP\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_STACK\", STACK);")?;
+        }
+        ArchTarget::RISCV64 => {
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_TEXT\", RAM);")?;
+            writeln!(linkscr, "REGION_ALIAS(\"REGION_RODATA\", RAM);")?;
             writeln!(linkscr, "REGION_ALIAS(\"REGION_DATA\", RAM);")?;
             writeln!(linkscr, "REGION_ALIAS(\"REGION_BSS\", RAM);")?;
             writeln!(linkscr, "REGION_ALIAS(\"REGION_HEAP\", RAM);")?;
@@ -1282,6 +1301,7 @@ fn link(
         "riscv32imc-unknown-none-elf" | "riscv32imac-unknown-none-elf" => {
             "elf32lriscv"
         }
+        "riscv64imac-unknown-none-elf" => "elf64lriscv",
         _ => bail!("No target emulation for '{}'", cfg.toml.target),
     };
     cmd.arg(src_file);
@@ -1593,7 +1613,7 @@ pub fn make_kconfig(
     for (name, p) in toml.peripherals.iter() {
         // TODO: Get rid of this eventually and make a proper implementation of
         //       the configuration for these peripherals.
-        if toml.target.as_str().contains("riscv") {
+        if toml.target.as_str().contains("riscv32") {
             if name == "plic" {
                 plic = (p.address, p.size);
                 continue;
@@ -1821,7 +1841,7 @@ pub fn make_kconfig(
         }
     }
 
-    if toml.target.as_str().contains("riscv")
+    if toml.target.as_str().contains("riscv32")
         && ((timer.0 == 0x0) || (timer.1 == 0x0))
     {
         bail!("mtime or mtimecmp has not been set.");
@@ -1881,15 +1901,11 @@ fn load_elf(
     output: &mut BTreeMap<AbiSize, LoadSegment>,
     symbol_table: &mut BTreeMap<String, AbiSize>,
 ) -> Result<(AbiSize, usize)> {
-    use goblin::container::Container;
     use goblin::elf::program_header::PT_LOAD;
 
     let file_image = std::fs::read(input)?;
     let elf = goblin::elf::Elf::parse(&file_image)?;
 
-    if elf.header.container()? != Container::Little {
-        bail!("where did you get a big-endian image?");
-    }
     if elf.header.e_machine != goblin::elf::header::EM_ARM
         && elf.header.e_machine != goblin::elf::header::EM_RISCV
     {
