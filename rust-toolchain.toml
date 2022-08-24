@@ -1,6 +1,7 @@
 [toolchain]
 channel = "nightly-2022-07-27"
 targets = [ "riscv32imc-unknown-none-elf", "riscv32imac-unknown-none-elf",
+            "riscv64imac-unknown-none-elf",
             "thumbv6m-none-eabi", "thumbv7em-none-eabihf", 
             "thumbv8m.main-none-eabihf" ]
 profile = "minimal"
