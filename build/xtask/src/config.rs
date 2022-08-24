@@ -344,6 +344,10 @@ impl Config {
             "riscv32imc-unknown-none-elf" | "riscv32imac-unknown-none-elf" => {
                 MpuAlignment::Chunk(16)
             }
+            // Qemu on RV64 assumes entire page(4KiB) has the same access permissions
+            // if platform supports MMU.
+            // TODO: https://rivosinc.atlassian.net/browse/SW-473
+            "riscv64imac-unknown-none-elf" => MpuAlignment::Chunk(4096),
             "thumbv8m.main-none-eabihf" => MpuAlignment::Chunk(32),
             "thumbv7em-none-eabihf" | "thumbv6m-none-eabi" => {
                 MpuAlignment::PowerOfTwo
