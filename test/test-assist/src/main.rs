@@ -63,6 +63,7 @@ fn badexec(arg: u32) {
     unsafe {
         let val: u32 = arg | 1;
         let f: extern "C" fn() = core::mem::transmute(val);
+        // TODO: This test currently breaks the ibex-super-system, so skip until that is resolved
         f();
     }
 }
