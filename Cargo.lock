@@ -1709,21 +1709,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gemini-bu-rot"
-version = "0.1.0"
-dependencies = [
- "abi",
- "cfg-if 1.0.0",
- "cortex-m",
- "cortex-m-rt",
- "kern",
- "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
-]
-
-[[package]]
 name = "generic-array"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2906,6 +2891,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "rot-carrier"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "cfg-if 1.0.0",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+]
+
+[[package]]
 name = "rsa"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3928,20 +3928,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tests-gemini-bu-rot"
-version = "0.1.0"
-dependencies = [
- "cfg-if 1.0.0",
- "cortex-m",
- "cortex-m-rt",
- "kern",
- "lpc55-pac",
- "panic-halt",
- "panic-itm",
- "panic-semihosting",
-]
-
-[[package]]
 name = "tests-gimletlet"
 version = "0.1.0"
 dependencies = [
@@ -3984,6 +3970,20 @@ dependencies = [
 [[package]]
 name = "tests-psc"
 version = "0.1.0"
+
+[[package]]
+name = "tests-rot-carrier"
+version = "0.1.0"
+dependencies = [
+ "cfg-if 1.0.0",
+ "cortex-m",
+ "cortex-m-rt",
+ "kern",
+ "lpc55-pac",
+ "panic-halt",
+ "panic-itm",
+ "panic-semihosting",
+]
 
 [[package]]
 name = "tests-stm32f4"
