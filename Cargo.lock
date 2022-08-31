@@ -2099,7 +2099,7 @@ dependencies = [
  "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
- "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic)",
+ "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=rivos/dev)",
  "riscv-pseudo-atomics",
  "riscv-rt",
  "riscv-semihosting",
@@ -2885,7 +2885,7 @@ dependencies = [
 [[package]]
 name = "riscv"
 version = "0.8.0"
-source = "git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic#c8a8576778a61c120a25939f6834d036d429f142"
+source = "git+https://github.com/rivosinc/riscv?branch=rivos/dev#e439c5fa821ba736aca593c9c1bc17ad9493a153"
 dependencies = [
  "bare-metal 1.0.0",
  "bit_field",

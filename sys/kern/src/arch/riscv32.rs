@@ -210,81 +210,40 @@ pub fn reinitialize(task: &mut task::Task) {
 
 #[allow(unused_variables)]
 pub fn apply_memory_protection(task: &task::Task) {
+    use riscv::register::{PmpCfg, Mode, Permission};
+
+    let null_cfg: PmpCfg = PmpCfg::new(Mode::OFF, Permission::NONE, false);
+
     for (i, region) in task.region_table().iter().enumerate() {
-        let mut pmpcfg: usize = 0;
-        if region.attributes.contains(abi::RegionAttributes::READ) {
-            pmpcfg |= 0b001;
-        }
-        if region.attributes.contains(abi::RegionAttributes::WRITE) {
-            pmpcfg |= 0b010;
-        }
-        if region.attributes.contains(abi::RegionAttributes::EXECUTE) {
-            pmpcfg |= 0b100;
-        }
-        // Configure NAPOT (naturally aligned power-of-2) regions
-        pmpcfg |= 0b11_000;
+        let pmpcfg =
+            // Check if this is a filler region
+            if (region.base == 0x0) && (region.size == 0x20) {
+                null_cfg
+            } else {
+                let pmp_perm: Permission = match region.attributes.bits() & 0b111 {
+                    0b000 => Permission::NONE,
+                    0b001 => Permission::R,
+                    0b010 => panic!(),
+                    0b011 => Permission::RW,
+                    0b100 => Permission::X,
+                    0b101 => Permission::RX,
+                    0b110 => panic!(),
+                    0b111 => Permission::RWX,
+                    _ => unreachable!(),
+                };
 
-        let mut pmpaddr: usize = 0;
-        pmpaddr |= region.base as usize >> 2;
-        pmpaddr |= ((region.size >> 3) - 1) as usize;
+                PmpCfg::new(Mode::TOR, pmp_perm, false)
+            };
 
-        match i {
-            0 => {
-                register::pmpaddr0::write(pmpaddr);
-                register::pmpcfg0::write(
-                    register::pmpcfg0::read().bits & 0xFFFF_FF00 | pmpcfg,
-                );
-            }
-            1 => {
-                register::pmpaddr1::write(pmpaddr);
-                register::pmpcfg0::write(
-                    register::pmpcfg0::read().bits & 0xFFFF_00FF
-                        | (pmpcfg << 8),
-                );
-            }
-            2 => {
-                register::pmpaddr2::write(pmpaddr);
-                register::pmpcfg0::write(
-                    register::pmpcfg0::read().bits & 0xFF00_FFFF
-                        | (pmpcfg << 16),
-                );
-            }
-            3 => {
-                register::pmpaddr3::write(pmpaddr);
-                register::pmpcfg0::write(
-                    register::pmpcfg0::read().bits & 0x00FF_FFFF
-                        | (pmpcfg << 24),
-                );
-            }
-            4 => {
-                register::pmpaddr4::write(pmpaddr);
-                register::pmpcfg1::write(
-                    register::pmpcfg1::read().bits & 0xFFFF_FF00 | pmpcfg,
-                );
-            }
-            5 => {
-                register::pmpaddr5::write(pmpaddr);
-                register::pmpcfg1::write(
-                    register::pmpcfg1::read().bits & 0xFFFF_00FF
-                        | (pmpcfg << 8),
-                );
-            }
-            6 => {
-                register::pmpaddr6::write(pmpaddr);
-                register::pmpcfg1::write(
-                    register::pmpcfg1::read().bits & 0xFF00_FFFF
-                        | (pmpcfg << 16),
-                );
-            }
-            7 => {
-                register::pmpaddr7::write(pmpaddr);
-                register::pmpcfg1::write(
-                    register::pmpcfg1::read().bits & 0x00FF_FFFF
-                        | (pmpcfg << 24),
-                );
-            }
-            _ => {}
-        };
+        unsafe {
+            // Configure the base address entry
+            register::set_cfg_entry(i*2, null_cfg);
+            register::write_tor_indexed(i*2, region.base as usize);
+
+            // Configure the end address entry
+            register::set_cfg_entry(i*2+1, pmpcfg);
+            register::write_tor_indexed(i*2 + 1, (region.base + region.size) as usize);
+        }
     }
 }
 
