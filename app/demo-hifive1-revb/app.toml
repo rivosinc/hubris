@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-hifive1-revb"
-requires = {flash = 16384, ram = 2048}
+requires = {flash = 14352, ram = 2048}
 features = []
 
 [tasks.jefe]

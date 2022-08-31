@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-hifive-inventor"
-requires = { flash = 16384, ram = 4096 }
+requires = { flash = 16752, ram = 3232 }
 features = []
 
 [tasks.jefe]
