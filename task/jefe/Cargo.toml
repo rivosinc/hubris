@@ -26,6 +26,7 @@ idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting", "cortex-m-semihosting" ]
 semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
+log-stringbuf = ["userlib/log-stringbuf"]
 log-null = ["userlib/log-null"]
 panic-messages = ["userlib/panic-messages"]
 
