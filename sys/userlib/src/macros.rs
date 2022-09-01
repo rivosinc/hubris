@@ -42,7 +42,17 @@ cfg_if::cfg_if! {
                 { let _ = riscv_semihosting::hprintln!($s, $($tt)*); }
             };
         }
-    } else if #[cfg(feature = "log-null")] {
+    } else if #[cfg(feature = "log-stringbuf")] {
+        #[macro_export]
+        macro_rules! sys_log {
+            ($s:expr) => {
+                { let _ = ringbuf::stringbuf_entry_root!(format_args!(concat!("\0", concat!($s, "\n\r")))); }
+            };
+            ($s:expr, $($tt:tt)*) => {
+                ringbuf::stringbuf_entry_root!(format_args!(concat!("\0{}: ", concat!($s, "\n\r")), sys_get_timer().now, $($tt)*));
+            };
+        }
+   } else if #[cfg(feature = "log-null")] {
         #[macro_export]
         macro_rules! sys_log {
             ($s:expr) => {};
