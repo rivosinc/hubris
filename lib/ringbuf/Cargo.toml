@@ -8,5 +8,16 @@ edition = "2018"
 # "disabled" feature
 disabled = []
 
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
 [dependencies]
 userlib = {path = "../../sys/userlib"}
+cfg-if = "1"
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+armv6m-atomic-hack = {path = "../../lib/armv6m-atomic-hack"}
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-psuedo-atomics", branch = "rivos/main", features = ["default", "user-mode"] }
+
