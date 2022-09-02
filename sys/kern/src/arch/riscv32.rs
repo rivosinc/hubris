@@ -9,7 +9,7 @@
 //! mode with tasks running in User mode.
 //!
 //! Interrupts are supported through the PLIC, but due to the nature of their
-//! implementation here it's not possible for the kernel to support core 
+//! implementation here it's not possible for the kernel to support core
 //! interrupts on the lines reserved for custom extensions. To fix this,
 //! the external interrupt controller will need to be treated like an external
 //! device, and have a driver task.
@@ -30,7 +30,7 @@ cfg_if::cfg_if! {
 
 use zerocopy::FromBytes;
 
-use crate::startup::{Plic, with_task_table};
+use crate::startup::{with_task_table, Plic};
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
@@ -210,7 +210,7 @@ pub fn reinitialize(task: &mut task::Task) {
 
 #[allow(unused_variables)]
 pub fn apply_memory_protection(task: &task::Task) {
-    use riscv::register::{PmpCfg, Mode, Permission};
+    use riscv::register::{Mode, Permission, PmpCfg};
 
     let null_cfg: PmpCfg = PmpCfg::new(Mode::OFF, Permission::NONE, false);
 
@@ -237,12 +237,15 @@ pub fn apply_memory_protection(task: &task::Task) {
 
         unsafe {
             // Configure the base address entry
-            register::set_cfg_entry(i*2, null_cfg);
-            register::write_tor_indexed(i*2, region.base as usize);
+            register::set_cfg_entry(i * 2, null_cfg);
+            register::write_tor_indexed(i * 2, region.base as usize);
 
             // Configure the end address entry
-            register::set_cfg_entry(i*2+1, pmpcfg);
-            register::write_tor_indexed(i*2 + 1, (region.base + region.size) as usize);
+            register::set_cfg_entry(i * 2 + 1, pmpcfg);
+            register::write_tor_indexed(
+                i * 2 + 1,
+                (region.base + region.size) as usize,
+            );
         }
     }
 }
@@ -656,7 +659,6 @@ unsafe fn set_timer(tick_divisor: u32) {
 
 #[allow(unused_variables)]
 pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
-
     //
     // Configure the timer
     //
@@ -722,9 +724,11 @@ impl crate::atomic::AtomicExt for AtomicBool {
     type Primitive = bool;
 
     #[inline(always)]
-    fn swap_polyfill(&self, value: Self::Primitive, ordering: Ordering)
-        -> Self::Primitive
-    {
+    fn swap_polyfill(
+        &self,
+        value: Self::Primitive,
+        ordering: Ordering,
+    ) -> Self::Primitive {
         self.swap(value, ordering)
     }
 }
