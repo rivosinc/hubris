@@ -169,11 +169,14 @@ impl PackageConfig<'_> {
         };
 
         let mut extra_hash = fnv::FnvHasher::default();
-        for f in [arch_consts.link_script, arch_consts.rlink_script, arch_consts.kernel_link_script] {
+        for f in [
+            arch_consts.link_script,
+            arch_consts.rlink_script,
+            arch_consts.kernel_link_script,
+        ] {
             let file_data = std::fs::read(Path::new(f))?;
             file_data.hash(&mut extra_hash);
         }
-
 
         Ok(Self {
             app_toml_file: app_toml_file.to_path_buf(),
@@ -882,7 +885,8 @@ fn update_image_header(
         bail!("where did you get a big-endian image?");
     }
     if elf.header.e_machine != goblin::elf::header::EM_ARM
-        && elf.header.e_machine != goblin::elf::header::EM_RISCV {
+        && elf.header.e_machine != goblin::elf::header::EM_RISCV
+    {
         bail!("this is not an ARM or RISC-V file");
     }
 
@@ -1262,8 +1266,9 @@ fn link(
         "thumbv6m-none-eabi"
         | "thumbv7em-none-eabihf"
         | "thumbv8m.main-none-eabihf" => "armelf",
-        "riscv32imc-unknown-none-elf"
-        | "riscv32imac-unknown-none-elf" => "elf32lriscv",
+        "riscv32imc-unknown-none-elf" | "riscv32imac-unknown-none-elf" => {
+            "elf32lriscv"
+        }
         _ => bail!("No target emulation for '{}'", cfg.toml.target),
     };
     cmd.arg(src_file);

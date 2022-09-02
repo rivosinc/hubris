@@ -350,15 +350,9 @@ pub const HUBRIS_IRQ_TASK_LOOKUP: NestedPerfectHashMap::<abi::InterruptNum, abi:
 
         // TODO: This will eventually need to be changed so that the timer info
         //       doesn't have to be shoved into `chip.toml`.
-        writeln!(
-            file,
-            "pub const MTIME: u64 = {};", kconfig.timer.0
-        )?;
+        writeln!(file, "pub const MTIME: u64 = {};", kconfig.timer.0)?;
 
-        writeln!(
-            file,
-            "pub const MTIMECMP: u64 = {};", kconfig.timer.1
-        )?;
+        writeln!(file, "pub const MTIMECMP: u64 = {};", kconfig.timer.1)?;
     }
 
     Ok(())
