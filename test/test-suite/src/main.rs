@@ -69,6 +69,8 @@ test_cases! {
     test_fault_stackoob,
     test_fault_buserror,
     test_fault_illinst,
+    test_fault_illaccess,
+    test_fault_illfunc,
     #[cfg(any(armv7m, armv8m))]
     test_fault_divzero,
     test_fault_maxstatus,
@@ -371,6 +373,34 @@ fn test_fault_illinst() {
         test_fault(AssistOp::IllegalInstruction, 0),
         FaultInfo::IllegalInstruction
     );
+}
+
+/// Verifies that one task cannot read from another's stack
+fn test_fault_illaccess() {
+    let x: i32 = 0x1337;
+    let x_ptr: *const i32 = &x;
+    let fault = test_fault(AssistOp::IllegalAccess, x_ptr as u32);
+    match fault {
+        FaultInfo::BusError { .. } => {}
+        #[cfg(armv6m)]
+        FaultInfo::InvalidOperation(_) => {}
+
+        #[cfg(target_arch = "riscv32")]
+        FaultInfo::MemoryAccess { .. } => {}
+        _ => {
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
+        }
+    }
+}
+
+fn test_fault_illfunc() {
+    let fault = test_fault(AssistOp::IllegalFunc, test_fault_illfunc as u32);
+    match fault {
+        FaultInfo::IllegalText { .. } => {}
+        _ => {
+            panic!("expected BusFault or MemoryAccess; found {:?}", fault);
+        }
+    }
 }
 
 /// Tests that division-by-zero results in a DivideByZero fault

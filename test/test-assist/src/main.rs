@@ -117,6 +117,27 @@ fn illinst(_arg: u32) {
 }
 
 #[inline(never)]
+fn illaccess(_arg: u32) {
+    unsafe {
+        let x_ptr = _arg as *mut u32;
+
+        loop {
+            let mut x: u32 = x_ptr.read_volatile();
+            x = x + 1;
+            x_ptr.write_volatile(x);
+        }
+    }
+}
+
+#[inline(never)]
+fn illfunc(_arg: u32) {
+    unsafe {
+        let f: extern "C" fn() = core::mem::transmute(_arg);
+        f();
+    }
+}
+
+#[inline(never)]
 #[cfg(any(armv7m, armv8m))]
 fn divzero(_arg: u32) {
     unsafe {
@@ -170,6 +191,8 @@ fn main() -> ! {
         (AssistOp::StackOutOfBounds, stackoob),
         (AssistOp::BusError, busfault),
         (AssistOp::IllegalInstruction, illinst),
+        (AssistOp::IllegalAccess, illaccess),
+        (AssistOp::IllegalFunc, illfunc),
     ];
 
     const ALL_NOTIFICATIONS: u32 = !0;
