@@ -36,6 +36,8 @@ pub enum AssistOp {
     RefreshTaskIdOffByOne = 21,
     RefreshTaskIdOffByMany = 22,
     ReadNotifications = 23,
+    IllegalAccess = 24,
+    IllegalFunc = 25,
 }
 
 /// Operations that are performed by the test-suite
