@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot, hifive1-revb, hifive-inventor]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -83,13 +83,23 @@ jobs:
             app_toml: app/gimlet-rot/app.toml
             target: thumbv8m.main-none-eabihf
             image: a
+          - build: hifive1-revb
+            app_name: demo-hifive1-revb
+            app_toml: app/demo-hifive1-revb/app.toml
+            target: riscv32imc-unknown-none-elf
+            image: default
+          - build: hifive-inventor
+            app_name: demo-hifive-inventor
+            app_toml: app/demo-hifive-inventor/app.toml
+            target: riscv32imc-unkown-none-elf
+            image: default
 
           - os: ubuntu-latest
-            deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev
-          - os: windows-latest
-            deps: |
-              Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
-              echo $Env:RUNNER_TEMP >> $Env:GITHUB_PATH
+            deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev  binutils-riscv64-unknown-elf
+         #- os: windows-latest
+         #  deps: |
+         #    Invoke-WebRequest -Uri https://github.com/steveklabnik/arm-none-eabi-objcopy/releases/download/9-2020-q2-update/arm-none-eabi-objcopy.exe -OutFile "$Env:RUNNER_TEMP\arm-none-eabi-objcopy.exe"
+         #    echo $Env:RUNNER_TEMP >> $Env:GITHUB_PATH
     env:
       VCPKGRS_DYNAMIC: 1
 
