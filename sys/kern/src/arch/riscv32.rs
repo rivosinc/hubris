@@ -43,17 +43,10 @@ use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
 use riscv::register::mstatus::MPP;
 
+#[allow(unused)]
 macro_rules! uassert {
     ($cond : expr) => {
         if !$cond {
-            panic!("Assertion failed!");
-        }
-    };
-}
-
-macro_rules! uassert_eq {
-    ($cond1 : expr, $cond2 : expr) => {
-        if !($cond1 == $cond2) {
             panic!("Assertion failed!");
         }
     };
