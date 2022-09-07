@@ -79,13 +79,13 @@ pub(crate) unsafe extern "C" fn sys_send_stub(
 ) -> RcLen {
     asm!("
         # Load in args from the struct.
-        lw a6, 6*4(a0)
-        lw a5, 5*4(a0)
-        lw a4, 4*4(a0)
-        lw a3, 3*4(a0)
-        lw a2, 2*4(a0)
-        lw a1, 1*4(a0)
-        lw a0, 0*4(a0)
+        lw a6, 5*4(a0)
+        lw a5, 4*4(a0)
+        lw a4, 3*4(a0)
+        lw a3, 2*4(a0)
+        lw a2, 1*4(a0)
+        lw a1, 0*4(a0)
+        lw a0, 6*4(a0)
 
         # Load the constant syscall number.
         li a7, {sysnum}
@@ -196,11 +196,11 @@ pub(crate) unsafe extern "C" fn sys_borrow_read_stub(
     asm!("
         # Move register arguments into place, in reverse order so that a0 is
         # loaded last when we're finished with it.
-        lw a4, 4*4(a0)
-        lw a3, 3*4(a0)
-        lw a2, 2*4(a0)
-        lw a1, 1*4(a0)
-        lw a0, 0*4(a0)
+        lw a4, 3*4(a0)
+        lw a3, 2*4(a0)
+        lw a2, 1*4(a0)
+        lw a1, 0*4(a0)
+        lw a0, 4*4(a0)
 
         # Load the constant syscall number.
         li a7, {sysnum}
@@ -225,11 +225,11 @@ pub(crate) unsafe extern "C" fn sys_borrow_write_stub(
     asm!("
         # Move register arguments into place, in reverse order so that a0 is
         # loaded last when we're finished with it.
-        lw a4, 4*4(a0)
-        lw a3, 3*4(a0)
-        lw a2, 2*4(a0)
-        lw a1, 1*4(a0)
-        lw a0, 0*4(a0)
+        lw a4, 3*4(a0)
+        lw a3, 2*4(a0)
+        lw a2, 1*4(a0)
+        lw a1, 0*4(a0)
+        lw a0, 4*4(a0)
 
         # Load the constant syscall number.
         li a7, {sysnum}
