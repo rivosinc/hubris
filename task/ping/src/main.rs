@@ -7,8 +7,6 @@
 
 use userlib::*;
 
-use core::arch::asm;
-
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]
 task_slot!(UART, usart_driver);
@@ -39,7 +37,7 @@ fn divzero() {
 #[cfg(target_arch = "riscv32")]
 fn illinst() {
     unsafe {
-        asm!("unimp");
+        core::arch::asm!("unimp");
     }
 }
 
