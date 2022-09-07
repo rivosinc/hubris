@@ -295,7 +295,7 @@ pub fn safe_copy(
     // arbitrary.
     let dst = if from_slice.aliases(&to_slice) {
         Err(FaultInfo::MemoryAccess {
-            address: Some(to_slice.base_address as u32),
+            address: Some(to_slice.base_address as usize),
             source: FaultSource::Kernel,
         })
     } else {

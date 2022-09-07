@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "byteorder",
+ "cfg-if 1.0.0",
  "phash",
  "serde",
  "zerocopy",

@@ -10,6 +10,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use abi::AbiSize;
 use anyhow::{anyhow, bail, Context, Result};
 use colored::*;
 use indexmap::IndexMap;
@@ -26,7 +27,7 @@ use crate::{
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
-pub const DEFAULT_KERNEL_STACK: u32 = 1024;
+pub const DEFAULT_KERNEL_STACK: AbiSize = 1024;
 
 #[derive(Copy, Clone)]
 enum ArchTarget {
@@ -266,7 +267,7 @@ pub fn package(
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
     dirty_ok: bool,
-) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
+) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<AbiSize>>)>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -740,7 +741,7 @@ fn link_task(
 fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
     let task_toml = &cfg.toml.tasks[name];
 
-    let memories: BTreeMap<String, Range<u32>> = cfg
+    let memories: BTreeMap<String, Range<AbiSize>> = cfg
         .toml
         .memories(&cfg.toml.image_names[0])?
         .into_iter()
@@ -777,8 +778,8 @@ fn task_entry_point(
     cfg: &PackageConfig,
     name: &str,
     image_name: &str,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-) -> Result<u32> {
+    all_output_sections: &mut BTreeMap<AbiSize, LoadSegment>,
+) -> Result<AbiSize> {
     let task_toml = &cfg.toml.tasks[name];
     resolve_task_slots(cfg, name, image_name)?;
 
@@ -805,11 +806,11 @@ fn task_entry_point(
 fn build_kernel(
     cfg: &PackageConfig,
     allocs: &Allocations,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
-    all_memories: &IndexMap<String, Range<u32>>,
-    entry_points: &HashMap<String, u32>,
+    all_output_sections: &mut BTreeMap<AbiSize, LoadSegment>,
+    all_memories: &IndexMap<String, Range<AbiSize>>,
+    entry_points: &HashMap<String, AbiSize>,
     image_name: &str,
-) -> Result<(u32, BTreeMap<String, u32>)> {
+) -> Result<(AbiSize, BTreeMap<String, AbiSize>)> {
     let mut image_id = fnv::FnvHasher::default();
     all_output_sections.hash(&mut image_id);
 
@@ -879,8 +880,8 @@ fn build_kernel(
 fn update_image_header(
     input: &Path,
     output: &Path,
-    map: &IndexMap<String, Range<u32>>,
-    all_output_sections: &mut BTreeMap<u32, LoadSegment>,
+    map: &IndexMap<String, Range<AbiSize>>,
+    all_output_sections: &mut BTreeMap<AbiSize, LoadSegment>,
 ) -> Result<bool> {
     use goblin::container::Container;
     use zerocopy::AsBytes;
@@ -912,11 +913,11 @@ fn update_image_header(
                 let mut end = 0;
 
                 for (addr, sec) in all_output_sections {
-                    if (*addr as u32) > flash.start
-                        && (*addr as u32) < flash.end
+                    if (*addr as AbiSize) > flash.start
+                        && (*addr as AbiSize) < flash.end
                     {
-                        if (*addr as u32) > end {
-                            end = addr + (sec.data.len() as u32);
+                        if (*addr as AbiSize) > end {
+                            end = addr + (sec.data.len() as AbiSize);
                         }
                     }
                 }
@@ -925,7 +926,7 @@ fn update_image_header(
 
                 let mut header = abi::ImageHeader {
                     magic: abi::HEADER_MAGIC,
-                    total_image_len: len as u32,
+                    total_image_len: len as AbiSize,
                     ..Default::default()
                 };
 
@@ -1007,14 +1008,19 @@ fn generate_linker_aliases(
 fn generate_task_linker_script(
     arch_target: ArchTarget,
     name: &str,
-    map: &BTreeMap<String, Range<u32>>,
+    map: &BTreeMap<String, Range<AbiSize>>,
     sections: Option<&IndexMap<String, String>>,
-    stacksize: u32,
+    stacksize: AbiSize,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
 
-    fn emit(linkscr: &mut File, sec: &str, o: u32, l: u32) -> Result<()> {
+    fn emit(
+        linkscr: &mut File,
+        sec: &str,
+        o: AbiSize,
+        l: AbiSize,
+    ) -> Result<()> {
         writeln!(
             linkscr,
             "{} (rwx) : ORIGIN = {:#010x}, LENGTH = {:#010x}",
@@ -1069,9 +1075,9 @@ fn generate_task_linker_script(
 fn generate_kernel_linker_script(
     arch_target: ArchTarget,
     name: &str,
-    map: &BTreeMap<String, Range<u32>>,
-    stacksize: u32,
-    images: &IndexMap<String, Range<u32>>,
+    map: &BTreeMap<String, Range<AbiSize>>,
+    stacksize: AbiSize,
+    images: &IndexMap<String, Range<AbiSize>>,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr =
@@ -1303,9 +1309,9 @@ fn link(
 #[derive(Debug, Clone, Default, Hash)]
 pub struct Allocations {
     /// Map from memory-name to address-range
-    pub kernel: BTreeMap<String, Range<u32>>,
+    pub kernel: BTreeMap<String, Range<AbiSize>>,
     /// Map from task-name to memory-name to address-range
-    pub tasks: BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    pub tasks: BTreeMap<String, BTreeMap<String, Range<AbiSize>>>,
 }
 
 /// Allocates address space from all regions for the kernel and all tasks.
@@ -1345,7 +1351,7 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
-) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<u32>>)>> {
+) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<AbiSize>>)>> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
     // the naturally-aligned-power-of-two requirement.
@@ -1359,7 +1365,7 @@ pub fn allocate_all(
     let tasks = &toml.tasks;
     let mut result: BTreeMap<
         String,
-        (Allocations, IndexMap<String, Range<u32>>),
+        (Allocations, IndexMap<String, Range<AbiSize>>),
     > = BTreeMap::new();
 
     for image_name in &toml.image_names {
@@ -1367,8 +1373,10 @@ pub fn allocate_all(
         let mut free = toml.memories(&image_name)?;
         let kernel_requests = &kernel.requires;
 
-        let mut task_requests: BTreeMap<&str, BTreeMap<u32, VecDeque<&str>>> =
-            BTreeMap::new();
+        let mut task_requests: BTreeMap<
+            &str,
+            BTreeMap<AbiSize, VecDeque<&str>>,
+        > = BTreeMap::new();
 
         for name in tasks.keys() {
             for (mem, amt) in task_sizes[name.as_str()].iter() {
@@ -1395,7 +1403,7 @@ pub fn allocate_all(
             let mut t_reqs = task_requests.get_mut(region.as_str());
 
             fn reqs_map_not_empty(
-                om: &Option<&mut BTreeMap<u32, VecDeque<&str>>>,
+                om: &Option<&mut BTreeMap<AbiSize, VecDeque<&str>>>,
             ) -> bool {
                 om.iter()
                     .flat_map(|map| map.values())
@@ -1475,9 +1483,9 @@ pub fn allocate_all(
 
 fn allocate_k(
     region: &str,
-    size: u32,
-    avail: &mut Range<u32>,
-) -> Result<Range<u32>> {
+    size: AbiSize,
+    avail: &mut Range<AbiSize>,
+) -> Result<Range<AbiSize>> {
     // Our base address will be larger than avail.start if it doesn't meet our
     // minimum requirements. Round up.
     let base = (avail.start + 15) & !15;
@@ -1500,10 +1508,10 @@ fn allocate_k(
 
 fn allocate_one(
     region: &str,
-    size: u32,
-    align: u32,
-    avail: &mut Range<u32>,
-) -> Result<Range<u32>> {
+    size: AbiSize,
+    align: AbiSize,
+    avail: &mut Range<AbiSize>,
+) -> Result<Range<AbiSize>> {
     assert!(align.is_power_of_two());
 
     let size_mask = align - 1;
@@ -1533,8 +1541,8 @@ pub struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
-    plic: (u32, u32),
-    timer: (u32, u32),
+    plic: (AbiSize, AbiSize),
+    timer: (AbiSize, AbiSize),
 }
 
 /// Generate the application descriptor table that the kernel uses to find and
@@ -1548,8 +1556,8 @@ pub struct KernelConfig {
 /// - Some number of `Interrupt` records routing interrupts to tasks.
 pub fn make_kconfig(
     toml: &Config,
-    task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
-    entry_points: &HashMap<String, u32>,
+    task_allocations: &BTreeMap<String, BTreeMap<String, Range<AbiSize>>>,
+    entry_points: &HashMap<String, AbiSize>,
     image_name: &str,
 ) -> Result<KernelConfig> {
     // Generate the three record sections concurrently.
@@ -1853,7 +1861,7 @@ fn load_srec(
                     )
                 }
                 output.insert(
-                    data.address.0,
+                    data.address.0 as u32,
                     LoadSegment {
                         source_file: input.into(),
                         data: data.data,
@@ -1870,9 +1878,9 @@ fn load_srec(
 
 fn load_elf(
     input: &Path,
-    output: &mut BTreeMap<u32, LoadSegment>,
-    symbol_table: &mut BTreeMap<String, u32>,
-) -> Result<(u32, usize)> {
+    output: &mut BTreeMap<AbiSize, LoadSegment>,
+    symbol_table: &mut BTreeMap<String, AbiSize>,
+) -> Result<(AbiSize, usize)> {
     use goblin::container::Container;
     use goblin::elf::program_header::PT_LOAD;
 
@@ -1901,12 +1909,12 @@ fn load_elf(
         // Note that we are using Physical, i.e. LOADADDR, rather than virtual.
         // This distinction is important for things like the rodata image, which
         // is loaded in flash but expected to be copied to RAM.
-        let addr = phdr.p_paddr as u32;
+        let addr = phdr.p_paddr as AbiSize;
 
         flash += size;
 
         // Check for address overlap
-        let range = addr..addr + size as u32;
+        let range = addr..addr + size as AbiSize;
         if let Some(overlap) = output.range(range.clone()).next() {
             if overlap.1.source_file != input {
                 bail!(
@@ -1941,14 +1949,14 @@ fn load_elf(
         let index = s.st_name;
 
         if let Some(name) = elf.strtab.get_at(index) {
-            symbol_table.insert(name.to_string(), s.st_value as u32);
+            symbol_table.insert(name.to_string(), s.st_value as AbiSize);
         }
     }
 
     // Return both our entry and the total allocated flash, allowing the
     // caller to assure that the allocated flash does not exceed the task's
     // required flash
-    Ok((elf.header.e_entry as u32, flash))
+    Ok((elf.header.e_entry as AbiSize, flash))
 }
 
 /// Keeps track of a build archive being constructed.
@@ -2052,15 +2060,15 @@ fn get_git_status() -> Result<(String, bool)> {
 
 fn binary_to_srec(
     binary: &Path,
-    bin_addr: u32,
-    entry: u32,
+    bin_addr: AbiSize,
+    entry: AbiSize,
     out: &Path,
 ) -> Result<()> {
     let mut srec_out = vec![srec::Record::S0("signed".to_string())];
 
     let binary = std::fs::read(binary)?;
 
-    let mut addr = bin_addr;
+    let mut addr = bin_addr.try_into()?;
     for chunk in binary.chunks(255 - 5) {
         srec_out.push(srec::Record::S3(srec::Data {
             address: srec::Address32(addr),
@@ -2078,7 +2086,7 @@ fn binary_to_srec(
         panic!("SREC limit of 2^24 output sections exceeded");
     }
 
-    srec_out.push(srec::Record::S7(srec::Address32(entry)));
+    srec_out.push(srec::Record::S7(srec::Address32(entry.try_into()?)));
 
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(out, srec_image)?;
@@ -2086,8 +2094,8 @@ fn binary_to_srec(
 }
 
 fn write_srec(
-    sections: &BTreeMap<u32, LoadSegment>,
-    kentry: u32,
+    sections: &BTreeMap<AbiSize, LoadSegment>,
+    kentry: AbiSize,
     out: &Path,
 ) -> Result<()> {
     let mut srec_out = vec![srec::Record::S0("hubris".to_string())];
@@ -2095,7 +2103,7 @@ fn write_srec(
         // SREC record size limit is 255 (0xFF). 32-bit addressed records
         // additionally contain a four-byte address and one-byte checksum, for a
         // payload limit of 255 - 5.
-        let mut addr = base;
+        let mut addr = base.try_into()?;
         for chunk in sec.data.chunks(255 - 5) {
             srec_out.push(srec::Record::S3(srec::Data {
                 address: srec::Address32(addr),
@@ -2113,7 +2121,7 @@ fn write_srec(
         panic!("SREC limit of 2^24 output sections exceeded");
     }
 
-    srec_out.push(srec::Record::S7(srec::Address32(kentry)));
+    srec_out.push(srec::Record::S7(srec::Address32(kentry.try_into()?)));
 
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(out, srec_image)?;

@@ -7,6 +7,8 @@ use std::hash::Hasher;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use abi::AbiSize;
+
 use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -29,7 +31,7 @@ struct RawConfig {
     #[serde(default)]
     signing: Option<Signing>,
     secure_separation: Option<bool>,
-    stacksize: Option<u32>,
+    stacksize: Option<AbiSize>,
     kernel: Kernel,
     tasks: IndexMap<String, Task>,
     #[serde(default)]
@@ -48,7 +50,7 @@ pub struct Config {
     pub external_images: Vec<String>,
     pub signing: Option<Signing>,
     pub secure_separation: Option<bool>,
-    pub stacksize: Option<u32>,
+    pub stacksize: Option<AbiSize>,
     pub kernel: Kernel,
     pub outputs: IndexMap<String, Vec<Output>>,
     pub tasks: IndexMap<String, Task>,
@@ -283,7 +285,7 @@ impl Config {
     pub fn memories(
         &self,
         image_name: &String,
-    ) -> Result<IndexMap<String, Range<u32>>> {
+    ) -> Result<IndexMap<String, Range<AbiSize>>> {
         self.outputs
             .iter()
             .map(|(name, out)| {
@@ -312,8 +314,8 @@ impl Config {
     pub fn image_memories(
         &self,
         region: String,
-    ) -> Result<IndexMap<String, Range<u32>>> {
-        let mut memories: IndexMap<String, Range<u32>> = IndexMap::new();
+    ) -> Result<IndexMap<String, Range<AbiSize>>> {
+        let mut memories: IndexMap<String, Range<AbiSize>> = IndexMap::new();
         for a in &self.external_images {
             if let Some(r) = self.memories(&a)?.get(&region) {
                 memories.insert(a.clone(), r.start..r.end);
@@ -325,7 +327,7 @@ impl Config {
 
     /// Calculates the output region which contains the given address
     pub fn output_region(&self, vaddr: u64) -> Option<&str> {
-        let vaddr = u32::try_from(vaddr).ok()?;
+        let vaddr = AbiSize::try_from(vaddr).ok()?;
         self.outputs
             .iter()
             .find(|(_name, out)| {
@@ -370,7 +372,7 @@ impl Config {
 
     /// Returns the desired alignment for a task memory region. This is
     /// dependent on the processor's MMU.
-    pub fn task_memory_alignment(&self, size: u32) -> u32 {
+    pub fn task_memory_alignment(&self, size: AbiSize) -> AbiSize {
         self.mpu_alignment().memory_region_alignment(size)
     }
 
@@ -397,7 +399,7 @@ impl MpuAlignment {
         }
     }
     /// Returns the desired alignment for a region of a particular size
-    fn memory_region_alignment(&self, size: u32) -> u32 {
+    fn memory_region_alignment(&self, size: AbiSize) -> AbiSize {
         match self {
             MpuAlignment::PowerOfTwo => {
                 assert!(size.is_power_of_two());
@@ -438,8 +440,8 @@ pub struct Signing {
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Kernel {
     pub name: String,
-    pub requires: IndexMap<String, u32>,
-    pub stacksize: Option<u32>,
+    pub requires: IndexMap<String, AbiSize>,
+    pub stacksize: Option<AbiSize>,
     #[serde(default)]
     pub features: Vec<String>,
 }
@@ -453,8 +455,8 @@ fn default_name() -> String {
 pub struct Output {
     #[serde(default = "default_name")]
     pub name: String,
-    pub address: u32,
-    pub size: u32,
+    pub address: AbiSize,
+    pub size: AbiSize,
     #[serde(default)]
     pub read: bool,
     #[serde(default)]
@@ -470,9 +472,9 @@ pub struct Output {
 pub struct Task {
     pub name: String,
     #[serde(default)]
-    pub max_sizes: IndexMap<String, u32>,
+    pub max_sizes: IndexMap<String, AbiSize>,
     pub priority: u8,
-    pub stacksize: Option<u32>,
+    pub stacksize: Option<AbiSize>,
     #[serde(default)]
     pub uses: Vec<String>,
     #[serde(default)]
@@ -492,8 +494,8 @@ pub struct Task {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Peripheral {
-    pub address: u32,
-    pub size: u32,
+    pub address: AbiSize,
+    pub size: AbiSize,
     #[serde(default)]
     pub interrupts: BTreeMap<String, u32>,
 }

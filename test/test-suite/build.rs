@@ -27,13 +27,14 @@ fn generate_consts() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(secure) = env::var("HUBRIS_SECURE") {
         if secure == "0" {
             // This corresponds to USB SRAM on the LPC55
-            writeln!(const_file, "pub const BAD_ADDRESS : u32 = 0x40100000;")
+            writeln!(const_file, "pub const BAD_ADDRESS : usize = 0x40100000;")
                 .unwrap();
         } else {
-            writeln!(const_file, "pub const BAD_ADDRESS : u32 = 0x0;").unwrap();
+            writeln!(const_file, "pub const BAD_ADDRESS : usize = 0x0;")
+                .unwrap();
         }
     } else {
-        writeln!(const_file, "pub const BAD_ADDRESS : u32 = 0x0;").unwrap();
+        writeln!(const_file, "pub const BAD_ADDRESS : usize = 0x0;").unwrap();
     }
 
     Ok(())

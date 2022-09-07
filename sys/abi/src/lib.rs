@@ -6,6 +6,20 @@
 
 #![no_std]
 
+// When host tools (e.g. xtask) are built using the abi library, we cannot rely
+// on toolchain or `usize` definition for determing the correct size for
+// address and size fields. Thus, `host_use_abi*` feature needs to be selected
+// when building the host tool to ensure that AbiSize is correctly determined.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "host_use_abi64")] {
+        pub type AbiSize = u64;
+    } else if #[cfg(feature = "host_use_abi32")] {
+        pub type AbiSize = u32;
+    } else {
+        pub type AbiSize = usize;
+    }
+}
+
 use serde::{Deserialize, Serialize};
 use zerocopy::{AsBytes, FromBytes, Unaligned};
 
@@ -133,11 +147,11 @@ pub struct TaskDesc {
     /// Address of the task's entry point. This is the first instruction that
     /// will be executed whenever the task is (re)started. It must be within one
     /// of the task's memory regions (the kernel *will* check this).
-    pub entry_point: u32,
+    pub entry_point: AbiSize,
     /// Address of the task's initial stack pointer, to be loaded at (re)start.
     /// It must be pointing into or *just past* one of the task's memory
     /// regions (the kernel *will* check this).
-    pub initial_stack: u32,
+    pub initial_stack: AbiSize,
     /// Initial priority of this task.
     pub priority: u8,
     /// Collection of boolean flags controlling task behavior.
@@ -179,11 +193,11 @@ pub struct RegionDesc {
     /// Address of start of region. The platform likely has alignment
     /// requirements for this; it must meet them. (For example, on ARMv7-M, it
     /// must be naturally aligned for the size.)
-    pub base: u32,
+    pub base: AbiSize,
     /// Size of region, in bytes. The platform likely has alignment requirements
     /// for this; it must meet them. (For example, on ARMv7-M, it must be a
     /// power of two greater than 16.)
-    pub size: u32,
+    pub size: AbiSize,
     /// Flags describing what can be done with this region.
     pub attributes: RegionAttributes,
 }
@@ -304,9 +318,9 @@ pub struct ULease {
     /// Base address of leased memory. This is equivalent to the base address
     /// field in `USlice`, but isn't represented as a `USlice` because we leave
     /// the internal memory representation of `USlice` out of the ABI.
-    pub base_address: u32,
+    pub base_address: usize,
     /// Length of leased memory, in bytes.
-    pub length: u32,
+    pub length: usize,
 }
 
 bitflags::bitflags! {
@@ -428,16 +442,16 @@ pub enum FaultInfo {
         /// Problematic address that the task accessed, or asked the kernel to
         /// access. This is `Option` because there are cases of processor
         /// protection faults that don't provide a precise address.
-        address: Option<u32>,
+        address: Option<usize>,
         /// Origin of the fault.
         source: FaultSource,
     },
     /// A task has overflowed its stack. We can always determine the bad
     /// stack address, but we can't determine the PC
-    StackOverflow { address: u32 },
+    StackOverflow { address: usize },
     /// A task has induced a bus error
     BusError {
-        address: Option<u32>,
+        address: Option<usize>,
         source: FaultSource,
     },
     /// Divide-by-zero
@@ -625,17 +639,17 @@ impl core::convert::TryFrom<u16> for Kipcnum {
 #[repr(C)]
 #[derive(Default, Copy, Clone, Debug, FromBytes, AsBytes)]
 pub struct SAUEntry {
-    pub rbar: u32,
-    pub rlar: u32,
+    pub rbar: AbiSize,
+    pub rlar: AbiSize,
 }
 
-pub const HEADER_MAGIC: u32 = 0x1535_6637;
+pub const HEADER_MAGIC: AbiSize = 0x1535_6637;
 
 #[repr(C)]
 #[derive(Default, AsBytes, FromBytes)]
 pub struct ImageHeader {
-    pub magic: u32,
-    pub total_image_len: u32,
+    pub magic: AbiSize,
+    pub total_image_len: AbiSize,
     pub sau_entries: [SAUEntry; 8],
 }
 

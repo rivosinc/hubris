@@ -570,8 +570,8 @@ fn borrow_lease(
         // Now, proceed only if both neither the length nor address computation
         // wrap.
         if let (Some(off_len), Some(off_addr)) = (
-            lease.length.checked_sub(offset),
-            lease.base_address.checked_add(offset),
+            lease.length.checked_sub(offset as usize),
+            lease.base_address.checked_add(offset as usize),
         ) {
             lease.base_address = off_addr;
             lease.length = off_len;
