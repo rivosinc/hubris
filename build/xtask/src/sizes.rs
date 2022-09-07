@@ -8,6 +8,8 @@ use std::io::Write;
 use std::path::Path;
 use std::process;
 
+use abi::AbiSize;
+
 use anyhow::{bail, Result};
 use colored::*;
 use goblin::Object;
@@ -114,13 +116,13 @@ pub fn run(
 
 #[derive(Copy, Clone, Debug)]
 enum Recommended {
-    FixedSize(u32),
-    MaxSize(u32),
+    FixedSize(AbiSize),
+    MaxSize(AbiSize),
 }
 #[derive(Copy, Clone, Debug)]
 struct MemoryChunk<'a> {
     used_size: u64,
-    total_size: u32,
+    total_size: AbiSize,
     owner: &'a str,
     recommended: Option<Recommended>,
 }
@@ -129,8 +131,9 @@ fn build_memory_map<'a>(
     toml: &'a Config,
     sizes: &'a TaskSizes,
     allocs: &'a Allocations,
-) -> Result<BTreeMap<&'a str, BTreeMap<u32, MemoryChunk<'a>>>> {
-    let mut map: BTreeMap<&str, BTreeMap<u32, MemoryChunk>> = BTreeMap::new();
+) -> Result<BTreeMap<&'a str, BTreeMap<AbiSize, MemoryChunk<'a>>>> {
+    let mut map: BTreeMap<&str, BTreeMap<AbiSize, MemoryChunk>> =
+        BTreeMap::new();
 
     for (name, requires, alloc) in toml
         .tasks
@@ -173,7 +176,7 @@ fn build_memory_map<'a>(
 
 fn print_task_table(
     toml: &Config,
-    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    map: &BTreeMap<&str, BTreeMap<AbiSize, MemoryChunk>>,
 ) -> Result<()> {
     let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
     let mem_pad = map
@@ -247,7 +250,7 @@ fn print_task_table(
 
 fn print_memory_map(
     toml: &Config,
-    map: &BTreeMap<&str, BTreeMap<u32, MemoryChunk>>,
+    map: &BTreeMap<&str, BTreeMap<AbiSize, MemoryChunk>>,
 ) -> Result<()> {
     let task_pad = toml.tasks.keys().map(|k| k.len()).max().unwrap_or(0);
     let mem_pad = map
@@ -318,7 +321,7 @@ fn print_memory_map(
 pub fn load_task_size<'a>(
     toml: &'a Config,
     name: &str,
-    stacksize: u32,
+    stacksize: AbiSize,
 ) -> Result<IndexMap<&'a str, u64>> {
     // Load the .tmp file (which does not have flash fill) for everything
     // except the kernel

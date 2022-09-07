@@ -159,55 +159,55 @@ pub struct SavedState {
 /// Map the volatile registers to (architecture-independent) syscall argument
 /// and return slots.
 impl task::ArchState for SavedState {
-    fn stack_pointer(&self) -> u32 {
-        self.psp
+    fn stack_pointer(&self) -> usize {
+        self.psp as usize
     }
 
     /// Reads syscall argument register 0.
-    fn arg0(&self) -> u32 {
-        self.r4
+    fn arg0(&self) -> usize {
+        self.r4 as usize
     }
-    fn arg1(&self) -> u32 {
-        self.r5
+    fn arg1(&self) -> usize {
+        self.r5 as usize
     }
-    fn arg2(&self) -> u32 {
-        self.r6
+    fn arg2(&self) -> usize {
+        self.r6 as usize
     }
-    fn arg3(&self) -> u32 {
-        self.r7
+    fn arg3(&self) -> usize {
+        self.r7 as usize
     }
-    fn arg4(&self) -> u32 {
-        self.r8
+    fn arg4(&self) -> usize {
+        self.r8 as usize
     }
-    fn arg5(&self) -> u32 {
-        self.r9
+    fn arg5(&self) -> usize {
+        self.r9 as usize
     }
-    fn arg6(&self) -> u32 {
-        self.r10
+    fn arg6(&self) -> usize {
+        self.r10 as usize
     }
 
-    fn syscall_descriptor(&self) -> u32 {
-        self.r11
+    fn syscall_descriptor(&self) -> usize {
+        self.r11 as usize
     }
 
     /// Writes syscall return argument 0.
-    fn ret0(&mut self, x: u32) {
-        self.r4 = x
+    fn ret0(&mut self, x: usize) {
+        self.r4 = x as u32
     }
-    fn ret1(&mut self, x: u32) {
-        self.r5 = x
+    fn ret1(&mut self, x: usize) {
+        self.r5 = x as u32
     }
-    fn ret2(&mut self, x: u32) {
-        self.r6 = x
+    fn ret2(&mut self, x: usize) {
+        self.r6 = x as u32
     }
-    fn ret3(&mut self, x: u32) {
-        self.r7 = x
+    fn ret3(&mut self, x: usize) {
+        self.r7 = x as u32
     }
-    fn ret4(&mut self, x: u32) {
-        self.r8 = x
+    fn ret4(&mut self, x: usize) {
+        self.r8 = x as u32
     }
-    fn ret5(&mut self, x: u32) {
-        self.r9 = x
+    fn ret5(&mut self, x: usize) {
+        self.r9 = x as u32
     }
 }
 
@@ -294,7 +294,7 @@ pub fn reinitialize(task: &mut task::Task) {
             continue;
         }
 
-        let mut uslice: USlice<u32> = USlice::from_raw(
+        let mut uslice: USlice<usize> = USlice::from_raw(
             region.base as usize,
             (initial_stack as usize - frame_size - region.base as usize) >> 2,
         )
@@ -312,7 +312,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // Conservatively/defensively zero the entire frame.
     *frame = ExtendedExceptionFrame::default();
     // Now fill in the bits we actually care about.
-    frame.base.pc = descriptor.entry_point | 1; // for thumb
+    frame.base.pc = descriptor.entry_point as u32 | 1; // for thumb
     frame.base.xpsr = INITIAL_PSR;
     frame.base.lr = 0xFFFF_FFFF; // trap on return from main
     #[cfg(any(armv7m, armv8m))]
@@ -342,7 +342,7 @@ pub fn apply_memory_protection(task: &task::Task) {
     for (i, region) in task.region_table().iter().enumerate() {
         let rbar = (i as u32)  // region number
             | (1 << 4)  // honor the region number
-            | region.base;
+            | region.base as u32;
         let ratts = region.attributes;
         let xn = !ratts.contains(abi::RegionAttributes::EXECUTE);
         // These AP encodings are chosen such that we never deny *privileged*
@@ -475,7 +475,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         };
 
         // RLAR = our upper bound
-        let rlar = (region.base + region.size)
+        let rlar = (region.base + region.size) as u32
                 | (i as u32) << 1 // AttrIndx
                 | (1 << 0); // enable
 
@@ -483,7 +483,7 @@ pub fn apply_memory_protection(task: &task::Task) {
         let rbar = (xn as u32)
             | ap << 1
             | (sh as u32) << 3  // sharability
-            | region.base;
+            | region.base as u32;
 
         unsafe {
             mpu.rnr.write(rnr);
@@ -1504,14 +1504,19 @@ unsafe extern "C" fn handle_fault(
                 // fact that the user's stack pointer is so trashed that we
                 // can't store through it.  (In particular, we seem to have no
                 // way at getting at our faulted PC.)
-                (FaultInfo::StackOverflow { address: psp }, true)
+                (
+                    FaultInfo::StackOverflow {
+                        address: psp as usize,
+                    },
+                    true,
+                )
             } else if cfsr.contains(Cfsr::IACCVIOL) {
                 (FaultInfo::IllegalText, false)
             } else {
                 (
                     FaultInfo::MemoryAccess {
                         address: if cfsr.contains(Cfsr::MMARVALID) {
-                            Some(scb.mmfar.read())
+                            Some(scb.mmfar.read() as usize)
                         } else {
                             None
                         },
@@ -1525,7 +1530,7 @@ unsafe extern "C" fn handle_fault(
         FaultType::BusFault => (
             FaultInfo::BusError {
                 address: if cfsr.contains(Cfsr::BFARVALID) {
-                    Some(scb.bfar.read())
+                    Some(scb.bfar.read() as usize)
                 } else {
                     None
                 },

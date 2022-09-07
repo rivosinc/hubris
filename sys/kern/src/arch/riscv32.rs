@@ -106,55 +106,55 @@ pub struct SavedState {
 /// Map the volatile registers to (architecture-independent) syscall argument
 /// and return slots.
 impl task::ArchState for SavedState {
-    fn stack_pointer(&self) -> u32 {
-        self.sp
+    fn stack_pointer(&self) -> usize {
+        self.sp as usize
     }
 
     /// Reads syscall argument register 0.
-    fn arg0(&self) -> u32 {
-        self.a0
+    fn arg0(&self) -> usize {
+        self.a0 as usize
     }
-    fn arg1(&self) -> u32 {
-        self.a1
+    fn arg1(&self) -> usize {
+        self.a1 as usize
     }
-    fn arg2(&self) -> u32 {
-        self.a2
+    fn arg2(&self) -> usize {
+        self.a2 as usize
     }
-    fn arg3(&self) -> u32 {
-        self.a3
+    fn arg3(&self) -> usize {
+        self.a3 as usize
     }
-    fn arg4(&self) -> u32 {
-        self.a4
+    fn arg4(&self) -> usize {
+        self.a4 as usize
     }
-    fn arg5(&self) -> u32 {
-        self.a5
+    fn arg5(&self) -> usize {
+        self.a5 as usize
     }
-    fn arg6(&self) -> u32 {
-        self.a6
+    fn arg6(&self) -> usize {
+        self.a6 as usize
     }
 
-    fn syscall_descriptor(&self) -> u32 {
-        self.a7
+    fn syscall_descriptor(&self) -> usize {
+        self.a7 as usize
     }
 
     /// Writes syscall return argument 0.
-    fn ret0(&mut self, x: u32) {
-        self.a0 = x
+    fn ret0(&mut self, x: usize) {
+        self.a0 = x as u32
     }
-    fn ret1(&mut self, x: u32) {
-        self.a1 = x
+    fn ret1(&mut self, x: usize) {
+        self.a1 = x as u32
     }
-    fn ret2(&mut self, x: u32) {
-        self.a2 = x
+    fn ret2(&mut self, x: usize) {
+        self.a2 = x as u32
     }
-    fn ret3(&mut self, x: u32) {
-        self.a3 = x
+    fn ret3(&mut self, x: usize) {
+        self.a3 = x as u32
     }
-    fn ret4(&mut self, x: u32) {
-        self.a4 = x
+    fn ret4(&mut self, x: usize) {
+        self.a4 = x as u32
     }
-    fn ret5(&mut self, x: u32) {
-        self.a5 = x
+    fn ret5(&mut self, x: usize) {
+        self.a5 = x as u32
     }
 }
 
@@ -175,7 +175,7 @@ pub fn reinitialize(task: &mut task::Task) {
     // Set the initial stack pointer, ensuring 16-byte stack alignment as per
     // the RISC-V calling convention.
     let initial_stack = task.descriptor().initial_stack;
-    task.save_mut().sp = initial_stack;
+    task.save_mut().sp = initial_stack as u32;
     uassert!(task.save().sp & 0xF == 0);
 
     // zap the stack with a distinct pattern
@@ -186,7 +186,7 @@ pub fn reinitialize(task: &mut task::Task) {
         if initial_stack > region.base + region.size {
             continue;
         }
-        let mut uslice: USlice<u32> = USlice::from_raw(
+        let mut uslice: USlice<usize> = USlice::from_raw(
             region.base as usize,
             (initial_stack as usize - region.base as usize) >> 2,
         )
@@ -198,7 +198,7 @@ pub fn reinitialize(task: &mut task::Task) {
         }
     }
     // Set the initial program counter
-    task.save_mut().pc = task.descriptor().entry_point;
+    task.save_mut().pc = task.descriptor().entry_point as u32;
 }
 
 #[allow(unused_variables)]
@@ -561,7 +561,7 @@ fn trap_handler(task: &mut task::Task) {
             handle_fault(
                 task,
                 FaultInfo::MemoryAccess {
-                    address: Some(register::mtval::read() as u32),
+                    address: Some(register::mtval::read() as usize),
                     source: FaultSource::User,
                 },
             );

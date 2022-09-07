@@ -35,7 +35,7 @@ fn execdata(_arg: u32) {
     unsafe {
         let c = [0x4770u16]; // bx lr
 
-        let mut val: u32 = core::mem::transmute(&c);
+        let mut val: usize = core::mem::transmute(&c);
 
         // set the Thumb bit
         val |= 1;
@@ -53,7 +53,7 @@ fn illop(_arg: u32) {
     unsafe {
         // This should attempt to execute with the Thumb bit clear, so
         // should trap on an "illegal operation"
-        let val: u32 = core::mem::transmute(&BXLR);
+        let val: usize = core::mem::transmute(&BXLR);
         asm!("bx r0", in("r0") val);
     }
 }
@@ -61,7 +61,7 @@ fn illop(_arg: u32) {
 #[inline(never)]
 fn badexec(arg: u32) {
     unsafe {
-        let val: u32 = arg | 1;
+        let val: usize = arg as usize | 1;
         let f: extern "C" fn() = core::mem::transmute(val);
         f();
     }
@@ -73,7 +73,7 @@ fn textoob(_arg: u32) {
         // fly off the end of our text -- which will either induce
         // a memory fault (end of MPU-provided region) or a bus error
         // (reading never-written flash on some MCUs/boards, e.g. LPC55)
-        let mut val: u32 = core::mem::transmute(main as fn() -> _);
+        let mut val: usize = core::mem::transmute(main as fn() -> _);
 
         loop {
             (val as *const u8).read_volatile();
@@ -88,7 +88,7 @@ fn stackoob(_arg: u32) {
 
     unsafe {
         // fly off the end of our stack on inducing a memory fault
-        let mut val: u32 = core::mem::transmute(&c);
+        let mut val: usize = core::mem::transmute(&c);
 
         loop {
             (val as *const u8).read_volatile();

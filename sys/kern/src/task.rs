@@ -108,7 +108,7 @@ impl Task {
             unsafe { Ok(slice.assume_readable()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(slice.base_addr() as u32),
+                address: Some(slice.base_addr() as usize),
                 source: FaultSource::Kernel,
             })
         }
@@ -146,7 +146,7 @@ impl Task {
             unsafe { Ok(slice.assume_writable()) }
         } else {
             Err(FaultInfo::MemoryAccess {
-                address: Some(slice.base_addr() as u32),
+                address: Some(slice.base_addr()),
                 source: FaultSource::Kernel,
             })
         }
@@ -352,38 +352,38 @@ impl Task {
 /// types) will just work.
 pub trait ArchState: Default {
     /// TODO: this is probably not needed here.
-    fn stack_pointer(&self) -> u32;
+    fn stack_pointer(&self) -> usize;
 
     /// Reads syscall argument register 0.
-    fn arg0(&self) -> u32;
+    fn arg0(&self) -> usize;
     /// Reads syscall argument register 1.
-    fn arg1(&self) -> u32;
+    fn arg1(&self) -> usize;
     /// Reads syscall argument register 2.
-    fn arg2(&self) -> u32;
+    fn arg2(&self) -> usize;
     /// Reads syscall argument register 3.
-    fn arg3(&self) -> u32;
+    fn arg3(&self) -> usize;
     /// Reads syscall argument register 4.
-    fn arg4(&self) -> u32;
+    fn arg4(&self) -> usize;
     /// Reads syscall argument register 5.
-    fn arg5(&self) -> u32;
+    fn arg5(&self) -> usize;
     /// Reads syscall argument register 6.
-    fn arg6(&self) -> u32;
+    fn arg6(&self) -> usize;
 
     /// Reads the syscall descriptor (number).
-    fn syscall_descriptor(&self) -> u32;
+    fn syscall_descriptor(&self) -> usize;
 
     /// Writes syscall return argument 0.
-    fn ret0(&mut self, _: u32);
+    fn ret0(&mut self, _: usize);
     /// Writes syscall return argument 1.
-    fn ret1(&mut self, _: u32);
+    fn ret1(&mut self, _: usize);
     /// Writes syscall return argument 2.
-    fn ret2(&mut self, _: u32);
+    fn ret2(&mut self, _: usize);
     /// Writes syscall return argument 3.
-    fn ret3(&mut self, _: u32);
+    fn ret3(&mut self, _: usize);
     /// Writes syscall return argument 4.
-    fn ret4(&mut self, _: u32);
+    fn ret4(&mut self, _: usize);
     /// Writes syscall return argument 5.
-    fn ret5(&mut self, _: u32);
+    fn ret5(&mut self, _: usize);
 
     /// Interprets arguments as for the SEND syscall and returns the results.
     ///
@@ -422,7 +422,7 @@ pub trait ArchState: Default {
                 self.arg0() as usize,
                 self.arg1() as usize,
             ),
-            notification_mask: self.arg2(),
+            notification_mask: self.arg2() as u32,
             specific_sender: {
                 let v = self.arg3();
                 if v & (1 << 31) != 0 {
@@ -438,7 +438,7 @@ pub trait ArchState: Default {
     fn as_reply_args(&self) -> ReplyArgs {
         ReplyArgs {
             callee: TaskId(self.arg0() as u16),
-            response_code: self.arg1(),
+            response_code: self.arg1() as u32,
             message: USlice::from_raw(
                 self.arg2() as usize,
                 self.arg3() as usize,
@@ -451,7 +451,7 @@ pub trait ArchState: Default {
     fn as_reply_fault_args(&self) -> ReplyFaultArgs {
         ReplyFaultArgs {
             callee: TaskId(self.arg0() as u16),
-            reason: ReplyFaultReason::try_from(self.arg1())
+            reason: ReplyFaultReason::try_from(self.arg1() as u32)
                 .map_err(|_| UsageError::BadReplyFaultReason),
         }
     }
@@ -462,12 +462,13 @@ pub trait ArchState: Default {
         SetTimerArgs {
             deadline: if self.arg0() != 0 {
                 Some(Timestamp::from(
-                    u64::from(self.arg2()) << 32 | u64::from(self.arg1()),
+                    u64::from(self.arg2() as u32) << 32
+                        | u64::from(self.arg1() as u32),
                 ))
             } else {
                 None
             },
-            notification: NotificationSet(self.arg3()),
+            notification: NotificationSet(self.arg3() as u32),
         }
     }
 
@@ -489,8 +490,8 @@ pub trait ArchState: Default {
     /// results.
     fn as_irq_args(&self) -> IrqArgs {
         IrqArgs {
-            notification_bitmask: self.arg0(),
-            control: self.arg1(),
+            notification_bitmask: self.arg0() as u32,
+            control: self.arg1() as u32,
         }
     }
 
@@ -516,20 +517,20 @@ pub trait ArchState: Default {
     fn as_post_args(&self) -> PostArgs {
         PostArgs {
             task_id: TaskId(self.arg0() as u16),
-            notification_bits: NotificationSet(self.arg1()),
+            notification_bits: NotificationSet(self.arg1() as u32),
         }
     }
 
     /// Sets a recoverable error code using the generic ABI.
     fn set_error_response(&mut self, resp: u32) {
-        self.ret0(resp);
+        self.ret0(resp as usize);
         self.ret1(0);
     }
 
     /// Sets the response code and length returned from a SEND.
     fn set_send_response_and_length(&mut self, resp: u32, len: usize) {
-        self.ret0(resp);
-        self.ret1(len as u32);
+        self.ret0(resp as usize);
+        self.ret1(len);
     }
 
     /// Sets the results returned from a RECV.
@@ -542,24 +543,24 @@ pub trait ArchState: Default {
         lease_count: usize,
     ) {
         self.ret0(0); // currently reserved
-        self.ret1(u32::from(sender.0));
-        self.ret2(operation);
-        self.ret3(length as u32);
-        self.ret4(response_capacity as u32);
-        self.ret5(lease_count as u32);
+        self.ret1(usize::from(sender.0));
+        self.ret2(operation as usize);
+        self.ret3(length as usize);
+        self.ret4(response_capacity as usize);
+        self.ret5(lease_count);
     }
 
     /// Sets the response code and length returned from a BORROW_*.
     fn set_borrow_response_and_length(&mut self, resp: u32, len: usize) {
-        self.ret0(resp);
-        self.ret1(len as u32);
+        self.ret0(resp as usize);
+        self.ret1(len);
     }
 
     /// Sets the response code and info returned from BORROW_INFO.
     fn set_borrow_info(&mut self, atts: u32, len: usize) {
         self.ret0(0);
-        self.ret1(atts);
-        self.ret2(len as u32);
+        self.ret1(atts as usize);
+        self.ret2(len);
     }
 
     /// Sets the results of READ_TIMER.
@@ -572,17 +573,27 @@ pub trait ArchState: Default {
         let now_u64 = u64::from(now);
         let dl_u64 = dl.map(u64::from).unwrap_or(0);
 
-        self.ret0(now_u64 as u32);
-        self.ret1((now_u64 >> 32) as u32);
-        self.ret2(dl.is_some() as u32);
-        self.ret3(dl_u64 as u32);
-        self.ret4((dl_u64 >> 32) as u32);
-        self.ret5(not.0);
+        #[cfg(target_pointer_width = "32")]
+        {
+            self.ret0(now_u64 as usize);
+            self.ret1((now_u64 >> 32) as usize);
+            self.ret2(dl.is_some() as usize);
+            self.ret3(dl_u64 as usize);
+            self.ret4((dl_u64 >> 32) as usize);
+            self.ret5(not.0 as usize);
+        }
+        #[cfg(target_pointer_width = "64")]
+        {
+            self.ret0(now_u64 as usize);
+            self.ret1(dl.is_some() as usize);
+            self.ret2(dl_u64 as usize);
+            self.ret3(not.0 as usize);
+        }
     }
 
     /// Sets the results of REFRESH_TASK_ID
     fn set_refresh_task_id_result(&mut self, id: TaskId) {
-        self.ret0(id.0 as u32);
+        self.ret0(id.0 as usize);
     }
 }
 

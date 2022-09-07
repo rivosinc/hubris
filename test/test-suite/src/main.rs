@@ -226,7 +226,7 @@ fn test_recv_reply_fault() {
 /// Helper routine to send a message to the assistant telling it to fault,
 /// and then verifying that the fault caused a state change into the `Faulted`
 /// state, returning the actual fault info.
-fn test_fault(op: AssistOp, arg: u32) -> FaultInfo {
+fn test_fault(op: AssistOp, arg: usize) -> FaultInfo {
     let assist = assist_task_id();
 
     let mut response = 0_u32;
@@ -379,7 +379,7 @@ fn test_fault_illinst() {
 fn test_fault_illaccess() {
     let x: i32 = 0x1337;
     let x_ptr: *const i32 = &x;
-    let fault = test_fault(AssistOp::IllegalAccess, x_ptr as u32);
+    let fault = test_fault(AssistOp::IllegalAccess, x_ptr as usize);
     match fault {
         FaultInfo::BusError { .. } => {}
         #[cfg(armv6m)]
@@ -394,7 +394,7 @@ fn test_fault_illaccess() {
 }
 
 fn test_fault_illfunc() {
-    let fault = test_fault(AssistOp::IllegalFunc, test_fault_illfunc as u32);
+    let fault = test_fault(AssistOp::IllegalFunc, test_fault_illfunc as usize);
     match fault {
         FaultInfo::IllegalText { .. } => {}
         _ => {
@@ -421,7 +421,7 @@ fn test_fault_badtaskop(op: AssistOp, id: usize) {
     }
 
     assert_eq!(
-        test_fault(op, id as u32),
+        test_fault(op, id as usize),
         FaultInfo::SyscallUsage(UsageError::TaskOutOfRange)
     );
 }
@@ -1491,7 +1491,7 @@ fn main() -> ! {
         }
     }
 
-    let mut buffer = [0; 4];
+    let mut buffer = [0; core::mem::size_of::<usize>()];
     loop {
         hl::recv_without_notification(
             &mut buffer,

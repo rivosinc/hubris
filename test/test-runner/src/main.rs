@@ -312,7 +312,7 @@ fn get_case_count() -> usize {
     let op = SuiteOp::GetCaseCount as u16;
     let (rc, len) = sys_send(tid, op, &[], response.as_bytes_mut(), &[]);
     assert_eq!(rc, 0);
-    assert_eq!(len, 4);
+    assert_eq!(len, core::mem::size_of::<usize>());
     response
 }
 
