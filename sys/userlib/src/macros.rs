@@ -32,7 +32,7 @@ cfg_if::cfg_if! {
                 { let _ = cortex_m_semihosting::hprintln!($s, $($tt)*); }
             };
         }
-    } else if #[cfg(all(feature = "log-semihosting", target_arch = "riscv32"))] {
+    } else if #[cfg(all(feature = "log-semihosting", any(target_arch = "riscv32", target_arch = "riscv64")))] {
         #[macro_export]
         macro_rules! sys_log {
         ($s:expr) => {
