@@ -61,6 +61,8 @@ test_cases! {
     test_floating_point_fault,
     test_fault_badmem,
     test_fault_stackoverflow,
+    // TODO(furquan): test_fault_execdata needs to be fixed for rv64 once the MPU handling is fixed
+    #[cfg(not(target_arch = "riscv64"))]
     test_fault_execdata,
     #[cfg(target_arch = "arm")]
     test_fault_illop,
@@ -304,6 +306,7 @@ fn test_fault_stackoverflow() {
     }
 }
 
+#[cfg(not(target_arch = "riscv64"))]
 fn test_fault_execdata() {
     assert_fault_eq!(test_fault(AssistOp::ExecData, 0), FaultInfo::IllegalText);
 }
@@ -360,7 +363,7 @@ fn test_fault_buserror() {
         #[cfg(armv6m)]
         FaultInfo::InvalidOperation(_) => {}
 
-        #[cfg(target_arch = "riscv32")]
+        #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
         FaultInfo::MemoryAccess { .. } => {}
         _ => {
             panic!("expected BusFault or MemoryAccess; found {:?}", fault);
