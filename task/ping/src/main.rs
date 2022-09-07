@@ -34,7 +34,7 @@ fn divzero() {
 }
 
 #[inline(never)]
-#[cfg(target_arch = "riscv32")]
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 fn illinst() {
     unsafe {
         core::arch::asm!("unimp");
@@ -53,7 +53,7 @@ fn main() -> ! {
     #[cfg(any(armv7m, armv8m))]
     let faultme = [nullread, divzero];
 
-    #[cfg(target_arch = "riscv32")]
+    #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
     let faultme = [nullread, illinst];
 
     let mut response = [0; 16];
