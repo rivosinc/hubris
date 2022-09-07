@@ -128,7 +128,7 @@ cfg_if::cfg_if! {
             };
         }
     }
-    else if #[cfg(all(feature = "semihosting", target_arch = "riscv32"))] {
+    else if #[cfg(all(feature = "semihosting", any(target_arch = "riscv32", target_arch = "riscv64")))] {
         #[macro_export]
         macro_rules! test_output {
             ($s:expr) => {
