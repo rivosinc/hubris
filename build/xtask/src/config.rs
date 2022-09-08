@@ -220,6 +220,18 @@ impl Config {
             }
         }
 
+        // WARNING: Because this map provides task ID numbers directly, its
+        // contents can be used to send messages to tasks without creating a
+        // task_slot, so it's possible to deadlock. Use this with caution.
+        let mut task_id_map: BTreeMap<String, u32> = BTreeMap::new();
+        for (i, (name, _)) in self.tasks.iter().enumerate() {
+            task_id_map.insert(name.to_string(), i.try_into().unwrap());
+        }
+        env.insert(
+            "HUBRIS_TASK_ID_MAP".to_string(),
+            ron::ser::to_string(&task_id_map).unwrap(),
+        );
+
         // secure_separation indicates that we have TrustZone enabled.
         // When TrustZone is enabled, the bootloader is secure and hubris is
         // not secure.
