@@ -1054,6 +1054,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-riscv-plic"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "build-util",
+ "drv-riscv-plic-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "phash",
+ "phash-gen",
+ "ringbuf",
+ "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic)",
+ "riscv-pseudo-atomics",
+ "riscv-semihosting",
+ "ron 0.7.0",
+ "task-config",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-riscv-plic-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-rng-api"
 version = "0.1.0"
 dependencies = [
@@ -2596,6 +2629,17 @@ dependencies = [
  "bare-metal 1.0.0",
  "bit_field",
  "embedded-hal",
+]
+
+[[package]]
+name = "riscv"
+version = "0.8.0"
+source = "git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic#bb206d785d090f2f75209bc16304a02da54584cd"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+ "volatile-register",
 ]
 
 [[package]]

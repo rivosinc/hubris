@@ -1,0 +1,37 @@
+[package]
+name = "drv-riscv-plic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+userlib = {path = "../../sys/userlib" }
+phash = { path = "../../lib/phash" }
+zerocopy = "0.6.1"
+num-traits = { version = "0.2.12", default-features = false }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "dev/fawaz/plic" }
+riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", optional = true, features = ["default", "user-mode"] }
+riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-psuedo-atomics", branch = "rivos/main", features = ["default", "user-mode"] }
+drv-riscv-plic-api = { path = "../riscv-plic-api" }
+idol-runtime = {git = "https://github.com/oxidecomputer/idolatry.git"}
+ringbuf = { path = "../../lib/ringbuf" }
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
+task-config = { path = "../../lib/task-config" }
+abi = {path = "../../sys/abi" }
+phash-gen = {path = "../../build/phash-gen"}
+ron = "0.7"
+
+[features]
+semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
+log-stringbuf = [ "userlib/log-stringbuf" ]
+log-null = ["userlib/log-null"]
+
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "drv-riscv-plic"
+test = false
+bench = false
