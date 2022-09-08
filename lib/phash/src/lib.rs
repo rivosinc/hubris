@@ -34,6 +34,58 @@ impl<'a, K: Copy + PerfectHash + PartialEq, V> PerfectHashMap<'a, K, V> {
         }
     }
 
+    #[inline(always)]
+    pub fn contains(&self, key: K) -> bool {
+        self.get(key).is_some()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
+        self.values.iter()
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+pub struct MutablePerfectHashMap<'a, K, V> {
+    pub m: u32,
+    pub values: &'a mut [(K, V)],
+}
+
+impl<'a, K: Copy + PerfectHash + PartialEq, V> MutablePerfectHashMap<'a, K, V> {
+    /// Looks up a value in the table by key, returning `None` if the key was
+    /// not stored in the table.
+    #[inline(always)]
+    pub fn get(&self, key: K) -> Option<&V> {
+        if self.values.is_empty() {
+            return None;
+        }
+        let i = key.phash(self.m) % self.values.len();
+        if key == self.values[i].0 {
+            Some(&self.values[i].1)
+        } else {
+            None
+        }
+    }
+
+    #[inline(always)]
+    pub fn set(&mut self, key: K, val: V) -> Result<(), ()> {
+        if self.values.is_empty() {
+            return Err(());
+        }
+        let i = key.phash(self.m) % self.values.len();
+        if key == self.values[i].0 {
+            self.values[i].1 = val;
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    #[inline(always)]
+    pub fn contains(&self, key: K) -> bool {
+        self.get(key).is_some()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &(K, V)> {
         self.values.iter()
     }
