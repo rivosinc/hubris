@@ -669,6 +669,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ext-int-ctrl-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-fe310-rtc"
 version = "0.1.0"
 dependencies = [
@@ -1049,6 +1060,31 @@ version = "0.1.0"
 dependencies = [
  "drv-onewire",
  "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-riscv-plic-server"
+version = "0.1.0"
+dependencies = [
+ "abi",
+ "build-util",
+ "drv-ext-int-ctrl-api",
+ "idol",
+ "idol-runtime",
+ "indexmap",
+ "num-traits",
+ "phash",
+ "phash-gen",
+ "ringbuf",
+ "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic)",
+ "riscv-pseudo-atomics",
+ "riscv-semihosting",
+ "ron 0.7.0",
+ "serde",
+ "task-config",
+ "toml",
  "userlib",
  "zerocopy",
 ]
@@ -2596,6 +2632,17 @@ dependencies = [
  "bare-metal 1.0.0",
  "bit_field",
  "embedded-hal",
+]
+
+[[package]]
+name = "riscv"
+version = "0.8.0"
+source = "git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic#bb206d785d090f2f75209bc16304a02da54584cd"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+ "volatile-register",
 ]
 
 [[package]]
