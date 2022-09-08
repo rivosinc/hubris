@@ -833,6 +833,7 @@ version = "0.1.0"
 dependencies = [
  "derive-idol-err",
  "drv-hash-api",
+ "drv-qspi-api",
  "idol",
  "num-traits",
  "userlib",
@@ -1153,6 +1154,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-qspi-api"
+version = "0.1.0"
+
+[[package]]
 name = "drv-riscv-plic-server"
 version = "0.1.0"
 dependencies = [
@@ -1403,6 +1408,7 @@ dependencies = [
 name = "drv-stm32h7-qspi"
 version = "0.1.0"
 dependencies = [
+ "drv-qspi-api",
  "stm32h7",
  "userlib",
  "vcell",
