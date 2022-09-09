@@ -1818,7 +1818,6 @@ pub struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
-    plic: (u32, u32),
     timer: (u32, u32),
 }
 
@@ -1842,7 +1841,6 @@ pub fn make_kconfig(
     let mut regions = vec![];
     let mut task_descs = vec![];
     let mut irqs = vec![];
-    let mut plic = (0x0, 0x0);
     let mut timer = (0x0, 0x0);
 
     // Region 0 is the NULL region, used as a placeholder. It gives no access to
@@ -1873,10 +1871,7 @@ pub fn make_kconfig(
         // TODO: Get rid of this eventually and make a proper implementation of
         //       the configuration for these peripherals.
         if toml.target.as_str().contains("riscv") {
-            if name == "plic" {
-                plic = (p.address, p.size);
-                continue;
-            } else if name == "mtime" {
+            if name == "mtime" {
                 timer.0 = p.address;
                 continue;
             } else if name == "mtimecmp" {
@@ -2123,7 +2118,6 @@ pub fn make_kconfig(
         irqs,
         tasks: task_descs,
         regions,
-        plic,
         timer,
     })
 }
