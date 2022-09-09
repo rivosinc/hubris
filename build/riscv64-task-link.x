@@ -39,6 +39,7 @@ SECTIONS
     . = ALIGN(8);
     __sdata = .;
     *(.data .data.*);
+    *(.sdata .sdata.*);
     . = ALIGN(8); /* 8-byte align the end (VMA) of this section */
     __edata = .;
   } > RAM
