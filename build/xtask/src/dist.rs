@@ -79,12 +79,12 @@ const RISCV32_CONSTS: ArchConsts<'static> = ArchConsts {
 const RISCV64_CONSTS: ArchConsts<'static> = ArchConsts {
     objcopy_cmd: "riscv64-unknown-elf-objcopy",
     objcopy_target: "elf64-littleriscv",
-    link_script: "build/riscv64-task-link.x",
-    kernel_link_script: "build/riscv64-kernel-link.x",
-    rlink_script: "build/riscv64-task-rlink.x",
+    link_script: "lds/rv64/task-link.x",
+    kernel_link_script: "lds/rv64/kernel-link.x",
+    rlink_script: "lds/rv64/task-rlink.x",
     // riscv-task-link.x doesn't do flash fill currently, so there's no point
     // in having a separate linker script.
-    tlink_script: "build/riscv64-task-tlink.x",
+    tlink_script: "lds/rv64/task-tlink.x",
 };
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
