@@ -35,6 +35,7 @@ SECTIONS
     . = ALIGN(4);
     __sdata = .;
     *(.data .data.*);
+    *(.sdata .sdata.*);
     . = ALIGN(4); /* 4-byte align the end (VMA) of this section */
     __edata = .;
   }
