@@ -59,21 +59,21 @@ struct ArchConsts<'a> {
 const ARM_CONSTS: ArchConsts<'static> = ArchConsts {
     objcopy_cmd: "arm-none-eabi-objcopy",
     objcopy_target: "elf32-littlearm",
-    link_script: "build/arm-task-link.x",
-    kernel_link_script: "build/arm-kernel-link.x",
-    rlink_script: "build/arm-task-rlink.x",
-    tlink_script: "build/arm-task-tlink.x",
+    link_script: "lds/arm/task-link.x",
+    kernel_link_script: "lds/arm/kernel-link.x",
+    rlink_script: "lds/arm/task-rlink.x",
+    tlink_script: "lds/arm/task-tlink.x",
 };
 
 const RISCV_CONSTS: ArchConsts<'static> = ArchConsts {
     objcopy_cmd: "riscv64-unknown-elf-objcopy",
     objcopy_target: "elf32-littleriscv",
-    link_script: "build/riscv-task-link.x",
-    kernel_link_script: "build/riscv-kernel-link.x",
-    rlink_script: "build/riscv-task-rlink.x",
+    link_script: "lds/rv32/task-link.x",
+    kernel_link_script: "lds/rv32/kernel-link.x",
+    rlink_script: "lds/rv32/task-rlink.x",
     // riscv-task-link.x doesn't do flash fill currently, so there's no point
     // in having a separate linker script.
-    tlink_script: "build/riscv-task-tlink.x",
+    tlink_script: "lds/rv32/task-tlink.x",
 };
 
 /// `PackageConfig` contains a bundle of data that's commonly used when
