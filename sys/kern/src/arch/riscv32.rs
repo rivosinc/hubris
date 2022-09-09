@@ -15,6 +15,8 @@
 //! device, and have a driver task.
 
 use core::arch::asm;
+#[cfg(feature = "custom-interrupts")]
+use core::convert::TryInto;
 use core::ptr::NonNull;
 
 use core::sync::atomic::Ordering;
@@ -30,7 +32,7 @@ cfg_if::cfg_if! {
 
 use zerocopy::FromBytes;
 
-use crate::startup::{with_task_table, Plic};
+use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
@@ -443,50 +445,43 @@ fn timer_handler() {
     crate::profiling::event_timer_isr_exit();
 }
 
-// NOTE: The kernel currently assumes that only Context 0 handles interrupts.
 pub fn disable_irq(n: u32) {
-    Plic::mask(0, n as usize);
+    let cur_mie = register::mie::read();
+    let new_mie = cur_mie.bits() & !(0x1 << n);
+    unsafe {
+        asm!("
+            csrw mie, {x}",
+            x = in(reg) new_mie,
+        );
+    }
 }
 
 pub fn enable_irq(n: u32) {
-    unsafe { Plic::unmask(0, n as usize) };
-    // Complete is called here because this tells the PLIC that the incoming
-    // interrupt has been handled. With the way the kernel has been written,
-    // there is no way for this function to be called without a task making
-    // the appropriate syscall, and in most cases that'll only happen when
-    // a task is done handling the previous interrupt.
-    Plic::complete(0, n as usize);
+    let cur_mie = register::mie::read();
+    let new_mie = cur_mie.bits() | (0x1 << n);
+    unsafe {
+        asm!("
+            csrw mie, {x}",
+            x = in(reg) new_mie,
+        );
+    }
 }
 
-// Machine external interrupt handler
+// Handler for interrupts related to the platform
 #[no_mangle]
-fn me_interrupt_handler() {
-    let mut irq: u16 = Plic::claim(0);
-    let mut switch = false;
-    loop {
-        let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
-            .get(abi::InterruptNum(irq as u32))
-            .unwrap_or_else(|| panic!("unhandled IRQ {}", irq));
+fn platform_interrupt_handler(irq: u32) {
+    let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
+        .get(abi::InterruptNum(irq as u32))
+        .unwrap_or_else(|| panic!("unhandled IRQ {}", irq));
 
-        let switch_loop: bool = with_task_table(|tasks| {
-            disable_irq(irq as u32);
+    let switch: bool = with_task_table(|tasks| {
+        disable_irq(irq as u32);
 
-            // Now, post the notification and return the
-            // scheduling hint.
-            let n = task::NotificationSet(owner.notification);
-            tasks[owner.task as usize].post(n)
-        });
-
-        if switch_loop == true {
-            switch = true;
-        }
-
-        irq = Plic::claim(0);
-
-        if irq == 0 {
-            break;
-        }
-    }
+        // Now, post the notification and return the
+        // scheduling hint.
+        let n = task::NotificationSet(owner.notification);
+        tasks[owner.task as usize].post(n)
+    });
 
     if switch == true {
         // Safety: we can access this by virtue of being an interrupt handler, and
@@ -509,8 +504,10 @@ fn me_interrupt_handler() {
                 // until next kernel entry, so we meet set_current_task's requirements.
                 set_current_task(next);
             })
-        }
+        };
     }
+
+    disable_irq(irq);
 }
 
 //
@@ -519,7 +516,8 @@ fn me_interrupt_handler() {
 //
 #[no_mangle]
 fn trap_handler(task: &mut task::Task) {
-    match register::mcause::read().cause() {
+    let mcause = register::mcause::read();
+    match mcause.cause() {
         //
         // Interrupts.  Only our periodic MachineTimer interrupt via mtime is
         // supported at present.
@@ -532,7 +530,7 @@ fn trap_handler(task: &mut task::Task) {
         // External Interrupts
         //
         Trap::Interrupt(Interrupt::MachineExternal) => {
-            me_interrupt_handler();
+            platform_interrupt_handler(11);
         }
         //
         // System Calls.
@@ -569,8 +567,24 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::InstructionFault) => unsafe {
             handle_fault(task, FaultInfo::IllegalText);
         },
+
         _ => {
-            panic!("Unimplemented exception");
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "custom-interrupts")] {
+                    if mcause.is_exception() == true {
+                        panic!("Unimplemented exception");
+                    } else if mcause.code() >= 16 {
+                        platform_interrupt_handler(
+                            mcause
+                                .code()
+                                .try_into()
+                                .expect("Recieved an interrupt with cause >= 2^32"),
+                        );
+                    }
+                } else {
+                    panic!("Unimplemented trap");
+                }
+            }
         }
     }
 }
@@ -652,10 +666,10 @@ unsafe fn set_timer(tick_divisor: u32) {
 
 #[allow(unused_variables)]
 pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
-    //
-    // Configure the timer
-    //
     unsafe {
+        //
+        // Configure the timer
+        //
         CLOCK_FREQ_KHZ = tick_divisor;
 
         // Reset mtime back to 0, set mtimecmp to chosen timer
@@ -663,36 +677,14 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
 
         // Machine timer interrupt enable
         register::mie::set_mtimer();
-    }
 
-    //
-    // Machine external interrupt enable
-    //
-    unsafe {
-        type Priority = crate::startup::PlicPriority;
-
-        // Zero all interrupt sources
-        for i in 1..1024 {
-            Plic::set_priority(i as usize, Priority::never());
-        }
-
-        for int in crate::startup::HUBRIS_IRQ_TASK_LOOKUP.iter() {
-            let irq_priority = core::cmp::min(
-                Priority::highest().into_bits(),
-                int.1.notification,
-            );
-            Plic::set_priority(
-                int.0 .0 as usize,
-                Priority::from_bits(irq_priority),
-            );
-        }
-
+        //
+        // Machine external interrupt enable
+        //
         register::mie::set_mext();
-    }
 
-    // Configure MPP to switch us to User mode on exit from Machine
-    // mode (when we call "mret" below).
-    unsafe {
+        // Configure MPP to switch us to User mode on exit from Machine
+        // mode (when we call "mret" below).
         register::mstatus::set_mpp(MPP::User);
         register::mstatus::set_mpie();
     }
