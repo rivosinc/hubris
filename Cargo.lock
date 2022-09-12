@@ -46,7 +46,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0",
+ "stm32g0 0.15.1",
 ]
 
 [[package]]
@@ -619,7 +619,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0",
+ "stm32g0 0.14.0",
 ]
 
 [[package]]
@@ -1325,7 +1325,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
  "num-traits",
- "stm32g0",
+ "stm32g0 0.14.0",
  "userlib",
  "zerocopy",
 ]
@@ -1368,40 +1368,6 @@ dependencies = [
  "stm32h7",
  "userlib",
  "zerocopy",
-]
-
-[[package]]
-name = "drv-stm32h7-i2c"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "cfg-if 1.0.0",
- "drv-i2c-api",
- "drv-stm32xx-sys-api",
- "num-traits",
- "ringbuf",
- "stm32h7",
- "userlib",
- "zerocopy",
-]
-
-[[package]]
-name = "drv-stm32h7-i2c-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "build-i2c",
- "build-util",
- "cfg-if 1.0.0",
- "cortex-m",
- "drv-i2c-api",
- "drv-stm32h7-i2c",
- "drv-stm32xx-sys-api",
- "fixedmap",
- "num-traits",
- "ringbuf",
- "stm32h7",
- "userlib",
 ]
 
 [[package]]
@@ -1489,10 +1455,46 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 1.0.0",
  "num-traits",
- "stm32g0",
+ "stm32g0 0.14.0",
  "stm32h7",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32xx-i2c"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "cfg-if 1.0.0",
+ "drv-i2c-api",
+ "drv-stm32xx-sys-api",
+ "num-traits",
+ "ringbuf",
+ "stm32g0 0.15.1",
+ "stm32h7",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-stm32xx-i2c-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cfg-if 1.0.0",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-stm32xx-i2c",
+ "drv-stm32xx-sys-api",
+ "fixedmap",
+ "num-traits",
+ "ringbuf",
+ "stm32g0 0.15.1",
+ "stm32h7",
+ "userlib",
 ]
 
 [[package]]
@@ -1506,7 +1508,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32g0",
+ "stm32g0 0.14.0",
  "stm32h7",
  "task-jefe-api",
  "userlib",
@@ -1971,7 +1973,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.2.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#cf366c0f8d3efc57eec6eb764eb5fc04bbf1a9fe"
+source = "git+https://github.com/oxidecomputer/idolatry.git#7350b8acf81e56fec8994326f64b2b544c4cb9e3"
 dependencies = [
  "indexmap",
  "quote",
@@ -1983,7 +1985,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#cf366c0f8d3efc57eec6eb764eb5fc04bbf1a9fe"
+source = "git+https://github.com/oxidecomputer/idolatry.git#7350b8acf81e56fec8994326f64b2b544c4cb9e3"
 dependencies = [
  "userlib",
  "zerocopy",
@@ -3325,6 +3327,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "stm32g0"
+version = "0.15.1"
+source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-update#9bb993b07a5906ac4503d702e7ff507f229d1b44"
+dependencies = [
+ "bare-metal 1.0.0",
+ "cortex-m",
+ "cortex-m-rt",
+ "vcell",
+]
+
+[[package]]
 name = "stm32h7"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3420,7 +3433,7 @@ dependencies = [
  "drv-rng-api",
  "drv-sp-ctrl-api",
  "drv-spi-api",
- "drv-stm32h7-i2c",
+ "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "drv-update-api",
  "hif",
@@ -3687,7 +3700,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "cortex-m",
  "drv-i2c-api",
- "drv-stm32h7-i2c",
+ "drv-stm32xx-i2c",
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
@@ -3806,6 +3819,38 @@ dependencies = [
 
 [[package]]
 name = "task-validate-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "drv-i2c-api",
+ "idol",
+ "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-vpd"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-i2c",
+ "build-util",
+ "cfg-if 1.0.0",
+ "cortex-m",
+ "drv-i2c-api",
+ "drv-i2c-devices",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "ringbuf",
+ "task-vpd-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-vpd-api"
 version = "0.1.0"
 dependencies = [
  "derive-idol-err",
@@ -4016,7 +4061,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0",
+ "stm32g0 0.14.0",
 ]
 
 [[package]]
