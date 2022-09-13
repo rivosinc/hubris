@@ -672,6 +672,7 @@ dependencies = [
 name = "drv-fe310-rtc"
 version = "0.1.0"
 dependencies = [
+ "drv-riscv-plic-api",
  "ringbuf",
  "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "riscv-pseudo-atomics",
