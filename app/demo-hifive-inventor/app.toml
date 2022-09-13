@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-hifive-inventor"
-requires = { flash = 16752, ram = 3232 }
+requires = { flash = 16784, ram = 3472 }
 features = []
 
 [tasks.jefe]
@@ -14,17 +14,33 @@ name = "task-jefe"
 priority = 0
 max-sizes = { flash = 16384, ram = 2048 }
 start = true
-features = ["semihosting-riscv"]
+features = ["log-stringbuf"]
 stacksize = 1536
+
+[tasks.ext_int_ctrl]
+name = "drv-riscv-plic"
+priority = 1
+max-sizes = { flash = 4096, ram = 2048 }
+start = true
+features = ["log-stringbuf"]
+uses = ["plic"]
+interrupts = { "plic.irq" = 0x1 }
+
+[tasks.ext_int_ctrl.config]
+ints = [52]
+tasks = ['"rtc"']
+notification = [1]
+base = 0x0C00_0000
+pbits = 3
 
 [tasks.rtc]
 name = "drv-fe310-rtc"
-priority = 1
+priority = 2
 max-sizes = { flash = 16384, ram = 4096 }
 start = true
-features = ["semihosting-riscv"]
+features = ["log-stringbuf"]
+task-slots = ["ext_int_ctrl"]
 uses = ["aon_rtc"]
-interrupts = { "aon_rtc.irq" = 1 }
 
 [tasks.pong]
 name = "task-pong"
