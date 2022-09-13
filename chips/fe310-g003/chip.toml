@@ -1,7 +1,6 @@
 [aon_rtc]
 address = 0x1000_0040
 size = 64
-interrupts = { irq = 52 }
 
 [gpio0]
 address = 0x10012000
@@ -17,7 +16,8 @@ size = 4096
 
 [plic]
 address = 0x0C00_0000
-size = 3
+size = 0x400_0000
+interrupts = { irq = 11 }
 
 [mtime]
 address = 0x0200_BFF8
