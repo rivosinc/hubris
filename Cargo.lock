@@ -547,6 +547,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-opentitan-earlgrey"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "kern",
+ "panic-halt",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-rt",
+]
+
+[[package]]
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
@@ -3553,6 +3565,16 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "task-worker"
+version = "0.1.0"
+dependencies = [
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-pseudo-atomics",
+ "riscv-semihosting",
+ "userlib",
 ]
 
 [[package]]
