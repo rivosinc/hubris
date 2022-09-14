@@ -1,0 +1,32 @@
+# These address are taken from the qemu opentitan machine
+# https://github.com/qemu/qemu/blob/master/hw/riscv/opentitan.c#L32
+
+[gpio0]
+address = 0x4004_0000
+size = 0x1000
+
+[uart0]
+address = 0x4000_0000
+size = 0x1000
+
+[aontimer]
+address = 0x4047_0000
+size = 0x1000
+interrupts = { bark = 158 }
+
+[plic]
+address = 0x4800_0000
+size = 0x0400_4004 
+interrupts = { irq = 11 }
+
+[timer]
+address = 0x4010_0000
+size = 0x1000
+
+[mtime]
+address = 0x4010_0110
+size = 0
+
+[mtimecmp]
+address = 0x4010_0118
+size = 0

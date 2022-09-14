@@ -164,7 +164,7 @@ pub fn config(
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
         | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-1" | "sidecar-1"
         | "stm32g031" | "stm32g070" | "stm32g0b1" | "hifive-inventor"
-        | "hifive1-revb" => {
+        | "hifive1-revb" | "opentitan-earlgrey" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
@@ -180,7 +180,7 @@ pub fn config(
             Ok(Some(flash))
         }
         _ => {
-            eprintln!("Warning: unrecognized board, won't know how to flash.");
+            eprintln!("Warning: unrecognized board '{}', won't know how to flash.", board);
             Ok(None)
         }
     }
