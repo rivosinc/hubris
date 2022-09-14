@@ -547,6 +547,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-opentitan"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "kern",
+ "panic-halt",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-rt",
+]
+
+[[package]]
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
@@ -1050,6 +1062,17 @@ version = "0.1.0"
 dependencies = [
  "drv-onewire",
  "num-traits",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-ot-aontimer"
+version = "0.1.0"
+dependencies = [
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-pseudo-atomics",
+ "riscv-semihosting",
  "userlib",
  "zerocopy",
 ]
@@ -3144,6 +3167,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
+name = "task-aontimer"
+version = "0.1.0"
+dependencies = [
+ "drv-ot-aontimer",
+ "drv-riscv-plic-api",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-pseudo-atomics",
+ "riscv-semihosting",
+ "userlib",
+]
+
+[[package]]
 name = "task-config"
 version = "0.1.0"
 dependencies = [
@@ -3528,6 +3563,16 @@ dependencies = [
  "num-traits",
  "userlib",
  "zerocopy",
+]
+
+[[package]]
+name = "task-worker"
+version = "0.1.0"
+dependencies = [
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-pseudo-atomics",
+ "riscv-semihosting",
+ "userlib",
 ]
 
 [[package]]

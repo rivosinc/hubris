@@ -1,0 +1,51 @@
+name = "demo-opentitan"
+target = "riscv32imc-unknown-none-elf"
+board = "opentitan"
+chip = "../../chips/opentitan"
+stacksize = 896
+
+[kernel]
+name = "demo-opentitan"
+requires = {flash = 18048, ram = 4096}
+features = []
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = {flash = 9200, ram = 4096}
+start = true
+features = ["semihosting-riscv"]
+stacksize = 1536
+
+[tasks.ext_int_ctrl]
+name = "drv-riscv-plic"
+priority = 1
+max-sizes = { flash = 4096, ram = 2048 }
+start = true
+features = ["semihosting-riscv"]
+uses = ["plic"]
+interrupts = { "plic.irq" = 0x1 }
+
+[tasks.ext_int_ctrl.config]
+ints = [158]
+tasks = ['"aontimer"']
+notification = [1]
+base = 0x4800_0000
+pbits = 3
+
+[tasks.aontimer]
+name = "task-aontimer"
+priority = 2
+max-sizes = {flash = 10672, ram = 1024}
+start = true
+features = ["semihosting-riscv"]
+task-slots = ["ext_int_ctrl"]
+uses = ["aontimer", "timer"]
+stacksize = 512
+
+[tasks.idle]
+name = "task-idle"
+priority = 5
+max-sizes = {flash = 256, ram = 256}
+stacksize = 256
+start = true
