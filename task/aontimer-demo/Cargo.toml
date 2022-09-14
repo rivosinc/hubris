@@ -1,0 +1,25 @@
+[package]
+name = "task-aontimer-demo"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+drv-ot-aontimer = {path = "../../drv/opentitan-aontimer", features= ["semihosting-riscv"]}
+drv-riscv-plic-api = {path = "../../drv/riscv-plic-api"}
+
+[features]
+semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
+log-null = ["userlib/log-null"]
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv = { version = "0.8" }
+riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", optional = true, features = ["default", "user-mode"] }
+riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-psuedo-atomics", branch = "rivos/main", features = ["default", "user-mode"] }
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-aontimer-demo"
+test = false
+bench = false
