@@ -1066,6 +1066,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ot-aontimer"
+version = "0.1.0"
+dependencies = [
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-semihosting",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-riscv-plic-server"
 version = "0.1.0"
 dependencies = [
