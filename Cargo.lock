@@ -3566,16 +3566,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "task-worker"
-version = "0.1.0"
-dependencies = [
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "riscv-pseudo-atomics",
- "riscv-semihosting",
- "userlib",
-]
-
-[[package]]
 name = "termcolor"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3743,6 +3733,17 @@ dependencies = [
  "lpc55-pac",
  "panic-halt",
  "panic-itm",
+ "panic-semihosting",
+]
+
+[[package]]
+name = "tests-opentitan"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "kern",
+ "panic-halt",
  "panic-semihosting",
 ]
 
