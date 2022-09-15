@@ -87,6 +87,10 @@ jobs:
             app_name: demo-hifive-inventor
             app_toml: app/demo-hifive-inventor/app.toml
             target: riscv32imc-unkown-none-elf
+          - build: opentitan-earlgrey 
+            app_name: demo-opentitan-earlgrey
+            app_toml: app/demo-opentitan-earlgrey/app.toml
+            target: riscv32imc-unkown-none-elf
             image: default
 
           - os: ubuntu-latest
