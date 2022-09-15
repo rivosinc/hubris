@@ -180,7 +180,10 @@ pub fn config(
             Ok(Some(flash))
         }
         _ => {
-            eprintln!("Warning: unrecognized board '{}', won't know how to flash.", board);
+            eprintln!(
+                "Warning: unrecognized board '{}', won't know how to flash.",
+                board
+            );
             Ok(None)
         }
     }
