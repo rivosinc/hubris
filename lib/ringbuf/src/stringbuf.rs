@@ -26,22 +26,6 @@ pub use userlib::util::StaticCell;
 macro_rules! stringbuf {
     ($name:ident, $n:expr, $init:expr) => {
         #[used]
-        static $name: $crate::StaticCell<$crate::stringbuf::Stringbuf<$n>> =
-            $crate::StaticCell::new($crate::stringbuf::Stringbuf {
-                last: None,
-                buffer: [0; $n],
-            });
-    };
-    ($n:expr, $init:expr) => {
-        $crate::stringbuf!(LOG__STRINGBUF, $n, $init);
-    };
-}
-
-#[cfg(not(feature = "disabled"))]
-#[macro_export]
-macro_rules! stringbuf_root {
-    ($name:ident, $n:expr, $init:expr) => {
-        #[used]
         pub static $name: $crate::StaticCell<$crate::stringbuf::Stringbuf<$n>> =
             $crate::StaticCell::new($crate::stringbuf::Stringbuf {
                 last: None,
@@ -58,11 +42,11 @@ macro_rules! stringbuf_root {
 macro_rules! stringbuf {
     ($name:ident, $n:expr, $init:expr) => {
         #[allow(dead_code)]
-        const _: $t = $init;
+        const _: u8 = $init;
     };
     ($n:expr, $init:expr) => {
         #[allow(dead_code)]
-        const _: $t = $init;
+        const _: u8 = $init;
     };
 }
 
@@ -115,7 +99,7 @@ macro_rules! stringbuf_entry_root {
     }};
 }
 
-stringbuf_root!(LOG__STRINGBUF, 128, 0);
+stringbuf!(LOG__STRINGBUF, 128, 0);
 
 ///
 /// A ring buffer of parametrized size.  In practice, instantiating
