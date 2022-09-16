@@ -769,7 +769,7 @@ name = "drv-auxflash-server"
 version = "0.1.0"
 dependencies = [
  "build-util",
- "cfg-if",
+ "cfg-if 1.0.0",
  "drv-auxflash-api",
  "drv-qspi-api",
  "drv-stm32h7-qspi",
