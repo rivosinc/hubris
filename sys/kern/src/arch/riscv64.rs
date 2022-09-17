@@ -394,7 +394,8 @@ fn timer_handler() {
 //
 #[no_mangle]
 fn trap_handler(task: &mut task::Task) {
-    match register::mcause::read().cause() {
+    let cause = register::mcause::read().cause();
+    match cause {
         //
         // Interrupts.  Only our periodic MachineTimer interrupt via mtime is
         // supported at present.
@@ -437,7 +438,9 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::InstructionFault) => unsafe {
             handle_fault(task, FaultInfo::IllegalText);
         },
-        _ => {}
+        _ => {
+            panic!("Unimplemented exception {:x?}!", cause);
+        }
     }
 }
 
