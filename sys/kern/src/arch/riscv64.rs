@@ -538,9 +538,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
 
         // Machine timer interrupt enable
         register::mie::set_mtimer();
-
-        // Global machine interrupt enable
-        register::mstatus::set_mie();
     }
 
     // Load first task pointer, set its initial stack pointer, and exit out
