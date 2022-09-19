@@ -686,7 +686,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         // Configure MPP to switch us to User mode on exit from Machine
         // mode (when we call "mret" below).
         register::mstatus::set_mpp(MPP::User);
-        register::mstatus::set_mpie();
     }
 
     // Write the initial task program counter.
