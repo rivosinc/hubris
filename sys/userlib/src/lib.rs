@@ -146,13 +146,13 @@ pub fn sys_send(
 #[allow(dead_code)] // this gets used from asm
 #[repr(C)] // field order matters
 struct SendArgs<'a> {
-    packed_target_operation: u32,
     outgoing_ptr: *const u8,
     outgoing_len: usize,
     incoming_ptr: *mut u8,
     incoming_len: usize,
     lease_ptr: *const Lease<'a>,
     lease_len: usize,
+    packed_target_operation: u32,
 }
 
 /// Performs an "open" RECV that will accept messages from any task or
@@ -328,11 +328,11 @@ pub fn sys_borrow_read(
 
 #[repr(C)]
 struct BorrowReadArgs {
-    lender: u32,
     index: usize,
     offset: usize,
     dest: *mut u8,
     dest_len: usize,
+    lender: u32,
 }
 
 #[inline(always)]
@@ -354,11 +354,11 @@ pub fn sys_borrow_write(
 
 #[repr(C)]
 struct BorrowWriteArgs {
-    lender: u32,
     index: usize,
     offset: usize,
     src: *const u8,
     src_len: usize,
+    lender: u32,
 }
 
 #[inline(always)]
