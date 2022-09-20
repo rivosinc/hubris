@@ -388,7 +388,7 @@ fn test_fault_illaccess() {
         #[cfg(armv6m)]
         FaultInfo::InvalidOperation(_) => {}
 
-        #[cfg(target_arch = "riscv32")]
+        #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
         FaultInfo::MemoryAccess { .. } => {}
         _ => {
             panic!("expected BusFault or MemoryAccess; found {:?}", fault);

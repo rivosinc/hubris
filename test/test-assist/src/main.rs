@@ -133,7 +133,7 @@ fn illaccess(_arg: u32) {
 #[inline(never)]
 fn illfunc(_arg: u32) {
     unsafe {
-        let f: extern "C" fn() = core::mem::transmute(_arg);
+        let f: extern "C" fn() = core::mem::transmute(_arg as usize);
         f();
     }
 }
