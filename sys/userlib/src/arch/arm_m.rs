@@ -218,11 +218,11 @@ pub(crate) unsafe extern "C" fn sys_send_stub(
                 adds r4, #{sysnum}
                 mov r11, r4
                 @ Load in args from the struct.
-                ldm r0!, {{r4-r7}}
-                ldm r0, {{r0-r2}}
-                mov r8, r0
-                mov r9, r1
-                mov r10, r2
+                ldm r0!, {{r5-r7}}
+                ldm r0!, {{r1-r4}}
+                mov r8, r1
+                mov r9, r2
+                mov r10, r3
 
                 @ To the kernel!
                 svc #0
@@ -246,7 +246,8 @@ pub(crate) unsafe extern "C" fn sys_send_stub(
                 @ Spill the registers we're about to use to pass stuff.
                 push {{r4-r11}}
                 @ Load in args from the struct.
-                ldm r0, {{r4-r10}}
+                ldm r0!, {{r5-r10}}
+                ldm r0, {{r4}}
                 @ Load the constant syscall number.
                 mov r11, {sysnum}
 
@@ -528,9 +529,10 @@ pub(crate) unsafe extern "C" fn sys_borrow_read_stub(
                 adds r4, #{sysnum}
                 mov r11, r4
                 @ Move register arguments into place.
-                ldm r0!, {{r4-r7}}
-                ldm r0, {{r0}}
-                mov r8, r0
+                ldm r0!, {{r5-r7}}
+                ldm r0!, {{r1}}
+                mov r8, r1
+                ldm r0!, {{r4}}
 
                 @ To the kernel!
                 svc #0
@@ -554,7 +556,8 @@ pub(crate) unsafe extern "C" fn sys_borrow_read_stub(
                 push {{r4-r8, r11}}
 
                 @ Move register arguments into place.
-                ldm r0, {{r4-r8}}
+                ldm r0!, {{r5-r8}}
+                ldm r0, {{r4}}
                 @ Load the constant syscall number.
                 mov r11, {sysnum}
 
@@ -597,9 +600,10 @@ pub(crate) unsafe extern "C" fn sys_borrow_write_stub(
                 adds r4, #{sysnum}
                 mov r11, r4
                 @ Move register arguments into place.
-                ldm r0!, {{r4-r7}}
-                ldr r0, [r0]
-                mov r8, r0
+                ldm r0!, {{r5-r7}}
+                ldm r0, {{r1}}
+                mov r8, r1
+                ldm r0!, {{r4}}
 
                 @ To the kernel!
                 svc #0
@@ -624,7 +628,8 @@ pub(crate) unsafe extern "C" fn sys_borrow_write_stub(
                 push {{r4-r8, r11}}
 
                 @ Move register arguments into place.
-                ldm r0, {{r4-r8}}
+                ldm r0!, {{r5-r8}}
+                ldm r0, {{r4}}
                 @ Load the constant syscall number.
                 mov r11, {sysnum}
 
