@@ -191,6 +191,7 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
     if target.starts_with("thumbv6m")
         || target.starts_with("riscv32imac")
         || target.starts_with("riscv32imc")
+        || target.starts_with("riscv64imac")
     {
         let task_irq_map =
             phash_gen::OwnedSortedList::build(task_irq_map).unwrap();
@@ -336,7 +337,7 @@ pub const HUBRIS_IRQ_TASK_LOOKUP: NestedPerfectHashMap::<abi::InterruptNum, abi:
         panic!("Don't know the target {}", target);
     }
 
-    if target.starts_with("riscv") {
+    if target.starts_with("riscv32") {
         writeln!(
             file,
             "\npub(crate) type Plic = riscv::plic::Plic<{:#X},{}>;",

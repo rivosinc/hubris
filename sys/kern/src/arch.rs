@@ -19,16 +19,18 @@ cfg_if::cfg_if! {
     // Note: cfg_if! is slightly touchy about ordering and expression
     // complexity; this chain seems to be the best compromise.
 
-    if #[cfg(not(target_pointer_width = "32"))] {
-        compile_error!("non-32-bit targets not supported (even for simulation)");
-    } else if #[cfg(target_arch = "arm")] {
+    if #[cfg(target_arch = "arm")] {
         #[macro_use]
         pub mod arm_m;
         pub use arm_m::*;
     } else if #[cfg(target_arch = "riscv32")] {
-    #[macro_use]
-    pub mod riscv32;
-    pub use riscv32::*;
+        #[macro_use]
+        pub mod riscv32;
+        pub use riscv32::*;
+    } else if #[cfg(target_arch = "riscv64")] {
+        #[macro_use]
+        pub mod riscv64;
+        pub use riscv64::*;
     } else {
         compile_error!("support for this architecture not implemented");
     }
