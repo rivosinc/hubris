@@ -548,6 +548,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-rv64-qemu-virt"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "kern",
+ "panic-halt",
+ "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-rt",
+]
+
+[[package]]
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
@@ -3660,6 +3672,14 @@ dependencies = [
 [[package]]
 name = "tests-psc"
 version = "0.1.0"
+
+[[package]]
+name = "tests-rv64-qemu-virt"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "kern",
+]
 
 [[package]]
 name = "tests-stm32f4"
