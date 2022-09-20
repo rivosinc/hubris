@@ -476,7 +476,7 @@ struct RawTimerState {
 /// stackmargin`.
 #[cfg(feature = "panic-messages")]
 #[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     // Implementation Note
     //
     // This is a panic handler (obvs). Panic handlers have a unique
@@ -622,7 +622,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 /// than a proper panic message, the stack trace can still be informative.
 #[cfg(not(feature = "panic-messages"))]
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(_: &core::panic::PanicInfo<'_>) -> ! {
     sys_panic(b"PANIC")
 }
 

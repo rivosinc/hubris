@@ -62,7 +62,7 @@ use ringbuf::*;
 use userlib::*;
 
 /// The actual requests that we honor from an external source entity
-#[derive(FromPrimitive, Copy, Clone, Debug, PartialEq)]
+#[derive(FromPrimitive, Copy, Clone, Debug, Eq, PartialEq)]
 enum Request {
     None = 0,
     Start = 1,
@@ -71,17 +71,17 @@ enum Request {
     Fault = 4,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Error {
     IllegalTask,
     BadTask,
     BadRequest,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 struct TaskIndex(u16);
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Request(Request, TaskIndex),
