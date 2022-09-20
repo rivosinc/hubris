@@ -45,6 +45,7 @@ fn execdata(_arg: u32) {
     }
 }
 
+#[cfg(target_arch = "arm")]
 static BXLR: [u16; 1] = [0x4770u16];
 
 #[inline(never)]
@@ -111,7 +112,7 @@ fn illinst(_arg: u32) {
         // an illegal instruction
         #[cfg(target_arch = "arm")]
         asm!("udf 0xde");
-        #[cfg(target_arch = "riscv32")]
+        #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
         asm!("unimp");
     }
 }
