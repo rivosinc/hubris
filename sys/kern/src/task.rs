@@ -573,22 +573,12 @@ pub trait ArchState: Default {
         let now_u64 = u64::from(now);
         let dl_u64 = dl.map(u64::from).unwrap_or(0);
 
-        #[cfg(target_pointer_width = "32")]
-        {
-            self.ret0(now_u64 as usize);
-            self.ret1((now_u64 >> 32) as usize);
-            self.ret2(dl.is_some() as usize);
-            self.ret3(dl_u64 as usize);
-            self.ret4((dl_u64 >> 32) as usize);
-            self.ret5(not.0 as usize);
-        }
-        #[cfg(target_pointer_width = "64")]
-        {
-            self.ret0(now_u64 as usize);
-            self.ret1(dl.is_some() as usize);
-            self.ret2(dl_u64 as usize);
-            self.ret3(not.0 as usize);
-        }
+        self.ret0(now_u64 as u32 as usize);
+        self.ret1((now_u64 >> 32) as usize);
+        self.ret2(dl.is_some() as usize);
+        self.ret3(dl_u64 as u32 as usize);
+        self.ret4((dl_u64 >> 32) as usize);
+        self.ret5(not.0 as usize);
     }
 
     /// Sets the results of REFRESH_TASK_ID
