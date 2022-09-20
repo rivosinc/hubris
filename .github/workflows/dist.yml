@@ -88,6 +88,11 @@ jobs:
             app_toml: app/demo-hifive-inventor/app.toml
             target: riscv32imc-unkown-none-elf
             image: default
+          - build: rv64-qemu-virt
+            app_name: demo-rv64-qemu-virt
+            app_toml: app/demo-rv64-qemu-virt/app.toml
+            target: riscv64imac-unknown-none-elf
+            image: default
 
           - os: ubuntu-latest
             deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev  binutils-riscv64-unknown-elf
