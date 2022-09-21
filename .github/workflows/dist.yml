@@ -88,11 +88,6 @@ jobs:
             app_toml: app/demo-hifive-inventor/app.toml
             target: riscv32imc-unkown-none-elf
             image: default
-          - build: rv64-qemu-virt
-            app_name: demo-rv64-qemu-virt
-            app_toml: app/demo-rv64-qemu-virt/app.toml
-            target: riscv64imac-unknown-none-elf
-            image: default
 
           - os: ubuntu-latest
             deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev  binutils-riscv64-unknown-elf
@@ -152,6 +147,71 @@ jobs:
    #      sudo apt-get update && sudo apt-get install libusb-1.0-0-dev libftdi1-dev
    #      sudo chmod +x target/release/humility
    #      target/release/humility -a target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip manifest
+
+      # upload the output of our build
+      - name: Upload build archive
+        uses: actions/upload-artifact@v1
+        with:
+          name: dist-${{ matrix.os }}-${{ matrix.build }}
+          path: target/${{ matrix.app_name }}/dist/${{ matrix.image }}/build-${{ matrix.app_name }}.zip
+
+  build64:
+    needs: skip_duplicate_jobs
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
+    name: dist
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        build: [rv64-qemu-virt, tests-rv64-qemu-virt]
+        include:
+          - build: rv64-qemu-virt
+            app_name: demo-rv64-qemu-virt
+            app_toml: app/demo-rv64-qemu-virt/app.toml
+            target: riscv64imac-unknown-none-elf
+            image: default
+          - build: tests-rv64-qemu-virt
+            app_name: tests-rv64-qemu-virt
+            app_toml: test/tests-rv64-qemu-virt/app.toml
+            target: riscv64imac-unknown-none-elf
+            image: default
+
+          - os: ubuntu-latest
+            deps: sudo apt-get update && sudo apt-get install binutils-arm-none-eabi libudev-dev  binutils-riscv64-unknown-elf
+    env:
+      VCPKGRS_DYNAMIC: 1
+
+    steps:
+      # check out our code
+      - uses: actions/checkout@v2
+
+      # install rust toolchain
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Cache build output
+        uses: Swatinem/rust-cache@v1
+
+      - name: Cache vcpkg
+        uses: actions/cache@v2
+        with:
+          path: C:\vcpkg\downloads
+          key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
+            ${{ runner.os }}-vcpkg-download-
+
+      # install dependencies
+      - name: Install dependencies
+        run: '${{ matrix.deps }}'
+
+      # invoke our build
+      - uses: actions-rs/cargo@v1
+        env:
+          RUST_BACKTRACE: 1
+        with:
+          command: xtask64
+          args: dist ${{ matrix.app_toml }}
 
       # upload the output of our build
       - name: Upload build archive
