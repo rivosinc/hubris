@@ -186,9 +186,22 @@ impl Config {
             self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
         env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
+        env.insert("HUBRIS_CHIP_DIR".to_string(), self.chip.to_string());
         env.insert(
             "HUBRIS_APP_TOML".to_string(),
             app_toml_path.to_str().unwrap().to_string(),
+        );
+
+        // WARNING: Because this map provides task ID numbers directly, its
+        // contents can be used to send messages to tasks without creating a
+        // task_slot, so it's possible to deadlock. Use this with caution.
+        let mut task_id_map: BTreeMap<String, u32> = BTreeMap::new();
+        for (i, (name, _)) in self.tasks.iter().enumerate() {
+            task_id_map.insert(name.to_string(), i.try_into().unwrap());
+        }
+        env.insert(
+            "HUBRIS_TASK_ID_MAP".to_string(),
+            ron::ser::to_string(&task_id_map).unwrap(),
         );
 
         // secure_separation indicates that we have TrustZone enabled.

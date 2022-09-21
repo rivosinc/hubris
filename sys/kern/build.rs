@@ -338,17 +338,6 @@ pub const HUBRIS_IRQ_TASK_LOOKUP: NestedPerfectHashMap::<abi::InterruptNum, abi:
     }
 
     if target.starts_with("riscv32") {
-        writeln!(
-            file,
-            "\npub(crate) type Plic = riscv::plic::Plic<{:#X},{}>;",
-            kconfig.plic.0, kconfig.plic.1
-        )?;
-        writeln!(
-            file,
-            "\npub(crate) type PlicPriority = riscv::plic::Priority<{}>;",
-            kconfig.plic.1
-        )?;
-
         // TODO: This will eventually need to be changed so that the timer info
         //       doesn't have to be shoved into `chip.toml`.
         writeln!(file, "pub const MTIME: u64 = {};", kconfig.timer.0)?;
@@ -364,6 +353,5 @@ struct KernelConfig {
     tasks: Vec<abi::TaskDesc>,
     regions: Vec<abi::RegionDesc>,
     irqs: Vec<abi::Interrupt>,
-    plic: (u32, u32),
     timer: (u32, u32),
 }

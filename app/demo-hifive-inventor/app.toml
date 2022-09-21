@@ -17,14 +17,29 @@ start = true
 features = ["semihosting-riscv"]
 stacksize = 1536
 
+[tasks.ext_int_ctrl]
+name = "drv-riscv-plic-server"
+priority = 1
+max-sizes = { flash = 4096, ram = 2048 }
+start = true
+features = ["semihosting-riscv"]
+uses = ["plic"]
+interrupts = { "plic.irq" = 0x1 }
+
+[tasks.ext_int_ctrl.config]
+ints = [52]
+tasks = ['"rtc"']
+notification = [1]
+pbits = 3
+
 [tasks.rtc]
 name = "drv-fe310-rtc"
-priority = 1
+priority = 2
 max-sizes = { flash = 16384, ram = 4096 }
 start = true
 features = ["semihosting-riscv"]
+task-slots = ["ext_int_ctrl"]
 uses = ["aon_rtc"]
-interrupts = { "aon_rtc.irq" = 1 }
 
 [tasks.pong]
 name = "task-pong"

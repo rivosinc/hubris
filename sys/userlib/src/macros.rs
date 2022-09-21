@@ -46,7 +46,7 @@ cfg_if::cfg_if! {
         #[macro_export]
         macro_rules! sys_log {
             ($s:expr) => {
-                { let _ = ringbuf::stringbuf_entry_root!(format_args!(concat!("\0", concat!($s, "\n\r")))); }
+                ringbuf::stringbuf_entry_root!(format_args!(concat!("\0{}: ", concat!($s, "\n\r")), sys_get_timer().now));
             };
             ($s:expr, $($tt:tt)*) => {
                 ringbuf::stringbuf_entry_root!(format_args!(concat!("\0{}: ", concat!($s, "\n\r")), sys_get_timer().now, $($tt)*));

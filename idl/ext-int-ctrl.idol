@@ -1,0 +1,35 @@
+Interface(
+    name: "ExtIntCtrl",
+    ops: {
+        "disable_int": (
+            doc: "Disables the selected interrupt",
+            args: {
+                "irq": (type: "u32"),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ExtIntCtrlError"),
+            ),
+        ),
+        "enable_int": (
+            doc: "Enables the selected interrupt",
+            args: {
+                "irq": (type: "u32"),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ExtIntCtrlError"),
+            ),
+        ),
+        "complete_int": (
+            doc: "Tells the driver to complete the interrupt",
+            args: {
+                "irq": (type: "u32"),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ExtIntCtrlError"),
+            ),
+        ),
+    },
+)
