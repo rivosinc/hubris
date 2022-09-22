@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Result};
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A `RawConfig` represents an `app.toml` file that has been deserialized,
 /// but may not be ready for use.  In particular, we use the `chip` field
@@ -287,6 +287,29 @@ impl Config {
         out.env
             .insert("HUBRIS_TASK_NAME".to_string(), task_name.to_string());
 
+        // Expose information about the peripherals used by the task
+        let mut task_peripherals: BTreeMap<String, Peripheral> =
+            BTreeMap::new();
+
+        let peripherals = &task_toml.uses;
+
+        for name in peripherals {
+            match self.peripherals.get(name) {
+                Some(peripheral) => task_peripherals
+                    .insert(name.to_string(), peripheral.clone()),
+                None => panic!(
+                    "Task {} uses non-existing peripheral {}",
+                    task_name.to_string(),
+                    name
+                ),
+            };
+        }
+
+        out.env.insert(
+            "HUBRIS_TASK_PERIPHERALS".to_string(),
+            ron::ser::to_string(&task_peripherals).unwrap(),
+        );
+
         Ok(out)
     }
 
@@ -502,7 +525,7 @@ pub struct Task {
     pub config: Option<ordered_toml::Value>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct Peripheral {
     pub address: u32,
