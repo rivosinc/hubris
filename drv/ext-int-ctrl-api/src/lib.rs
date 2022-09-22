@@ -9,7 +9,7 @@ use userlib::*;
 
 #[derive(Copy, Clone, Debug, FromPrimitive, IdolError)]
 pub enum ExtIntCtrlError {
-    IRQUnassigned,
+    IRQUnassigned = 1,
 }
 
 include!(concat!(env!("OUT_DIR"), "/client_stub.rs"));
