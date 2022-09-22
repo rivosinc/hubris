@@ -5,7 +5,9 @@
 use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use std::collections::BTreeMap;
+use std::env;
 use std::ffi::OsStr;
 use std::io::Write;
 
@@ -280,6 +282,51 @@ impl TaskIds {
             })
             .collect()
     }
+}
+
+fn build_peripherals(map: BTreeMap<String, Peripheral>) -> Result<()> {
+    let out_dir = out_dir();
+    let dest_path = out_dir.join("peripherals.rs");
+    let mut out = std::fs::File::create(dest_path)?;
+
+    for (name, periph) in map {
+        writeln!(&mut out, "#[allow(dead_code)]\n")?;
+        writeln!(
+            &mut out,
+            "const {}_BASE_ADDR: u32 = 0x{:X}_u32;\n",
+            name.replace('-', "_").to_ascii_uppercase(),
+            periph.address
+        )?;
+        writeln!(&mut out, "#[allow(dead_code)]\n")?;
+        writeln!(
+            &mut out,
+            "const {}_SIZE: u32 = 0x{:X}_u32;\n",
+            name.replace('-', "_").to_ascii_uppercase(),
+            periph.size
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn task_peripherals() -> BTreeMap<String, Peripheral> {
+    ron::de::from_str(
+        env::var("HUBRIS_TASK_PERIPHERALS")
+            .expect("missing HUBRIS_TASK_PERIPHERALS")
+            .as_str(),
+    )
+    .expect("Was not able to deserialize HUBRIS_TASK_PERIPHERALS")
+}
+
+pub fn build_task_peripherals() -> Result<()> {
+    build_peripherals(task_peripherals())
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Peripheral {
+    pub address: u32,
+    pub size: u32,
 }
 
 /// Parse the contents of an environment variable as toml.
