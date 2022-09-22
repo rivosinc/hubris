@@ -4,6 +4,7 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::env;
 
@@ -133,6 +134,50 @@ impl TaskIds {
             })
             .collect()
     }
+}
+
+pub fn task_peripherals() -> BTreeMap<String, Peripheral> {
+    ron::de::from_str(
+        &env::var("HUBRIS_TASK_PERIPHERALS")
+            .expect("missing HUBRIS_TASK_PERIPHERALS"),
+    )
+    .expect("Was not able to deserialize HUBRIS_TASK_PERIPHERALS")
+}
+
+pub fn task_peripherals_str() -> String {
+    let map: BTreeMap<String, Peripheral> = task_peripherals();
+    let mut consts: String = String::new();
+    for (name, periph) in map {
+        consts.push_str("#[allow(dead_code)]\n");
+        consts.push_str(
+            format!(
+                "const {}_BASE_ADDR: u32 = 0x{:X} as u32;\n",
+                name.to_ascii_uppercase(),
+                periph.address
+            )
+            .as_str(),
+        );
+        consts.push_str("#[allow(dead_code)]\n");
+        consts.push_str(
+            format!(
+                "const {}_SIZE: u32 = 0x{:X} as u32;\n",
+                name.to_ascii_uppercase(),
+                periph.size
+            )
+            .as_str(),
+        );
+    }
+
+    println!("Peripheral consts: {}", consts);
+
+    return consts;
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Peripheral {
+    pub address: u32,
+    pub size: u32,
 }
 
 /// Parse the contents of an environment variable as toml.
