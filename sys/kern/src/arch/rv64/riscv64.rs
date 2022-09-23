@@ -429,8 +429,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Configure the timer
     //
     unsafe {
-        CLOCK_FREQ_KHZ = tick_divisor;
-
         // Reset mtime back to 0, set mtimecmp to chosen timer
         set_timer(tick_divisor - 1);
 
