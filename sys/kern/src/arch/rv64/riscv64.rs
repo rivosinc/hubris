@@ -10,8 +10,6 @@
 use core::arch::asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use zerocopy::FromBytes;
-
 use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
@@ -25,6 +23,8 @@ use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
 use riscv::register::mstatus::MPP;
 
+use crate::arch::SavedState;
+
 macro_rules! uassert {
     ($cond : expr) => {
         if !$cond {
@@ -37,102 +37,6 @@ macro_rules! uassert {
 /// store it in memory.
 #[no_mangle]
 static mut CLOCK_FREQ_KHZ: u32 = 0;
-
-/// RISC-V volatile registers that must be saved across context switches.
-#[repr(C)]
-#[derive(Clone, Debug, Default, FromBytes)]
-pub struct SavedState {
-    // NOTE: the following fields must be kept contiguous!
-    ra: u64,
-    sp: u64,
-    gp: u64,
-    tp: u64,
-    t0: u64,
-    t1: u64,
-    t2: u64,
-    s0: u64,
-    s1: u64,
-    a0: u64,
-    a1: u64,
-    a2: u64,
-    a3: u64,
-    a4: u64,
-    a5: u64,
-    a6: u64,
-    a7: u64,
-    s2: u64,
-    s3: u64,
-    s4: u64,
-    s5: u64,
-    s6: u64,
-    s7: u64,
-    s8: u64,
-    s9: u64,
-    s10: u64,
-    s11: u64,
-    t3: u64,
-    t4: u64,
-    t5: u64,
-    t6: u64,
-    // Additional save value for task program counter
-    pc: u64,
-    // NOTE: the above fields must be kept contiguous!
-}
-
-/// Map the volatile registers to (architecture-independent) syscall argument
-/// and return slots.
-impl task::ArchState for SavedState {
-    fn stack_pointer(&self) -> usize {
-        self.sp as usize
-    }
-
-    /// Reads syscall argument register 0.
-    fn arg0(&self) -> usize {
-        self.a0 as usize
-    }
-    fn arg1(&self) -> usize {
-        self.a1 as usize
-    }
-    fn arg2(&self) -> usize {
-        self.a2 as usize
-    }
-    fn arg3(&self) -> usize {
-        self.a3 as usize
-    }
-    fn arg4(&self) -> usize {
-        self.a4 as usize
-    }
-    fn arg5(&self) -> usize {
-        self.a5 as usize
-    }
-    fn arg6(&self) -> usize {
-        self.a6 as usize
-    }
-
-    fn syscall_descriptor(&self) -> usize {
-        self.a7 as usize
-    }
-
-    /// Writes syscall return argument 0.
-    fn ret0(&mut self, x: usize) {
-        self.a0 = x as u64
-    }
-    fn ret1(&mut self, x: usize) {
-        self.a1 = x as u64
-    }
-    fn ret2(&mut self, x: usize) {
-        self.a2 = x as u64
-    }
-    fn ret3(&mut self, x: usize) {
-        self.a3 = x as u64
-    }
-    fn ret4(&mut self, x: usize) {
-        self.a4 = x as u64
-    }
-    fn ret5(&mut self, x: usize) {
-        self.a5 = x as u64
-    }
-}
 
 // Because debuggers need to know the clock frequency to set the SWO clock
 // scaler that enables ITM, and because ITM is particularly useful when
@@ -151,8 +55,8 @@ pub fn reinitialize(task: &mut task::Task) {
     // Set the initial stack pointer, ensuring 16-byte stack alignment as per
     // the RISC-V callineg convention.
     let initial_stack: usize = task.descriptor().initial_stack;
-    task.save_mut().sp = initial_stack as u64;
-    uassert!(task.save().sp & 0xF == 0);
+    task.save_mut().set_sp(initial_stack as u64);
+    uassert!(task.save().sp() & 0xF == 0);
 
     // zap the stack with a distinct pattern
     for region in task.region_table().iter() {
@@ -175,7 +79,8 @@ pub fn reinitialize(task: &mut task::Task) {
         }
     }
     // Set the initial program counter
-    task.save_mut().pc = task.descriptor().entry_point as u64;
+    let pc = task.descriptor().entry_point as u64;
+    task.save_mut().set_pc(pc);
 }
 
 pub fn apply_memory_protection(task: &task::Task) {
@@ -402,7 +307,8 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::UserEnvCall) => {
             unsafe {
                 // Advance program counter past ecall instruction.
-                task.save_mut().pc = register::mepc::read() as u64 + 4;
+                let epc = register::mepc::read() as u64 + 4;
+                task.save_mut().set_pc(epc);
                 asm!(
                     "
                     mv a0, a7               # arg0 = syscall number
@@ -517,7 +423,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     }
 
     // Write the initial task program counter.
-    register::mepc::write(task.save().pc as *const usize as usize);
+    register::mepc::write(task.save().pc() as *const usize as usize);
 
     //
     // Configure the timer
@@ -537,9 +443,9 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     unsafe {
         set_current_task(task);
         asm!("
-            ld sp, ({sp})
+            ld sp, ({0})
             mret",
-            sp = in(reg) &task.save().sp,
+            in(reg) &task.save().sp(),
             options(noreturn)
         );
     }
