@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use indexmap::IndexMap;
-use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs::File;
@@ -15,16 +13,6 @@ task_config::task_config! {
     tasks: &'static [&'static str],
     notification: &'static [u32],
     pbits: u8,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "kebab-case", deny_unknown_fields)]
-#[allow(dead_code)]
-struct Peripheral {
-    pub address: u32,
-    pub size: u32,
-    #[serde(default)]
-    pub interrupts: BTreeMap<String, u32>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -41,15 +29,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         File::create(out.join("plic_config.rs")).unwrap()
     };
 
-    let plic_base: u32 = {
-        let mut path: String = env::var("HUBRIS_CHIP_DIR").unwrap();
-        path.push_str("/chip.toml");
-        let chip_contents = std::fs::read(path)?;
-        let peripherals: IndexMap<String, Peripheral> =
-            toml::from_slice(&chip_contents)?;
-        peripherals.get("plic").unwrap().address
-    };
-
     writeln!(
         file,
         "use phash::{{PerfectHashMap, MutablePerfectHashMap}};"
@@ -60,6 +39,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "const PLIC_PRIORITY_BITS: usize = 0x{:X};",
         TASK_CONFIG.pbits
     )?;
+
+    let peripherals: BTreeMap<String, build_util::Peripheral> =
+        build_util::task_peripherals();
+    let plic_base: u32 = peripherals.get("plic").unwrap().address;
 
     writeln!(file, "const PLIC_REGISTER_BLOCK: *mut Plic<PLIC_PRIORITY_BITS> = 0x{:X} as *mut Plic<PLIC_PRIORITY_BITS>;", plic_base)?;
     writeln!(file, "type Priority = plic::Priority<PLIC_PRIORITY_BITS>;")?;
