@@ -21,16 +21,16 @@ cfg_if::cfg_if! {
 
     if #[cfg(target_arch = "arm")] {
         #[macro_use]
-        pub mod arm_m;
-        pub use arm_m::*;
+        pub mod arm;
+        pub use arm::*;
     } else if #[cfg(target_arch = "riscv32")] {
         #[macro_use]
-        pub mod riscv32;
-        pub use riscv32::*;
+        pub mod rv32;
+        pub use rv32::*;
     } else if #[cfg(target_arch = "riscv64")] {
         #[macro_use]
-        pub mod riscv64;
-        pub use riscv64::*;
+        pub mod rv64;
+        pub use rv64::*;
     } else {
         compile_error!("support for this architecture not implemented");
     }
