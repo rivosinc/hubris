@@ -8,3 +8,6 @@ pub use riscv64::*;
 
 pub mod saved_state;
 pub use saved_state::*;
+
+pub mod clock_freq;
+pub use clock_freq::*;
