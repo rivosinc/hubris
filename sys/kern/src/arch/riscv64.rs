@@ -8,7 +8,6 @@
 //! timestamp) are not yet supported.
 
 use core::arch::asm;
-use core::ptr::NonNull;
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use zerocopy::FromBytes;
@@ -33,11 +32,6 @@ macro_rules! uassert {
         }
     };
 }
-
-/// On RISC-V we use a global to record the current task pointer.  It may be
-/// possible to use the mscratch register instead.
-#[no_mangle]
-static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 
 /// To allow our clock frequency to be easily determined from a debugger, we
 /// store it in memory.
@@ -243,9 +237,7 @@ pub unsafe extern "C" fn _start_trap() {
         # Store full task status on entry, setting up a0 to point at our
         # current task so that it's passed into our exception handler.
         #
-        csrw mscratch, a0
-        la a0, CURRENT_TASK_PTR
-        ld a0, (a0)
+        csrrw a0, mscratch, a0
         sd ra,   0*8(a0)
         sd sp,   1*8(a0)
         sd gp,   2*8(a0)
@@ -281,6 +273,7 @@ pub unsafe extern "C" fn _start_trap() {
         sd a1,  31*8(a0)    # store mepc for resume
         csrr a1, mscratch
         sd a1, 9*8(a0)      # store a0 itself
+        csrw mscratch, a0   # restore task ptr in mscratch
 
         #
         # Jump to our main rust handler
@@ -291,8 +284,7 @@ pub unsafe extern "C" fn _start_trap() {
         # On the way out we may have switched to a different task, load
         # everything in and resume (using t6 as it's resored last).
         #
-        la t6, CURRENT_TASK_PTR
-        ld t6, (t6)
+        csrr t6, mscratch
 
         ld t5,  31*8(t6)     # restore mepc
         csrw mepc, t5
@@ -362,13 +354,11 @@ fn timer_handler() {
                 // Safety: we can access this by virtue of being an interrupt
                 // handler, and thus serialized with respect to anyone who might be
                 // trying to write it.
-                let current = CURRENT_TASK_PTR
-                    .expect("irq before kernel started?")
-                    .as_ptr();
+                let current = get_current_task();
 
                 // Safety: we're dereferencing the current task pointer, which we're
                 // trusting the rest of this module to maintain correctly.
-                let current = usize::from((*current).descriptor().index);
+                let current = usize::from(current.descriptor().index);
 
                 let next = task::select(current, tasks);
                 let next = &mut tasks[next];
@@ -412,9 +402,8 @@ fn trap_handler(task: &mut task::Task) {
                 task.save_mut().pc = register::mepc::read() as u64 + 4;
                 asm!(
                     "
-                    la a1, CURRENT_TASK_PTR
                     mv a0, a7               # arg0 = syscall number
-                    ld a1, (a1)             # arg1 = task ptr
+                    csrr a1, mscratch       # arg1 = task ptr
                     jal syscall_entry
                     ",
                 );
@@ -543,7 +532,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
     unsafe {
-        CURRENT_TASK_PTR = Some(NonNull::from(task));
+        set_current_task(task);
         asm!("
             ld sp, ({sp})
             mret",
@@ -566,18 +555,30 @@ impl crate::atomic::AtomicExt for AtomicBool {
     }
 }
 
-/// Records the address of `task` as the current user task.
+/// Records the address of `task` as the current user task in mscratch.
 ///
 /// # Safety
 ///
 /// This records a pointer that aliases `task`. As long as you don't read that
 /// pointer while you have access to `task`, and as long as the `task` being
-/// stored is actually in the taask table, you'll be okay.
-pub unsafe fn set_current_task(task: &mut task::Task) {
+/// stored is actually in the task table, you'll be okay.
+pub unsafe fn set_current_task(task: &task::Task) {
     // Safety: should be ok if the contract above is met
     // TODO: make me an atomic
     unsafe {
-        CURRENT_TASK_PTR = Some(NonNull::from(task));
+        let task: usize = core::mem::transmute::<&task::Task, usize>(task);
+        asm!(
+            "csrw mscratch, {0}",
+            in(reg) task
+        );
+    }
+}
+
+unsafe fn get_current_task() -> &'static task::Task {
+    let mut task: usize;
+    unsafe {
+        asm!("csrr {0}, mscratch", out(reg) task);
+        core::mem::transmute::<usize, &task::Task>(task)
     }
 }
 
