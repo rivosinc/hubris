@@ -3,6 +3,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #[macro_use]
+pub mod macros;
+pub use macros::*;
+
+#[macro_use]
 pub mod riscv64;
 pub use riscv64::*;
 

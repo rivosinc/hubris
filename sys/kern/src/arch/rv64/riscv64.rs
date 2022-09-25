@@ -25,14 +25,6 @@ use riscv::register::mstatus::MPP;
 
 use crate::arch::SavedState;
 
-macro_rules! uassert {
-    ($cond : expr) => {
-        if !$cond {
-            panic!("Assertion failed!");
-        }
-    };
-}
-
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
 
