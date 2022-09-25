@@ -13,52 +13,15 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
-use crate::umem::USlice;
 use abi::{FaultInfo, FaultSource};
-use unwrap_lite::UnwrapLite;
 
 extern crate riscv_rt;
 
 use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
-use riscv::register::mstatus::MPP;
 
-use crate::arch::SavedState;
 use crate::arch::apply_memory_protection;
-
-pub fn reinitialize(task: &mut task::Task) {
-    *task.save_mut() = SavedState::default();
-
-    // Set the initial stack pointer, ensuring 16-byte stack alignment as per
-    // the RISC-V callineg convention.
-    let initial_stack: usize = task.descriptor().initial_stack;
-    task.save_mut().set_sp(initial_stack as u64);
-    uassert!(task.save().sp() & 0xF == 0);
-
-    // zap the stack with a distinct pattern
-    for region in task.region_table().iter() {
-        if initial_stack < region.base {
-            continue;
-        }
-        if initial_stack > region.base + region.size {
-            continue;
-        }
-
-        let mut uslice: USlice<usize> = USlice::from_raw(
-            region.base as usize,
-            (initial_stack as usize - region.base as usize) >> 4,
-        )
-        .unwrap_lite();
-
-        let zap = task.try_write(&mut uslice).unwrap_lite();
-        for word in zap.iter_mut() {
-            *word = 0xbaddcafebaddcafe;
-        }
-    }
-    // Set the initial program counter
-    let pc = task.descriptor().entry_point as u64;
-    task.save_mut().set_pc(pc);
-}
+use crate::arch::{get_current_task, set_current_task};
 
 // Provide our own interrupt vector to handle save/restore of the task on
 // entry, overwriting the symbol set up by riscv-rt.  The repr(align(4)) is
@@ -332,7 +295,7 @@ const MTIME: u64 = 0x0200_BFF8;
 // back to 0 on each interrupt.
 //
 #[no_mangle]
-unsafe fn set_timer(tick_divisor: u32) {
+pub unsafe fn set_timer(tick_divisor: u32) {
     // Set high-order bits of mtime to zero.  We only call this function prior
     // to enabling interrupts so it should be safe.
     unsafe {
@@ -351,41 +314,6 @@ unsafe fn set_timer(tick_divisor: u32) {
     }
 }
 
-#[allow(unused_variables)]
-pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
-    // Configure MPP to switch us to User mode on exit from Machine
-    // mode (when we call "mret" below).
-    unsafe {
-        register::mstatus::set_mpp(MPP::User);
-    }
-
-    // Write the initial task program counter.
-    register::mepc::write(task.save().pc() as *const usize as usize);
-
-    //
-    // Configure the timer
-    //
-    unsafe {
-        // Reset mtime back to 0, set mtimecmp to chosen timer
-        set_timer(tick_divisor - 1);
-
-        // Machine timer interrupt enable
-        register::mie::set_mtimer();
-    }
-
-    // Load first task pointer, set its initial stack pointer, and exit out
-    // of machine mode, launching the task.
-    unsafe {
-        set_current_task(task);
-        asm!("
-            ld sp, ({0})
-            mret",
-            in(reg) &task.save().sp(),
-            options(noreturn)
-        );
-    }
-}
-
 impl crate::atomic::AtomicExt for AtomicBool {
     type Primitive = bool;
 
@@ -396,34 +324,6 @@ impl crate::atomic::AtomicExt for AtomicBool {
         ordering: Ordering,
     ) -> Self::Primitive {
         self.swap(value, ordering)
-    }
-}
-
-/// Records the address of `task` as the current user task in mscratch.
-///
-/// # Safety
-///
-/// This records a pointer that aliases `task`. As long as you don't read that
-/// pointer while you have access to `task`, and as long as the `task` being
-/// stored is actually in the task table, you'll be okay.
-pub unsafe fn set_current_task(task: &task::Task) {
-    // Safety: should be ok if the contract above is met
-    // TODO: make me an atomic
-    unsafe {
-        let task: usize = core::mem::transmute::<&task::Task, usize>(task);
-        asm!(
-            "csrw mscratch, {0}",
-            in(reg) task
-        );
-    }
-}
-
-unsafe fn get_current_task() -> &'static task::Task {
-    let mut task: usize;
-    unsafe {
-        asm!("csrr {0}, mscratch", out(reg) task);
-        uassert!(task != 0);
-        core::mem::transmute::<usize, &task::Task>(task)
     }
 }
 
