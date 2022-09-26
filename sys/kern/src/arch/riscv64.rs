@@ -578,6 +578,7 @@ unsafe fn get_current_task() -> &'static task::Task {
     let mut task: usize;
     unsafe {
         asm!("csrr {0}, mscratch", out(reg) task);
+        uassert!(task != 0);
         core::mem::transmute::<usize, &task::Task>(task)
     }
 }
