@@ -13,7 +13,11 @@ use serde::Deserialize;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_cpu_info();
 
-    generate_consts()?;
+    let target = env::var("TARGET").unwrap();
+    /* Currently, don't have any consts for RV* */
+    if !target.starts_with("riscv") {
+        generate_consts()?;
+    }
     generate_statics()?;
 
     Ok(())
