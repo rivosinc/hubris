@@ -603,6 +603,3 @@ pub fn enable_irq(n: u32) {}
 pub fn reset() -> ! {
     unimplemented!();
 }
-
-// Constants that may change depending on configuration
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));
