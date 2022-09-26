@@ -743,6 +743,3 @@ pub fn now() -> Timestamp {
 pub fn reset() -> ! {
     unimplemented!();
 }
-
-// Constants that may change depending on configuration
-include!(concat!(env!("OUT_DIR"), "/consts.rs"));
