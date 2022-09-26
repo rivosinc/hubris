@@ -12,7 +12,6 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::startup::with_task_table;
 use crate::task;
-use crate::time::Timestamp;
 use abi::{FaultInfo, FaultSource};
 
 extern crate riscv_rt;
@@ -22,6 +21,7 @@ use riscv::register::mcause::{Exception, Interrupt, Trap};
 
 use crate::arch::apply_memory_protection;
 use crate::arch::{get_current_task, set_current_task};
+use crate::arch::{incr_ticks, reset_timer};
 
 // Provide our own interrupt vector to handle save/restore of the task on
 // entry, overwriting the symbol set up by riscv-rt.  The repr(align(4)) is
@@ -139,7 +139,6 @@ pub unsafe extern "C" fn _start_trap() {
 #[no_mangle]
 fn timer_handler() {
     crate::profiling::event_timer_isr_enter();
-    let ticks = unsafe { &mut TICKS };
     unsafe {
         with_task_table(|tasks| {
             // Advance the kernel's notion of time.
@@ -149,11 +148,7 @@ fn timer_handler() {
             // However, we do not use wrapping add here because, if we _do_ overflow due
             // to e.g. memory corruption, we'd rather panic and reboot than attempt to
             // limp forward.
-            *ticks += 1;
-            // Now, give up mutable access to *ticks so there's no chance of a
-            // double-increment due to bugs below.
-            let now = Timestamp::from(*ticks);
-            drop(ticks);
+            let now = incr_ticks(1);
 
             // Process any timers.
             let switch = task::process_timers(tasks, now);
@@ -180,7 +175,7 @@ fn timer_handler() {
             // RV32 here and only write the low-order bits, assuming that it has
             // been less than 12 seconds or so since our last interrupt(!), but
             // let's avoid any possibility of a nasty surprise.
-            core::ptr::write_volatile(MTIME as *mut u64, 0);
+            reset_timer();
         })
     }
     crate::profiling::event_timer_isr_exit();
@@ -269,51 +264,6 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
     }
 }
 
-// Timer handling.
-//
-// We currently only support single HART systems.  From reading elsewhere,
-// additional harts have their own mtimecmp offset at 0x8 intervals from hart0.
-//
-// As per FE310-G002 Manual, section 9.1, the address of mtimecmp on
-// our supported board is 0x0200_4000, which also matches qemu.
-//
-// On both RV32 and RV64 systems the mtime and mtimecmp memory-mapped registers
-// are 64-bits wide.
-//
-const MTIMECMP: u64 = 0x0200_4000;
-const MTIME: u64 = 0x0200_BFF8;
-
-// Configure the timer.
-//
-// RISC-V Privileged Architecture Manual
-// 3.2.1 Machine Timer Registers (mtime and mtimecmp)
-//
-// To keep things simple, especially on RV32 systems where we cannot atomically
-// write to the mtime/mtimecmp memory-mapped registers as they are 64 bits
-// wide, we only utilise the first 32-bits of each register, setting the
-// high-order bits to 0 on startup, and restarting the low-order bits of mtime
-// back to 0 on each interrupt.
-//
-#[no_mangle]
-pub unsafe fn set_timer(tick_divisor: u32) {
-    // Set high-order bits of mtime to zero.  We only call this function prior
-    // to enabling interrupts so it should be safe.
-    unsafe {
-        asm!("
-        li {0}, {mtimecmp}  # load mtimecmp address
-        sd {1}, 0({0})      # set mtimecmp register
-
-        li {0}, {mtime}     # load mtime address
-        sd zero, 0({0})     # set low-order bits back to 0
-        ",
-            out(reg) _,
-            in(reg) tick_divisor,
-            mtime = const MTIME,
-            mtimecmp = const MTIMECMP,
-        );
-    }
-}
-
 impl crate::atomic::AtomicExt for AtomicBool {
     type Primitive = bool;
 
@@ -325,14 +275,6 @@ impl crate::atomic::AtomicExt for AtomicBool {
     ) -> Self::Primitive {
         self.swap(value, ordering)
     }
-}
-
-#[used]
-static mut TICKS: u64 = 0;
-
-/// Reads the tick counter.
-pub fn now() -> Timestamp {
-    Timestamp::from(unsafe { TICKS })
 }
 
 #[allow(unused_variables)]
