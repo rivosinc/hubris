@@ -24,6 +24,7 @@ use riscv::register::mcause::{Exception, Interrupt, Trap};
 use riscv::register::mstatus::MPP;
 
 use crate::arch::SavedState;
+use crate::arch::apply_memory_protection;
 
 pub fn reinitialize(task: &mut task::Task) {
     *task.save_mut() = SavedState::default();
@@ -57,46 +58,6 @@ pub fn reinitialize(task: &mut task::Task) {
     // Set the initial program counter
     let pc = task.descriptor().entry_point as u64;
     task.save_mut().set_pc(pc);
-}
-
-pub fn apply_memory_protection(task: &task::Task) {
-    use riscv::register::{Mode, Permission, PmpCfg};
-
-    let null_cfg: PmpCfg = PmpCfg::new(Mode::OFF, Permission::NONE, false);
-
-    for (i, region) in task.region_table().iter().enumerate() {
-        if (region.base == 0x0) && (region.size == 0x20) {
-            continue;
-        }
-        let pmpcfg = {
-            let pmp_perm: Permission = match region.attributes.bits() & 0b111 {
-                0b000 => Permission::NONE,
-                0b001 => Permission::R,
-                0b010 => panic!(),
-                0b011 => Permission::RW,
-                0b100 => Permission::X,
-                0b101 => Permission::RX,
-                0b110 => panic!(),
-                0b111 => Permission::RWX,
-                _ => unreachable!(),
-            };
-
-            PmpCfg::new(Mode::TOR, pmp_perm, false)
-        };
-
-        unsafe {
-            // Configure the base address entry
-            register::set_cfg_entry(i * 2, null_cfg);
-            register::write_tor_indexed(i * 2, region.base as usize);
-
-            // Configure the end address entry
-            register::set_cfg_entry(i * 2 + 1, pmpcfg);
-            register::write_tor_indexed(
-                i * 2 + 1,
-                (region.base + region.size) as usize,
-            );
-        }
-    }
 }
 
 // Provide our own interrupt vector to handle save/restore of the task on

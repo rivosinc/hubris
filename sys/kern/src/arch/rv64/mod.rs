@@ -15,3 +15,6 @@ pub use saved_state::*;
 
 pub mod clock_freq;
 pub use clock_freq::*;
+
+pub mod pmp;
+pub use pmp::*;
