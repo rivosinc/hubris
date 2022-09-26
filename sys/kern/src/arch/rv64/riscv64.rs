@@ -8,7 +8,6 @@
 //! timestamp) are not yet supported.
 
 use core::arch::asm;
-use core::sync::atomic::{AtomicBool, Ordering};
 
 use crate::startup::with_task_table;
 use crate::task;
@@ -264,25 +263,8 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
     }
 }
 
-impl crate::atomic::AtomicExt for AtomicBool {
-    type Primitive = bool;
-
-    #[inline(always)]
-    fn swap_polyfill(
-        &self,
-        value: Self::Primitive,
-        ordering: Ordering,
-    ) -> Self::Primitive {
-        self.swap(value, ordering)
-    }
-}
-
 #[allow(unused_variables)]
 pub fn disable_irq(n: u32) {}
 
 #[allow(unused_variables)]
 pub fn enable_irq(n: u32) {}
-
-pub fn reset() -> ! {
-    unimplemented!();
-}
