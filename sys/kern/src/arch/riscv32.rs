@@ -678,11 +678,6 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
         // Machine timer interrupt enable
         register::mie::set_mtimer();
 
-        //
-        // Machine external interrupt enable
-        //
-        register::mie::set_mext();
-
         // Configure MPP to switch us to User mode on exit from Machine
         // mode (when we call "mret" below).
         register::mstatus::set_mpp(MPP::User);
