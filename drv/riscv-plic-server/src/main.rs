@@ -171,10 +171,11 @@ fn main() -> ! {
     let plic = unsafe { &mut *PLIC_REGISTER_BLOCK };
     plic.set_threshold(0, Priority::highest());
 
-    // Zero all interrupt sources ...
+    // Set priority for interrupts that are used to a nonzero value. Used
+    // interrupts are left masked as the task that owns them should decide when
+    // they should first be enabled.
     for i in 1..1024 {
         let priority = if irq_assigned(i) {
-            plic.unmask(0, i as usize);
             Priority::from_bits(1)
         } else {
             Priority::never()
