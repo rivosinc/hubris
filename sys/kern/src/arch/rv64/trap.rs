@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Architecture support for RISC-V.
-//!
 //! Interrupts (other than the Machine Timer used to advance the kernel
 //! timestamp) are not yet supported.
 

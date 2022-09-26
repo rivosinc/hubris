@@ -7,8 +7,8 @@ pub mod macros;
 pub use macros::*;
 
 #[macro_use]
-pub mod riscv64;
-pub use riscv64::*;
+pub mod trap;
+pub use trap::*;
 
 pub mod saved_state;
 pub use saved_state::*;
