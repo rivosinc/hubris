@@ -237,7 +237,11 @@ pub unsafe extern "C" fn _start_trap() {
         # Store full task status on entry, setting up a0 to point at our
         # current task so that it's passed into our exception handler.
         #
-        csrrw a0, mscratch, a0
+        # mscratch temporarily doesn't point to current task since it is
+        # used to stash a0. mscratch is restored to current task pointer
+        # just before jump to trap_handler.
+        #
+        csrrw a0, mscratch, a0    # mscratch no longer holds current task ptr
         sd ra,   0*8(a0)
         sd sp,   1*8(a0)
         sd gp,   2*8(a0)
@@ -271,9 +275,8 @@ pub unsafe extern "C" fn _start_trap() {
         sd t6,  30*8(a0)
         csrr a1, mepc
         sd a1,  31*8(a0)    # store mepc for resume
-        csrr a1, mscratch
+        csrrw a1, mscratch, a0        # current task ptr restored in mscratch
         sd a1, 9*8(a0)      # store a0 itself
-        csrw mscratch, a0   # restore task ptr in mscratch
 
         #
         # Jump to our main rust handler
