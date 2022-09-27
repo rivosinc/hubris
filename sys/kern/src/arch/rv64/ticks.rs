@@ -7,6 +7,7 @@ use crate::time::Timestamp;
 #[used]
 static mut TICKS: u64 = 0;
 
+#[inline(always)]
 pub fn incr_ticks(incr: u64) -> Timestamp {
     let ticks = unsafe { &mut TICKS };
     *ticks += incr;
@@ -15,6 +16,7 @@ pub fn incr_ticks(incr: u64) -> Timestamp {
 }
 
 /// Reads the tick counter.
+#[inline(always)]
 pub fn now() -> Timestamp {
     Timestamp::from(unsafe { TICKS })
 }
