@@ -203,7 +203,6 @@ impl Config {
             self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
         env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
-        env.insert("HUBRIS_CHIP_DIR".to_string(), self.chip.to_string());
         env.insert(
             "HUBRIS_APP_TOML".to_string(),
             app_toml_path.to_str().unwrap().to_string(),
