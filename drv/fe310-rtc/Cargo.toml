@@ -11,6 +11,8 @@ riscv = { version = "0.8" }
 riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", optional = true, features = ["default", "user-mode"] }
 riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-psuedo-atomics", branch = "rivos/main", features = ["default", "user-mode"] }
 
+[build-dependencies]
+build-util = {path = "../../build/util"}
 
 [features]
 semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
