@@ -16,7 +16,7 @@ fn main() -> ! {
     // for mtime and mtimecmp to behave as expected
     // See https://docs.opentitan.org/hw/ip/rv_timer/doc/
     const OT_TIMER_CTRL: u32 = 0x4010_0004;
-    const OT_TIMER_INTR: u32 = 0x4010_0100;
+    const OT_TIMER_INTR: u32 = 0x4010_0114;
 
     // Enable mtime to count up
     let timer = OT_TIMER_CTRL as *mut u32;

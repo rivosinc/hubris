@@ -18,7 +18,7 @@ features = ["semihosting-riscv"]
 stacksize = 1536
 
 [tasks.ext_int_ctrl]
-name = "drv-riscv-plic"
+name = "drv-riscv-plic-server"
 priority = 1
 max-sizes = { flash = 4096, ram = 2048 }
 start = true
@@ -44,9 +44,9 @@ uses = ["aontimer"]
 stacksize = 512
 
 [tasks.aontimer.config]
-clock_frequency_hz = 200_000;
-bark_threshold_ticks = 2000;
-bite_threshold_ticks = 5000;
+clock_frequency_hz = 200_000
+bark_threshold_ticks = 2000
+bite_threshold_ticks = 5000
 
 [tasks.idle]
 name = "task-idle"

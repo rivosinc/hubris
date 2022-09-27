@@ -3172,11 +3172,12 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "task-aontimer-demo"
 version = "0.1.0"
 dependencies = [
+ "drv-ext-int-ctrl-api",
  "drv-ot-aontimer",
- "drv-riscv-plic-api",
  "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
+ "task-config",
  "userlib",
 ]
 

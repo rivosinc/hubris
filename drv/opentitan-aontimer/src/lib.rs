@@ -135,7 +135,7 @@ impl AonTimer {
     // Converts  milliseconds to an appropriate count in the register.
     // If the result is greater than max int, the value is saturated to max int.
     fn ms_to_reg_count(&self, ms: u64) -> Result<u32, ()> {
-        let mut time: u64 = ms * ((self.clock_freq_hz / 1000) as u64);
+        let time: u64 = ms * ((self.clock_freq_hz / 1000) as u64);
         time.try_into().map_err(|_e| ())
     }
 }
