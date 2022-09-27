@@ -4,9 +4,6 @@ readme = "README.md"
 name = "demo-opentitan-earlgrey"
 version = "0.1.0"
 
-[features]
-#semihosting = ["kern/klog-semihosting-riscv"]
-
 [dependencies]
 cfg-if = "0.1.10"
 panic-halt = "0.2.0"
