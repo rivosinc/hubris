@@ -43,6 +43,11 @@ task-slots = ["ext_int_ctrl"]
 uses = ["aontimer"]
 stacksize = 512
 
+[tasks.aontimer.config]
+clock_frequency_hz = 200_000;
+bark_threshold_ticks = 2000;
+bite_threshold_ticks = 5000;
+
 [tasks.idle]
 name = "task-idle"
 priority = 5
