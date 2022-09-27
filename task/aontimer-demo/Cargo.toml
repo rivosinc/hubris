@@ -9,6 +9,10 @@ drv-ot-aontimer = {path = "../../drv/opentitan-aontimer", features= ["semihostin
 drv-ext-int-ctrl-api = {path = "../../drv/ext-int-ctrl-api"}
 task-config = {path = "../../lib/task-config"}
 
+[build-dependencies]
+task-config = {path = "../../lib/task-config"}
+
+
 [features]
 semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
 log-null = ["userlib/log-null"]
