@@ -13,6 +13,12 @@ const WDOG_BITE_THOLD_IDX: usize = 7;
 const WDOG_COUNT_IDX: usize = 8;
 const INTR_STATE_IDX: usize = 9;
 
+const INTR_STATE_BITS_WKUP: u32 = 0x1;
+const INTR_STATE_BITS_WDOG: u32 = 0x2;
+
+const WDOG_CTRL_BITS_EN: u32 = 0x1;
+const WDOG_CTRL_BITS_PAUSE_SLEEP: u32 = 0x2;
+
 // The OpenTitan Always-On Timer is a counter that increments. If the counter
 // reaches a configurable threshold, it will emit an interrupt signal, called the
 // "bark". If the counter reaches a second configurable threshold, it will reset
@@ -43,8 +49,10 @@ impl AonTimer {
             bark_cb,
         };
         unsafe {
+            // This is just a counter, reset it to 0.
             (*inst.base_addr)[WDOG_COUNT_IDX] = 0;
-            (*inst.base_addr)[INTR_STATE_IDX] = 0b11;
+            // write 1 to clear any pending interrupts
+            (*inst.base_addr)[INTR_STATE_IDX] = INTR_STATE_BITS_WKUP | INTR_STATE_BITS_WDOG;
             (*inst.base_addr)[WDOG_BARK_THOLD_IDX] = inst.ms_to_reg_count(bark_thold_ms)?;
             if bark_thold_ms > bite_thold_ms {
                 return Err(());
@@ -60,6 +68,7 @@ impl AonTimer {
             return Err(());
         }
         unsafe {
+            // disable everything
             (*self.base_addr)[WDOG_CTRL_IDX] = 0;
         }
         Ok(())
@@ -71,7 +80,7 @@ impl AonTimer {
             return Err(());
         }
         unsafe {
-            (*self.base_addr)[WDOG_CTRL_IDX] |= 1;
+            (*self.base_addr)[WDOG_CTRL_IDX] |= WDOG_CTRL_BITS_EN;
         }
         Ok(())
     }
@@ -83,7 +92,7 @@ impl AonTimer {
             return Err(());
         }
         unsafe {
-            (*self.base_addr)[WDOG_CTRL_IDX] |= 1;
+            (*self.base_addr)[WDOG_CTRL_IDX] |= WDOG_CTRL_BITS_EN;
             (*self.base_addr)[WDOG_REGWEN_IDX] = 0;
         }
         Ok(())
@@ -122,7 +131,7 @@ impl AonTimer {
 
     pub fn clear_wdt_irq(&self) {
         unsafe {
-            (*self.base_addr)[INTR_STATE_IDX] |= 0x2;
+            (*self.base_addr)[INTR_STATE_IDX] = INTR_STATE_BITS_WKUP | INTR_STATE_BITS_WDOG;
         }
     }
 
