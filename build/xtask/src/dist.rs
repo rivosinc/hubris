@@ -726,6 +726,11 @@ fn link_task(
     )
     .context(format!("failed to generate linker script for {}", name))?;
 
+    let working_dir = &cfg.dist_dir;
+    fs::copy(
+        "target/memory.x",
+        working_dir.join(format!("{}-memory.x", name)),
+    )?;
     fs::copy(&cfg.arch_consts.link_script, "target/link.x")?;
 
     // Link the static archive
@@ -756,6 +761,13 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         })?,
     )
     .context(format!("failed to generate linker script for {}", name))?;
+
+    let working_dir = &cfg.dist_dir;
+    fs::copy(
+        "target/memory.x",
+        working_dir.join(format!("{}-memory.x", name)),
+    )?;
+
     fs::copy(cfg.arch_consts.tlink_script, "target/link.x")?;
 
     // Link the static archive
