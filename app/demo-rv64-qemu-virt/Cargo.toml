@@ -12,7 +12,7 @@ riscv-rt = "0.9.0"
 [dependencies.kern]
 path = "../../sys/kern"
 default-features = false
-features = ["vectored-interrupts"]
+features = ["vectored-interrupts", "klog-semihosting"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
