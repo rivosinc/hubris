@@ -9,3 +9,17 @@ macro_rules! uassert {
         }
     };
 }
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "klog-semihosting")] {
+        macro_rules! klog {
+            ($s:expr) => { let _ = riscv_semihosting::hprintln!($s); };
+            ($s:expr, $($tt:tt)*) => { let _ = riscv_semihosting::hprintln!($s, $($tt)*); };
+        }
+    } else {
+        macro_rules! klog {
+            ($s:expr) => { };
+            ($s:expr, $($tt:tt)*) => { };
+        }
+    }
+}
