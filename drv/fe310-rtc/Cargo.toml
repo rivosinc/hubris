@@ -7,7 +7,7 @@ edition = "2021"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 ringbuf = {path = "../../lib/ringbuf" }
 drv-ext-int-ctrl-api = {path = "../ext-int-ctrl-api"}
-riscv = { version = "0.8" }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
 riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", optional = true, features = ["default", "user-mode"] }
 riscv-pseudo-atomics = { git = "https://github.com/rivosinc/riscv-psuedo-atomics", branch = "rivos/main", features = ["default", "user-mode"] }
 

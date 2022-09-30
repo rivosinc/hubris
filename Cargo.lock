@@ -531,7 +531,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "kern",
  "panic-halt",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-rt",
 ]
 
@@ -543,7 +543,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "kern",
  "panic-halt",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-rt",
 ]
 
@@ -687,7 +687,7 @@ dependencies = [
  "build-util",
  "drv-ext-int-ctrl-api",
  "ringbuf",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "userlib",
@@ -1081,7 +1081,7 @@ dependencies = [
  "phash",
  "phash-gen",
  "ringbuf",
- "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic)",
+ "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "ron 0.7.0",
@@ -1892,7 +1892,7 @@ dependencies = [
  "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
- "riscv 0.8.0 (git+https://github.com/rivosinc/riscv?branch=rivos/dev)",
+ "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-rt",
  "riscv-semihosting",
@@ -2639,19 +2639,8 @@ dependencies = [
 
 [[package]]
 name = "riscv"
-version = "0.8.0"
-source = "git+https://github.com/rivosinc/riscv?branch=dev/fawaz/plic#bb206d785d090f2f75209bc16304a02da54584cd"
-dependencies = [
- "bare-metal 1.0.0",
- "bit_field",
- "embedded-hal",
- "volatile-register",
-]
-
-[[package]]
-name = "riscv"
-version = "0.8.0"
-source = "git+https://github.com/rivosinc/riscv?branch=rivos/dev#e439c5fa821ba736aca593c9c1bc17ad9493a153"
+version = "0.8.1"
+source = "git+https://github.com/rivosinc/riscv?branch=rivos/dev#b13cb4c7cc7c450d2f6ea03c21520d80bb760cdf"
 dependencies = [
  "bare-metal 1.0.0",
  "bit_field",
@@ -2665,7 +2654,7 @@ version = "0.1.0"
 source = "git+https://github.com/rivosinc/riscv-psuedo-atomics?branch=rivos/main#4a652974468bafbafe8b95603423e88904c98458"
 dependencies = [
  "cfg-if 1.0.0",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.0",
 ]
 
 [[package]]
@@ -2675,7 +2664,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "527ddfacbbfeed89256163c2655b0392c4aa76dd95c0189dc05044bf2c47c3f8"
 dependencies = [
  "r0 1.0.0",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.0",
  "riscv-rt-macros",
  "riscv-target",
 ]
@@ -2697,7 +2686,7 @@ version = "0.0.1"
 source = "git+https://github.com/rivosinc/riscv-semihosting?branch=dev/fawaz/privilege-features#4e96e44f4518111678d6797b79d39c13d26d71d0"
 dependencies = [
  "cfg-if 1.0.0",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.0",
 ]
 
 [[package]]
@@ -3194,7 +3183,7 @@ name = "task-idle"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "riscv 0.7.0",
+ "riscv 0.8.1",
  "userlib",
 ]
 
@@ -3214,7 +3203,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "serde",
@@ -3562,7 +3551,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "num-traits",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-semihosting",
  "test-api",
  "userlib",
@@ -3607,7 +3596,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "num-traits",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "test-api",
@@ -3628,7 +3617,7 @@ dependencies = [
  "hubris-num-tasks",
  "hypocalls",
  "num-traits",
- "riscv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv 0.8.1",
  "riscv-semihosting",
  "task-config",
  "test-api",
