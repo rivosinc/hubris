@@ -26,7 +26,7 @@ build-i2c = {path = "../../build/i2c", optional = true}
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 
 [target.'cfg(target_arch = "riscv32")'.dependencies]
-riscv = { version = "0.8" }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
 riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", features = ["default", "user-mode"] }
 
 [features]
