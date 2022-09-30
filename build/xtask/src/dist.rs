@@ -1448,20 +1448,26 @@ fn build(
         .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
         .collect();
 
-    cmd.env(
-        "RUSTFLAGS",
-        &format!(
-            "
-             -C link-arg=-z -C link-arg=common-page-size=0x20 \
-             -C link-arg=-z -C link-arg=max-page-size=0x20 \
-             -C llvm-args=--enable-machine-outliner=never \
-             -C overflow-checks=y \
-             -C metadata={} \
-             {}
-             ",
-            cfg.link_script_hash, remap_path_prefix,
-        ),
+    let mut rustflags: String = format!(
+        "
+         -C link-arg=-z -C link-arg=common-page-size=0x20 \
+         -C link-arg=-z -C link-arg=max-page-size=0x20 \
+         -C llvm-args=--enable-machine-outliner=never \
+         -C overflow-checks=y \
+         -C metadata={} \
+         {}
+         ",
+        cfg.link_script_hash, remap_path_prefix,
     );
+
+    match cfg.arch_target {
+        ArchTarget::RISCV => {
+            rustflags.push_str(" -C link-arg=--orphan-handling=error")
+        }
+        ArchTarget::ARM => {}
+    }
+
+    cmd.env("RUSTFLAGS", &rustflags);
     cmd.arg("--");
     cmd.arg("-C")
         .arg("link-arg=-Tlink.x")
