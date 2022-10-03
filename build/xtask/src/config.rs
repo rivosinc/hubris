@@ -296,11 +296,15 @@ impl Config {
             match self.peripherals.get(name) {
                 Some(peripheral) => task_peripherals
                     .insert(name.to_string(), peripheral.clone()),
-                None => panic!(
-                    "Task {} uses non-existing peripheral {}",
-                    task_name.to_string(),
-                    name
-                ),
+                None => match self.extratext.get(name) {
+                    Some(peripheral) => task_peripherals
+                        .insert(name.to_string(), peripheral.clone()),
+                    None => panic!(
+                        "Task {} uses unknown peripheral {}",
+                        task_name.to_string(),
+                        name
+                    ),
+                },
             };
         }
 
