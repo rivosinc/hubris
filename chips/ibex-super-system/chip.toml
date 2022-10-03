@@ -1,0 +1,22 @@
+# These address are taken directly from the ibex super system RTL
+# https://github.com/GregAC/ibex_super_system/blob/3ae1363990828a88350cd2641681dfb6d706954c/rtl/system/ibex_super_system.sv#L11
+[gpio0]
+address = 0x8000_0000
+size = 4096
+
+[uart0]
+address = 0x8000_1000
+size = 4096
+
+[debug0]
+address = 0x1a11_0000
+size = 65536
+
+[mtime]
+address = 0x80002000
+size = 8 
+
+[mtimecmp]
+address = 0x80002008
+size = 8 
+
