@@ -5,13 +5,13 @@
 #![no_std]
 #![no_main]
 
-use drv_ot_aontimer::*;
 use drv_ext_int_ctrl_api::*;
+use drv_ot_aontimer::*;
 use userlib::*;
 
 task_slot!(INT_CONTROLLER, ext_int_ctrl);
 
-task_config::task_config!{
+task_config::task_config! {
     clock_frequency_hz: u32,
     bark_threshold_ticks: u64,
     bite_threshold_ticks: u64,
@@ -68,7 +68,8 @@ fn main() -> ! {
         Some(|| {
             sys_log!("Bark!");
         }),
-    ).unwrap();
+    )
+    .unwrap();
 
     timer.enable().unwrap();
     loop {

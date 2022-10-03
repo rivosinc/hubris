@@ -1,4 +1,4 @@
-task_config::task_config!{
+task_config::task_config! {
     #[allow(dead_code)]
     clock_frequency_hz: u32,
     bark_threshold_ticks: u64,
@@ -6,7 +6,9 @@ task_config::task_config!{
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    assert!(TASK_CONFIG.bark_threshold_ticks < TASK_CONFIG.bite_threshold_ticks, "Bark threshold must be less than the bite threshold");
+    assert!(
+        TASK_CONFIG.bark_threshold_ticks < TASK_CONFIG.bite_threshold_ticks,
+        "Bark threshold must be less than the bite threshold"
+    );
     Ok(())
 }
-
