@@ -431,7 +431,7 @@ fn timer_handler() {
                 let next = &mut tasks[next];
                 // Safety: next comes from the task table and we don't use it again
                 // until next kernel entry, so we meet the function requirements.
-                crate::task::switch_to(next);
+                crate::task::activate_next_task(next);
             }
 
             //
@@ -499,7 +499,7 @@ fn platform_interrupt_handler(irq: u32) {
                 let next = &mut tasks[next];
                 // Safety: next comes from the task table and we don't use it again
                 // until next kernel entry, so we meet the function requirements.
-                crate::task::switch_to(next);
+                crate::task::activate_next_task(next);
             })
         };
     }
@@ -606,7 +606,7 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
             let next = &mut tasks[next];
             // Safety: next comes from the task table and we don't use it again
             // until next kernel entry, so we meet the function requirements.
-            crate::task::switch_to(next);
+            crate::task::activate_next_task(next);
         });
     }
 }
@@ -666,7 +666,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
     unsafe {
-        crate::task::switch_to(task);
+        crate::task::activate_next_task(task);
         asm!("
             lw sp, ({sp})
             mret",
