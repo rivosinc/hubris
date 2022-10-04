@@ -657,7 +657,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    unsafe {
+        crate::task::switch_to(task);
+    }
 
     extern "C" {
         // Exposed by the linker script.

@@ -121,7 +121,6 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     let first_task_index =
         crate::task::select(task_table.len() - 1, task_table);
 
-    crate::arch::apply_memory_protection(&task_table[first_task_index]);
     TASK_TABLE_IN_USE.store(false, Ordering::Release);
     klog!("starting: hubris");
     crate::arch::start_first_task(
