@@ -15,6 +15,7 @@ use zerocopy::FromBytes;
 
 use crate::arch;
 use crate::err::UserError;
+use crate::profiling;
 use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
@@ -896,4 +897,5 @@ pub unsafe fn switch_to(task: &mut Task) {
     unsafe {
         arch::set_current_task(task);
     }
+    profiling::event_context_switch(task as *mut _ as usize);
 }
