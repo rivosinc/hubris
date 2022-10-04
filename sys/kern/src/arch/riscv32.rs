@@ -720,6 +720,7 @@ impl crate::atomic::AtomicExt for AtomicBool {
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the taask table, you'll be okay.
 pub unsafe fn set_current_task(task: &mut task::Task) {
+    crate::profiling::event_context_switch(task as *mut _ as usize);
     // Safety: should be ok if the contract above is met
     // TODO: make me an atomic
     unsafe {
