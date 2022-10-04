@@ -38,7 +38,7 @@ use unwrap_lite::UnwrapLite;
 use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::startup::with_task_table;
-use crate::task::{self, current_id, switch_to, ArchState, NextTask, Task};
+use crate::task::{self, current_id, activate_next_task, ArchState, NextTask, Task};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, USlice};
 
@@ -77,15 +77,15 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
 
             NextTask::Specific(i) => {
                 // Safety: this is a valid task from the tasks table, meeting
-                // switch_to's requirements.
-                unsafe { switch_to(&mut tasks[i]) }
+                // activate_next_task's requirements.
+                unsafe { activate_next_task(&mut tasks[i]) }
             }
 
             NextTask::Other => {
                 let next = task::select(idx, tasks);
                 // Safety: this is a valid task from the tasks table, meeting
-                // switch_to's requirements.
-                unsafe { switch_to(&mut tasks[next]) };
+                // activate_next_task's requirements.
+                unsafe { activate_next_task(&mut tasks[next]) };
             }
         }
     });

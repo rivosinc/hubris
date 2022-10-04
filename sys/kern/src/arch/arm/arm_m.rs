@@ -658,7 +658,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     }
 
     unsafe {
-        crate::task::switch_to(task);
+        crate::task::activate_next_task(task);
     }
 
     extern "C" {
@@ -1091,7 +1091,7 @@ unsafe extern "C" fn pendsv_entry() {
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            crate::task::switch_to(next);
+            crate::task::activate_next_task(next);
         }
     });
     crate::profiling::event_secondary_syscall_exit();
@@ -1429,7 +1429,7 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            crate::task::switch_to(next);
+            crate::task::activate_next_task(next);
         }
     });
 }
@@ -1610,7 +1610,7 @@ unsafe extern "C" fn handle_fault(
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            crate::task::switch_to(next);
+            crate::task::activate_next_task(next);
         }
     });
 }
