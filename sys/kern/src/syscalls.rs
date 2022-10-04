@@ -38,7 +38,9 @@ use unwrap_lite::UnwrapLite;
 use crate::arch;
 use crate::err::{InteractFault, UserError};
 use crate::startup::with_task_table;
-use crate::task::{self, current_id, activate_next_task, ArchState, NextTask, Task};
+use crate::task::{
+    self, activate_next_task, current_id, ArchState, NextTask, Task,
+};
 use crate::time::Timestamp;
 use crate::umem::{safe_copy, USlice};
 
