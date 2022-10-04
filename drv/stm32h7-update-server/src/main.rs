@@ -9,7 +9,8 @@
 #![no_std]
 #![no_main]
 
-use drv_update_api::UpdateError;
+use drv_update_api::stm32h7::{BLOCK_SIZE_BYTES, FLASH_WORD_BYTES};
+use drv_update_api::{UpdateError, UpdateTarget};
 use idol_runtime::{ClientError, Leased, LenLimit, RequestError, R};
 use ringbuf::*;
 use stm32h7::stm32h753 as device;
@@ -32,17 +33,6 @@ const BANK_END: u32 = 0x08200000;
 // BANK_ADDR + FLASH_WORD_BYTES is word 1 etc.
 const BANK_WORD_LIMIT: usize =
     (BANK_END - BANK_ADDR) as usize / FLASH_WORD_BYTES;
-
-// RM0433 Rev 7 section 4.3.9
-// Flash word is defined as 256 bits
-const FLASH_WORD_BITS: usize = 256;
-
-// Total length of a word in bytes (i.e. our array size)
-const FLASH_WORD_BYTES: usize = FLASH_WORD_BITS / 8;
-
-// Block is an abstract concept here. It represents the size of data the
-// driver will process at a time.
-const BLOCK_SIZE_BYTES: usize = FLASH_WORD_BYTES * 32;
 
 // Must match app.toml!
 const FLASH_IRQ: u32 = 1 << 0;
@@ -193,7 +183,7 @@ impl<'a> ServerImpl<'a> {
 
         for (i, c) in bytes.chunks_exact(4).enumerate() {
             let mut word: [u8; 4] = [0; 4];
-            word.copy_from_slice(&c);
+            word.copy_from_slice(c);
 
             // SAFETY
             // This code is running out of bank #1. The programming for bank #2
@@ -282,17 +272,44 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
     fn prep_image_update(
         &mut self,
         _: &RecvMessage,
+        img_type: UpdateTarget,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
-            UpdateState::InProgress | UpdateState::Finished => {
+            UpdateState::InProgress => {
                 return Err(UpdateError::UpdateInProgress.into())
             }
-            _ => (),
+            UpdateState::Finished => {
+                return Err(UpdateError::UpdateAlreadyFinished.into())
+            }
+            UpdateState::NoUpdate => (),
+        }
+
+        match img_type {
+            UpdateTarget::Alternate => (),
+            _ => return Err(UpdateError::BadImageType.into()),
         }
 
         self.unlock();
         self.bank_erase()?;
         self.state = UpdateState::InProgress;
+        Ok(())
+    }
+
+    fn abort_update(
+        &mut self,
+        _: &RecvMessage,
+    ) -> Result<(), RequestError<UpdateError>> {
+        match self.state {
+            UpdateState::NoUpdate => {
+                return Err(UpdateError::UpdateNotStarted.into())
+            }
+            UpdateState::Finished => {
+                return Err(UpdateError::UpdateAlreadyFinished.into())
+            }
+            UpdateState::InProgress => (),
+        }
+
+        self.state = UpdateState::NoUpdate;
         Ok(())
     }
 
@@ -303,10 +320,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         block: LenLimit<Leased<R, [u8]>, BLOCK_SIZE_BYTES>,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
-            UpdateState::NoUpdate | UpdateState::Finished => {
-                return Err(UpdateError::UpdateInProgress.into())
+            UpdateState::NoUpdate => {
+                return Err(UpdateError::UpdateNotStarted.into())
             }
-            _ => (),
+            UpdateState::Finished => {
+                return Err(UpdateError::UpdateAlreadyFinished.into())
+            }
+            UpdateState::InProgress => (),
         }
 
         let len = block.len();
@@ -327,7 +347,7 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
             const FLASH_WORDS_PER_BLOCK: usize =
                 BLOCK_SIZE_BYTES / FLASH_WORD_BYTES;
 
-            self.write_word(block_num * FLASH_WORDS_PER_BLOCK + i, &c)?;
+            self.write_word(block_num * FLASH_WORDS_PER_BLOCK + i, c)?;
         }
 
         Ok(())
@@ -338,10 +358,13 @@ impl idl::InOrderUpdateImpl for ServerImpl<'_> {
         _: &RecvMessage,
     ) -> Result<(), RequestError<UpdateError>> {
         match self.state {
-            UpdateState::NoUpdate | UpdateState::Finished => {
-                return Err(UpdateError::UpdateInProgress.into())
+            UpdateState::NoUpdate => {
+                return Err(UpdateError::UpdateNotStarted.into())
             }
-            _ => (),
+            UpdateState::Finished => {
+                return Err(UpdateError::UpdateAlreadyFinished.into())
+            }
+            UpdateState::InProgress => (),
         }
 
         self.swap_banks()?;
@@ -373,7 +396,7 @@ fn main() -> ! {
 }
 
 mod idl {
-    use super::UpdateError;
+    use super::{UpdateError, UpdateTarget};
 
     include!(concat!(env!("OUT_DIR"), "/server_stub.rs"));
 }

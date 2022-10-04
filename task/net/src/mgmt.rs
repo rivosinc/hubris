@@ -29,7 +29,7 @@ pub enum Ksz8463ResetSpeed {
     Normal,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Trace {
     None,
     Ksz8463Err { port: u8, err: KszError },
@@ -174,7 +174,7 @@ impl Bsp {
         eth: &Ethernet,
     ) -> Result<u16, PhyError> {
         if port >= 2 {
-            Err(PhyError::InvalidPort.into())
+            Err(PhyError::InvalidPort)
         } else {
             let rw = &mut MiimBridge::new(eth);
             self.vsc85x2
@@ -194,7 +194,7 @@ impl Bsp {
         eth: &Ethernet,
     ) -> Result<(), PhyError> {
         if port >= 2 {
-            Err(PhyError::InvalidPort.into())
+            Err(PhyError::InvalidPort)
         } else {
             let rw = &mut MiimBridge::new(eth);
             self.vsc85x2
@@ -302,7 +302,7 @@ impl Bsp {
             Ok((tx, rx)) => Ok((decode_counter(tx), decode_counter(rx))),
             Err(err) => {
                 ringbuf_entry!(Trace::Vsc85x2Err { port, err });
-                return Err(MgmtError::VscError);
+                Err(MgmtError::VscError)
             }
         };
         let rw = &mut MiimBridge::new(eth);
@@ -321,13 +321,21 @@ impl Bsp {
             out.vsc85x2_rx[i].media_bad = rx;
 
             if self.vsc85x2.has_mac_counters() {
+                // The VSC8562 has "surprising" notions of Tx vs Rx.
+                // Specifically, on the MAC side, "Tx" is from the host MAC's
+                // perspective!  This means that the Tx lines are *inputs*
+                // to the VSC8562, i.e. what most people would expect to be
+                // "receive" signals.
+                //
+                // Here, we swap TX and RX in the returned struct, so that they
+                // match normal expectations.
                 let (tx, rx) = decode_tx_rx(phy.mac_tx_rx_good(), port)?;
-                out.vsc85x2_tx[i].mac_good = tx;
-                out.vsc85x2_rx[i].mac_good = rx;
+                out.vsc85x2_tx[i].mac_good = rx; // swap!
+                out.vsc85x2_rx[i].mac_good = tx; // swap!
 
                 let (tx, rx) = decode_tx_rx(phy.mac_tx_rx_bad(), port)?;
-                out.vsc85x2_tx[i].mac_bad = tx;
-                out.vsc85x2_rx[i].mac_bad = rx;
+                out.vsc85x2_tx[i].mac_bad = rx; // swap!
+                out.vsc85x2_rx[i].mac_bad = tx; // swap!
             }
         }
 

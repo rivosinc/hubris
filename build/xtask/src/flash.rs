@@ -52,6 +52,7 @@ pub enum FlashArgument {
 
 #[derive(Debug, Serialize)]
 pub struct FlashConfig {
+    chip: Option<String>,
     program: FlashProgram,
     args: Vec<FlashArgument>,
 }
@@ -65,6 +66,7 @@ impl FlashProgramConfig {
 impl FlashConfig {
     fn new(program: FlashProgram) -> Self {
         FlashConfig {
+            chip: None,
             program,
             args: vec![],
         }
@@ -75,6 +77,14 @@ impl FlashConfig {
     //
     fn arg<'a>(&'a mut self, val: &str) -> &'a mut Self {
         self.args.push(FlashArgument::Direct(val.to_string()));
+        self
+    }
+
+    //
+    // Set the chip
+    //
+    fn set_chip(&mut self, val: &str) -> &mut Self {
+        self.chip = Some(val.to_string());
         self
     }
 
@@ -133,9 +143,11 @@ pub fn config(
     board: &str,
     chip_dir: &Path,
 ) -> anyhow::Result<Option<FlashConfig>> {
-    match board {
-        "lpcxpresso55s69" | "gemini-bu-rot-1" | "gimlet-rot-1" => {
-            let chip = if board == "lpcxpresso55s69" {
+    let mut flash = match board {
+        "lpcxpresso55s69" | "rot-carrier-1" | "rot-carrier-2"
+        | "gimlet-rot-1" => {
+            let chip = if board == "lpcxpresso55s69" || board == "rot-carrier-2"
+            {
                 "lpc55s69"
             } else {
                 "lpc55s28"
@@ -157,14 +169,14 @@ pub fn config(
                 .arg("hex")
                 .payload();
 
-            Ok(Some(flash))
+            flash
         }
 
         "stm32f3-discovery" | "stm32f4-discovery" | "nucleo-h743zi2"
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
-        | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-1" | "sidecar-1"
-        | "stm32g031" | "stm32g070" | "stm32g0b1" | "hifive-inventor"
-        | "hifive1-revb" => {
+        | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-a" | "sidecar-a"
+        | "stm32g031-nucleo" | "donglet-g030" | "donglet-g031"
+        | "stm32g070" | "stm32g0b1" | "hifive-inventor" | "hifive1-revb" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
@@ -177,26 +189,32 @@ pub fn config(
                 .arg("-c")
                 .arg("exit");
 
-            Ok(Some(flash))
+            flash
         }
         _ => {
             eprintln!("Warning: unrecognized board, won't know how to flash.");
-            Ok(None)
+            return Ok(None);
         }
-    }
+    };
+
+    flash.set_chip(chip_name(board)?);
+
+    Ok(Some(flash))
 }
 
 pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
     let b = match board {
-        "lpcxpresso55s69" => "LPC55S69JBD100",
-        "gemini-bu-rot-1" | "gimlet-rot-1" => "LPC55S69JBD100",
+        "lpcxpresso55s69" | "rot-carrier-2" => "LPC55S69JBD100",
+        "rot-carrier-1" | "gimlet-rot-1" => "LPC55S28JBD100",
         "stm32f3-discovery" => "STM32F303VCTx",
         "stm32f4-discovery" => "STM32F407VGTx",
         "nucleo-h743zi2" => "STM32H743ZITx",
         "nucleo-h753zi" => "STM32H753ZITx",
         "stm32h7b3i-dk" => "STM32H7B3IITx",
-        "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-1" | "sidecar-1" => "STM32H753ZITx",
-        "stm32g031" => "STM32G031Y8Yx",
+        "gemini-bu-1" | "gimletlet-1" | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-a" | "sidecar-a" => "STM32H753ZITx",
+        "donglet-g030" => "STM32G030F6Px",
+        "donglet-g031" => "STM32G031F8Px",
+        "stm32g031-nucleo" => "STM32G031Y8Yx",
         "stm32g070" => "STM32G070KBTx",
         "hifive-inventor" | "hifive1-revb" => "FE310",
         "stm32g0b1" => anyhow::bail!("This board is not yet supported by probe-rs, please use OpenOCD directly"),

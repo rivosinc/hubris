@@ -59,7 +59,7 @@ cfg_if::cfg_if! {
         }
     }
     // Target boards with 1 led
-    else if #[cfg(any(target_board = "stm32g031", target_board = "stm32g070", target_board = "stm32g0b1"))] {
+    else if #[cfg(any(target_board = "stm32g031-nucleo", target_board = "stm32g070", target_board = "stm32g0b1", target_board = "donglet-g030", target_board = "donglet-g031"))] {
         #[derive(FromPrimitive)]
         enum Led {
             Zero = 0,
@@ -267,8 +267,16 @@ cfg_if::cfg_if! {
         const LEDS: &[(drv_stm32xx_sys_api::PinSet, bool)] = &[
         {
             cfg_if::cfg_if! {
-                if #[cfg(target_board = "stm32g031")] {
+                if #[cfg(any(
+                    target_board = "stm32g031",
+                    target_board = "stm32g031-nucleo"
+                ))] {
                     (drv_stm32xx_sys_api::Port::C.pin(6), true)
+                } else if #[cfg(any(
+                    target_board = "donglet-g030",
+                    target_board = "donglet-g031"
+                ))] {
+                    (drv_stm32xx_sys_api::Port::A.pin(12), true)
                 } else {
                     (drv_stm32xx_sys_api::Port::A.pin(5), true)
                 }
@@ -485,7 +493,7 @@ cfg_if::cfg_if! {
                 // xpressoboard is active low LEDS
                 const LED_OFF_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::One;
                 const LED_ON_VAL: drv_lpc55_gpio_api::Value = drv_lpc55_gpio_api::Value::Zero;
-            } else if #[cfg(target_board = "gemini-bu-rot-1")] {
+            } else if #[cfg(any(target_board = "rot-carrier-1", target_board = "rot-carrier-2"))] {
                 const LED_ZERO_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO0_15;
                 const LED_ONE_PIN: drv_lpc55_gpio_api::Pin = drv_lpc55_gpio_api::Pin::PIO0_31;
 

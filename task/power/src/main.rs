@@ -37,7 +37,7 @@ include!(concat!(env!("OUT_DIR"), "/i2c_config.rs"));
 
 use i2c_config::sensors;
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 enum Device {
     IBC(Bmr491),
     Core(Raa229618),
@@ -261,7 +261,7 @@ fn get_state() -> PowerState {
     }
 }
 
-#[cfg(target_board = "sidecar-1")]
+#[cfg(target_board = "sidecar-a")]
 fn controllers() -> [PowerController; 15] {
     let task = I2C.get_task_id();
 
@@ -284,7 +284,7 @@ fn controllers() -> [PowerController; 15] {
     ]
 }
 
-#[cfg(target_board = "sidecar-1")]
+#[cfg(target_board = "sidecar-a")]
 fn get_state() -> PowerState {
     task_slot!(SEQUENCER, sequencer);
 

@@ -9,7 +9,7 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 #[repr(u32)]
-#[derive(Debug, FromPrimitive, PartialEq, Eq)]
+#[derive(Debug, FromPrimitive, PartialEq, Eq, Clone, Copy)]
 pub enum FlashStatus {
     Success = 0,
     InvalidArg = 4,
@@ -131,7 +131,7 @@ struct Version1DriverInterface {
     flash_program: unsafe extern "C" fn(
         config: &mut FlashConfig,
         start: u32,
-        src: *mut u32,
+        src: *mut u8,
         length: u32,
     ) -> u32,
     /// flash_verify_erase: Verify that the region is actually erased
@@ -400,8 +400,8 @@ fn handle_flash_status(ret: u32) -> Result<(), FlashStatus> {
     };
 
     match result {
-        FlashStatus::Success => return Ok(()),
-        a => return Err(a),
+        FlashStatus::Success => Ok(()),
+        a => Err(a),
     }
 }
 
@@ -412,8 +412,8 @@ fn handle_skboot_status(ret: u32) -> Result<(), ()> {
     };
 
     match result {
-        SkbootStatus::Success => return Ok(()),
-        _ => return Err(()),
+        SkbootStatus::Success => Ok(()),
+        _ => Err(()),
     }
 }
 
@@ -425,8 +425,8 @@ fn handle_secure_bool(ret: u32) -> Result<(), ()> {
 
     // This looks odd in that true is also a failure
     match result {
-        SecureBool::TrackerVerified => return Ok(()),
-        _ => return Err(()),
+        SecureBool::TrackerVerified => Ok(()),
+        _ => Err(()),
     }
 }
 
@@ -437,8 +437,8 @@ fn handle_bootloader_status(ret: u32) -> Result<(), BootloaderStatus> {
     };
 
     match result {
-        BootloaderStatus::Success => return Ok(()),
-        a => return Err(a),
+        BootloaderStatus::Success => Ok(()),
+        a => Err(a),
     }
 }
 
@@ -451,6 +451,7 @@ fn check_addr_len_alignment(addr: u32, len: u32) -> Result<(), FlashStatus> {
     }
 }
 
+#[allow(clippy::result_unit_err)]
 pub unsafe fn authenticate_image(addr: u32) -> Result<(), ()> {
     let mut result: u32 = 0;
 
@@ -528,7 +529,7 @@ pub unsafe fn flash_erase(addr: u32, len: u32) -> Result<(), FlashStatus> {
 
 pub unsafe fn flash_write(
     addr: u32,
-    buffer: *mut u32,
+    buffer: *mut u8,
     len: u32,
 ) -> Result<(), FlashStatus> {
     //   XXX More validation of buffer?
@@ -723,8 +724,8 @@ pub fn get_cmpa_data(
 // Keep this as a sample function for now
 pub fn get_bootloader_version() -> u32 {
     let version = &bootloader_tree().version;
-    return (version.bugfix as u32)
+    (version.bugfix as u32)
         | ((version.minor as u32) << 8)
         | ((version.major as u32) << 16)
-        | ((version.name as u32) << 24);
+        | ((version.name as u32) << 24)
 }

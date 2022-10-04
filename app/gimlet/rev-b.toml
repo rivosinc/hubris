@@ -2,6 +2,7 @@ name = "gimlet-b"
 target = "thumbv7em-none-eabihf"
 board = "gimlet-b"
 chip = "../../chips/stm32h7"
+memory = "memory-large.toml"
 stacksize = 896
 
 [kernel]
@@ -27,21 +28,25 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.jefe.config]
-state-owner = "gimlet_seq"
-on-state-change = {net = {bit-number = 3}}
-reset-reason-owner = "sys"
+[tasks.jefe.config.on-state-change]
+net = {bit-number = 3}
+host_sp_comms = {bit-number = 1}
+
+[tasks.jefe.config.allowed-callers]
+set_state = ["gimlet_seq"]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy", "mgmt_gateway"]
 
 [tasks.net]
 name = "task-net"
 stacksize = 4640
 priority = 5
 features = ["mgmt", "h753", "gimlet", "vlan"]
-max-sizes = {flash = 131072, ram = 16384, sram1 = 16384}
+max-sizes = {flash = 131072, ram = 32768, sram1 = 16384}
 sections = {eth_bulk = "sram1"}
-uses = ["eth", "eth_dma", "system_flash"]
+uses = ["eth", "eth_dma", "system_flash", "tim16"]
 start = true
-interrupts = {"eth.irq" = 0b1}
+interrupts = {"eth.irq" = 0b1, "tim16.irq" = 0b10}
 task-slots = ["sys", { spi_driver = "spi2_driver" }, "jefe"]
 
 [tasks.sys]
@@ -82,7 +87,7 @@ task-slots = ["sys"]
 global_config = "spi2"
 
 [tasks.i2c_driver]
-name = "drv-stm32h7-i2c-server"
+name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 3
 max-sizes = {flash = 16384, ram = 2048}
@@ -116,7 +121,7 @@ name = "task-thermal"
 features = ["itm", "gimlet"]
 priority = 5
 max-sizes = {flash = 32768, ram = 8192 }
-stacksize = 4504
+stacksize = 5400
 start = true
 task-slots = ["i2c_driver", "sensor", "gimlet_seq", "jefe"]
 
@@ -173,6 +178,15 @@ uses = ["quadspi"]
 interrupts = {"quadspi.irq" = 1}
 task-slots = ["sys", "hash_driver"]
 
+[tasks.update_server]
+name = "stm32h7-update-server"
+priority = 3
+max-sizes = {flash = 16384, ram = 4096}
+stacksize = 2048
+start = true
+uses = ["flash_controller", "bank2"]
+interrupts = {"flash_controller.irq" = 0b1}
+
 [tasks.sensor]
 name = "task-sensor"
 features = ["itm"]
@@ -180,6 +194,17 @@ priority = 4
 max-sizes = {flash = 8192, ram = 2048 }
 stacksize = 1920        # Sensor data is stored on the stack
 start = true
+
+[tasks.host_sp_comms]
+name = "task-host-sp-comms"
+features = ["stm32h753", "uart7", "baud_rate_3M", "hardware_flow_control"]
+uses = ["uart7"]
+interrupts = {"uart7.irq" = 0b01}
+priority = 5
+max-sizes = {flash = 16384, ram = 16384}
+stacksize = 2048
+start = true
+task-slots = ["sys", "gimlet_seq"]
 
 [tasks.udpecho]
 name = "task-udpecho"
@@ -199,6 +224,29 @@ start = true
 task-slots = ["net"]
 features = ["vlan"]
 
+[tasks.udprpc]
+name = "task-udprpc"
+priority = 6
+max-sizes = {flash = 32768, ram = 8192}
+stacksize = 4096
+start = true
+task-slots = ["net"]
+features = ["vlan"]
+
+[tasks.mgmt_gateway]
+name = "task-mgmt-gateway"
+priority = 6
+max-sizes = {flash = 65536, ram = 16384}
+stacksize = 2048
+start = true
+uses = [
+    "usart1",
+    "system_flash", # TODO also used by `net`, both to read the stm32 uid
+]
+task-slots = ["jefe", "net", "update_server", "sys", "hf", "gimlet_seq"]
+features = ["gimlet", "usart1", "vlan", "baud_rate_3M", "hardware_flow_control"]
+interrupts = {"usart1.irq" = 0b10}
+
 [tasks.validate]
 name = "task-validate"
 priority = 5
@@ -206,6 +254,14 @@ max-sizes = {flash = 16384, ram = 4096 }
 stacksize = 1000 
 start = true
 task-slots = ["i2c_driver"]
+
+[tasks.vpd]
+name = "task-vpd"
+priority = 4
+max-sizes = {flash = 8192, ram = 1024}
+start = true
+task-slots = ["sys", "i2c_driver"]
+stacksize = 800
 
 [tasks.idle]
 name = "task-idle"
@@ -353,12 +409,233 @@ device = "pca9545"
 description = "U.2 IJ/FRUID mux"
 refdes = "U337"
 
+################################################################################
+# Sharkfins
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin A VPD"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin A hot swap controller"
+refdes = "J206"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin B VPD"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin B hot swap controller"
+refdes = "J207"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin C VPD"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin C hot swap controller"
+refdes = "J208"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 4
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin D VPD"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 1
+segment = 4
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin D hot swap controller"
+refdes = "J209"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin E VPD"
+refdes = "J210"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin E hot swap controller"
+refdes = "J210"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin F VPD"
+refdes = "J211"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin F hot swap controller"
+refdes = "J211"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin G VPD"
+refdes = "J212"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 3
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin G hot swap controller"
+refdes = "J212"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 4
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin H VPD"
+refdes = "J213"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 2
+segment = 4
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin H hot swap controller"
+refdes = "J213"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 1
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin I VPD"
+refdes = "J214"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 1
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin I hot swap controller"
+refdes = "J214"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 2
+address = 0b1010_000
+device = "at24csw080"
+description = "U.2 Sharkfin J VPD"
+refdes = "J215"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 2
+address = 0b0111_000
+device = "max5970"
+description = "U.2 Sharkfin J hot swap controller"
+refdes = "J215"
+removable = true
+
+[[config.i2c.devices]]
+bus = "front"
+mux = 3
+segment = 4
+address = 0b1010_000
+device = "at24csw080"
+description = "Gimlet VPD"
+refdes = "U615"
+
 [[config.i2c.devices]]
 bus = "m2"
 address = 0x73
 device = "pca9545"
 description = "M.2 mux"
 refdes = "U422"
+
+[[config.i2c.devices]]
+bus = "m2"
+mux = 1
+segment = 3
+address = 0b1010_000
+device = "at24csw080"
+description = "Fan VPD"
+refdes = "J180"
+removable = true
 
 [[config.i2c.devices]]
 bus = "m2"
@@ -757,3 +1034,17 @@ owner = {name = "udpbroadcast", notification = 1}
 port = 997
 tx = { packets = 3, bytes = 1024 }
 rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.rpc]
+kind = "udp"
+owner = {name = "udprpc", notification = 1}
+port = 998
+tx = { packets = 3, bytes = 1024 }
+rx = { packets = 3, bytes = 1024 }
+
+[config.net.sockets.mgmt_gateway]
+kind = "udp"
+owner = {name = "mgmt_gateway", notification = 0b01}
+port = 11111 # TODO do we have a documented port for MGS traffic?
+tx = { packets = 3, bytes = 2048 }
+rx = { packets = 3, bytes = 2048 }

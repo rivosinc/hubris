@@ -35,6 +35,8 @@ pub struct Buffer(u8);
 pub enum Functions {
     Sleep(u16, u32),
     Send((Task, u16, Buffer, usize), u32),
+    SendLeaseRead((Task, u16, Buffer, usize, usize), u32),
+    SendLeaseWrite((Task, u16, Buffer, usize, usize), u32),
     #[cfg(feature = "gpio")]
     GpioInput(drv_lpc55_gpio_api::Pin, drv_lpc55_gpio_api::GpioError),
     #[cfg(feature = "gpio")]
@@ -73,6 +75,14 @@ pub enum Functions {
     ReadFromSp((u32, u32), drv_sp_ctrl_api::SpCtrlError),
     #[cfg(feature = "spctrl")]
     SpCtrlInit((), drv_sp_ctrl_api::SpCtrlError),
+    #[cfg(feature = "update")]
+    StartUpdate((), drv_update_api::UpdateError),
+    #[cfg(feature = "update")]
+    WriteBlock((usize, usize), drv_update_api::UpdateError),
+    #[cfg(feature = "update")]
+    FinishUpdate((), drv_update_api::UpdateError),
+    #[cfg(feature = "update")]
+    BlockSize((), drv_update_api::UpdateError),
 }
 
 #[cfg(feature = "spctrl")]
@@ -161,7 +171,7 @@ pub(crate) fn read_from_sp(
 fn gpio_args(
     stack: &[Option<u32>],
 ) -> Result<drv_lpc55_gpio_api::Pin, Failure> {
-    if stack.len() < 1 {
+    if stack.is_empty() {
         return Err(Failure::Fault(Fault::MissingParameters));
     }
 
@@ -354,6 +364,8 @@ fn gpio_reset(
 pub(crate) static HIFFY_FUNCS: &[Function] = &[
     crate::common::sleep,
     crate::common::send,
+    crate::common::send_lease_read,
+    crate::common::send_lease_write,
     #[cfg(feature = "gpio")]
     gpio_input,
     #[cfg(feature = "gpio")]
@@ -378,6 +390,14 @@ pub(crate) static HIFFY_FUNCS: &[Function] = &[
     read_from_sp,
     #[cfg(feature = "spctrl")]
     sp_ctrl_init,
+    #[cfg(feature = "update")]
+    crate::common::start_update,
+    #[cfg(feature = "update")]
+    crate::common::write_block,
+    #[cfg(feature = "update")]
+    crate::common::finish_update,
+    #[cfg(feature = "update")]
+    crate::common::block_size,
 ];
 
 //

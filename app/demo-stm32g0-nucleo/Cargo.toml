@@ -8,6 +8,7 @@ version = "0.1.0"
 itm = ["panic-itm", "kern/klog-itm"]
 semihosting = ["panic-semihosting", "klog-semihosting"]
 klog-semihosting = ["kern/klog-semihosting"]
+g030 = ["stm32g0/stm32g030"]
 g031 = ["stm32g0/stm32g031"]
 g070 = ["stm32g0/stm32g070"]
 g0b1 = ["stm32g0/stm32g0b1"]

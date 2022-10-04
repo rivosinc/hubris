@@ -164,7 +164,7 @@ struct I2cSensors {
     names: Option<Vec<String>>,
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Disposition {
     /// controller is an initiator
     Initiator,
@@ -342,10 +342,13 @@ impl ConfigGenerator {
         writeln!(
             &mut s,
             r##"
-    use drv_stm32h7_i2c::I2cController;
+    #[allow(dead_code)]
+    pub const NCONTROLLERS: usize = {ncontrollers};
 
-    pub fn controllers() -> [I2cController<'static>; {}] {{"##,
-            self.controllers.len()
+    use drv_stm32xx_i2c::I2cController;
+
+    pub fn controllers() -> [I2cController<'static>; NCONTROLLERS] {{"##,
+            ncontrollers = self.controllers.len()
         )?;
 
         if !self.controllers.is_empty() {
@@ -362,7 +365,10 @@ impl ConfigGenerator {
         use stm32h7::stm32h753 as device;
 
         #[cfg(feature = "h7b3")]
-        use stm32h7::stm32h7b3 as device;"##
+        use stm32h7::stm32h7b3 as device;
+
+        #[cfg(feature = "g031")]
+        use stm32g0::stm32g031 as device;"##
             )?;
         }
 
@@ -379,10 +385,11 @@ impl ConfigGenerator {
             I2cController {{
                 controller: Controller::I2C{controller},
                 peripheral: Peripheral::I2c{controller},
-                notification: (1 << ({controller} - 1)),
+                notification: (1 << {shift}),
                 registers: unsafe {{ &*device::I2C{controller}::ptr() }},
             }},"##,
-                controller = c.controller
+                shift = c.controller - 1,
+                controller = c.controller,
             )?;
         }
 
@@ -417,7 +424,7 @@ impl ConfigGenerator {
         writeln!(
             &mut s,
             r##"
-    use drv_stm32h7_i2c::I2cPin;
+    use drv_stm32xx_i2c::I2cPin;
 
     pub fn pins() -> [I2cPin; {}] {{"##,
             len
@@ -486,10 +493,15 @@ impl ConfigGenerator {
         }
 
         let mut s = &mut self.output;
+        let mut nmuxedbuses = 0;
         let mut len = 0;
 
         for c in &self.controllers {
             for port in c.ports.values() {
+                if !port.muxes.is_empty() {
+                    nmuxedbuses += 1;
+                }
+
                 len += port.muxes.len();
             }
         }
@@ -497,7 +509,10 @@ impl ConfigGenerator {
         write!(
             &mut s,
             r##"
-    use drv_stm32h7_i2c::I2cMux;
+    #[allow(dead_code)]
+    pub const NMUXEDBUSES: usize = {nmuxedbuses};
+
+    use drv_stm32xx_i2c::I2cMux;
 
     pub fn muxes() -> [I2cMux<'static>; {}] {{"##,
             len
@@ -555,7 +570,7 @@ impl ConfigGenerator {
 
                     let driver_struct = format!(
                         "{}{}",
-                        (&mux.driver[..1].to_string()).to_uppercase(),
+                        mux.driver[..1].to_uppercase(),
                         &mux.driver[1..]
                     );
 
@@ -566,7 +581,7 @@ impl ConfigGenerator {
                 controller: Controller::I2C{controller},
                 port: PortIndex({i2c_port}),
                 id: Mux::M{mindex},
-                driver: &drv_stm32h7_i2c::{driver}::{driver_struct},
+                driver: &drv_stm32xx_i2c::{driver}::{driver_struct},
                 enable: {enable},
                 address: {address:#x},
             }},"##,
@@ -995,20 +1010,18 @@ impl ConfigGenerator {
                 } else {
                     d.name.clone()
                 }
-            } else {
-                if let Some(names) = &d.sensors.as_ref().unwrap().names {
-                    if idx >= names.len() {
-                        panic!(
-                            "name array is too short ({}) for sensor index ({})",
-                            names.len(),
-                            idx
-                        );
-                    } else {
-                        Some(names[idx].clone())
-                    }
+            } else if let Some(names) = &d.sensors.as_ref().unwrap().names {
+                if idx >= names.len() {
+                    panic!(
+                        "name array is too short ({}) for sensor index ({})",
+                        names.len(),
+                        idx
+                    );
                 } else {
-                    d.name.clone()
+                    Some(names[idx].clone())
                 }
+            } else {
+                d.name.clone()
             };
 
             if let Some(bus) = &d.bus {

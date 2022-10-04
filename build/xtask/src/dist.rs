@@ -12,10 +12,12 @@ use std::process::Command;
 
 use abi::AbiSize;
 use anyhow::{anyhow, bail, Context, Result};
+use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
 use path_slash::PathBufExt;
 use serde::Serialize;
+use zerocopy::AsBytes;
 
 use crate::{
     config::{BuildConfig, Config},
@@ -276,13 +278,22 @@ pub fn list_tasks(app_toml: &Path) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
+pub struct SecureData {
+    secure: Range<AbiSize>,
+    nsc: Range<AbiSize>,
+}
+
+/// Represents allocations and free spaces for a particular image
+type AllocationMap = (Allocations, IndexMap<String, Range<AbiSize>>);
+
 pub fn package(
     verbose: bool,
     edges: bool,
     app_toml: &Path,
     tasks_to_build: Option<Vec<String>>,
     dirty_ok: bool,
-) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<AbiSize>>)>> {
+) -> Result<BTreeMap<String, AllocationMap>> {
     let cfg = PackageConfig::new(app_toml, verbose, edges)?;
 
     // If we're using filters, we change behavior at the end. Record this in a
@@ -345,14 +356,14 @@ pub fn package(
     // Allocate memories.
     let allocated = allocate_all(&cfg.toml, &task_sizes)?;
 
-    // Build each task.
-    let mut all_output_sections = BTreeMap::default();
-
     for image_name in &cfg.toml.image_names {
+        // Build each task.
+        let mut all_output_sections = BTreeMap::default();
+
         std::fs::create_dir_all(&cfg.img_dir(image_name))?;
         let (allocs, memories) = allocated
             .get(image_name)
-            .ok_or(anyhow!("failed to get imag name"))?;
+            .ok_or_else(|| anyhow!("failed to get image name"))?;
         // Build all relevant tasks, collecting entry points into a HashMap.  If
         // we're doing a partial build, then assign a dummy entry point into
         // the HashMap, because the kernel kconfig will still need it.
@@ -365,7 +376,7 @@ pub fn package(
                     // Link tasks regardless of whether they have changed, because
                     // we don't want to track changes in the other linker input
                     // (task-link.x, memory.x, table.ld, etc)
-                    link_task(&cfg, name, image_name, &allocs)?;
+                    link_task(&cfg, name, image_name, allocs)?;
                     task_entry_point(
                         &cfg,
                         name,
@@ -380,15 +391,19 @@ pub fn package(
             })
             .collect::<Result<_, _>>()?;
 
+        let s =
+            secure_update(&cfg, allocs, &mut all_output_sections, image_name)?;
+
         // Build the kernel!
         let kern_build = if tasks_to_build.contains("kernel") {
             Some(build_kernel(
                 &cfg,
-                &allocs,
+                allocs,
                 &mut all_output_sections,
                 &cfg.toml.memories(image_name)?,
                 &entry_points,
                 image_name,
+                &s,
             )?)
         } else {
             None
@@ -401,7 +416,7 @@ pub fn package(
         }
 
         // Print stats on memory usage
-        let starting_memories = cfg.toml.memories(&image_name)?;
+        let starting_memories = cfg.toml.memories(image_name)?;
         for (name, range) in &starting_memories {
             println!(
                 "{:<5} = {:#010x}..{:#010x}",
@@ -434,13 +449,11 @@ pub fn package(
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
             let root_cert = &signing.root_cert;
-            lpc55_sign::signed_image::sign_image(
-                false, // TODO add an option to enable DICE
+            let rkth = lpc55_sign::signed_image::sign_image(
                 &cfg.img_file("combined.bin", image_name),
                 &cfg.app_src_dir.join(&priv_key),
                 &cfg.app_src_dir.join(&root_cert),
                 &cfg.img_file("combined_rsa.bin", image_name),
-                &cfg.img_file("CMPA.bin", image_name),
             )?;
             std::fs::copy(
                 cfg.img_file("combined.bin", image_name),
@@ -459,12 +472,25 @@ pub fn package(
                 cfg.toml
                     .memories(image_name)?
                     .get(&"flash".to_string())
-                    .ok_or(anyhow!("failed to get flash region"))?
+                    .ok_or_else(|| anyhow!("failed to get flash region"))?
                     .start,
                 kentry,
                 &cfg.img_file("final.srec", image_name),
             )?;
+
             translate_srec_to_other_formats(&cfg, image_name, "final")?;
+
+            // The 'enable-dice' key causes the build to create a CMPA image
+            // with DICE enabled, however the CFPA & keystore must be setup too
+            // before the UDS can be created. See lpc55_support for details.
+            lpc55_sign::signed_image::create_cmpa(
+                signing.enable_dice,
+                signing.dice_inc_nxp_cfg,
+                signing.dice_cust_cfg,
+                signing.dice_inc_sec_epoch,
+                &rkth,
+                &cfg.img_file("CMPA.bin", image_name),
+            )?;
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
@@ -481,6 +507,112 @@ pub fn package(
         build_archive(&cfg, image_name)?;
     }
     Ok(allocated)
+}
+
+fn secure_update(
+    cfg: &PackageConfig,
+    allocs: &Allocations,
+    all_output_sections: &mut BTreeMap<AbiSize, LoadSegment>,
+    image_name: &str,
+) -> Result<Option<SecureData>> {
+    if let Some(secure) = &cfg.toml.secure_task {
+        if !cfg.toml.tasks.contains_key(secure) {
+            bail!("secure task named {} not found!", secure);
+        }
+        // The secure task is our designated TrustZone region. We expect
+        // this to have a non-secure callable (NSC) region for entry
+        // pointers and a .tz_table of entry points
+        let secure_bin = std::fs::read(&cfg.img_file(&secure, image_name))?;
+        let secure_elf = goblin::elf::Elf::parse(&secure_bin)?;
+
+        let nsc = match elf::get_section_by_name(&secure_elf, ".nsc") {
+            Some(s) => s,
+            _ => bail!("Couldn't find the nsc region in the secure task"),
+        };
+
+        if nsc.sh_size == 0 {
+            bail!("nsc region is zero?");
+        }
+
+        let tz_table = match elf::get_section_by_name(&secure_elf, ".tz_table")
+        {
+            Some(s) => s,
+            _ => bail!("Couldn't find the TZ table in the secure task"),
+        };
+
+        if tz_table.sh_size == 0 {
+            bail!("tz_table is zero. This does not seem correct.");
+        }
+
+        let flash = &allocs.tasks[secure]["flash"];
+
+        for (name, t) in &cfg.toml.tasks {
+            // Any task listed as using secure needs to have an appropriately
+            // sized .tz_table section which will get updated
+            if t.uses_secure_entry {
+                if t.name == *secure {
+                    bail!("Secure task is selecting the secure region! This is wrong!");
+                }
+
+                let mut bin = std::fs::read(&cfg.img_file(name, image_name))?;
+                let elf = goblin::elf::Elf::parse(&bin)?;
+
+                let s = match elf::get_section_by_name(&elf, ".tz_table") {
+                    Some(s) => s,
+                    _ => bail!("task {} wants to use the secure region but doesn't have a slot for the TZ table", name),
+                };
+
+                if s.sh_size != tz_table.sh_size {
+                    bail!("task {} has table size {:x} but secure table size is {:x}",
+                            name, s.sh_size, tz_table.sh_size);
+                }
+
+                let target_start = s.sh_offset as usize;
+                let target_end = (s.sh_offset + s.sh_size) as usize;
+
+                let table_start = tz_table.sh_offset as usize;
+                let table_end =
+                    (tz_table.sh_offset + tz_table.sh_size) as usize;
+
+                bin[target_start..target_end]
+                    .clone_from_slice(&secure_bin[table_start..table_end]);
+
+                std::fs::write(
+                    &cfg.img_file(format!("{}.modified", name), image_name),
+                    &bin,
+                )?;
+                std::fs::copy(
+                    &cfg.img_file(format!("{}.modified", name), image_name),
+                    &cfg.img_file(name, image_name),
+                )?;
+
+                let mut symbol_table = BTreeMap::default();
+                let _ = load_elf(
+                    &cfg.img_file(name, image_name),
+                    all_output_sections,
+                    &mut symbol_table,
+                )?;
+            }
+        }
+
+        let start = nsc.sh_addr as AbiSize;
+        let end = (nsc.sh_addr + nsc.sh_size) as AbiSize;
+
+        Ok(Some(SecureData {
+            secure: flash.start..flash.end,
+            nsc: start..end,
+        }))
+    } else {
+        if cfg
+            .toml
+            .tasks
+            .iter()
+            .any(|(_, task)| task.uses_secure_entry)
+        {
+            bail!("task is using secure entry but no secure task is found!");
+        }
+        Ok(None)
+    }
 }
 
 /// Convert SREC to other formats for convenience.
@@ -533,7 +665,7 @@ fn write_gdb_script(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         // Even on Windows, GDB expects path components to be separated by '/',
         // so we tweak the path here so that remapping works.
         if cfg!(windows) {
-            path_str = path_str.replace("\\", "/");
+            path_str = path_str.replace('\\', "/");
         }
         writeln!(gdb_script, "set substitute-path {} {}", remap, path_str)?;
     }
@@ -612,6 +744,13 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         cfg.img_file("script.gdb", image_name),
         debug_dir.join("script.gdb"),
     )?;
+
+    if let Some(auxflash) = cfg.toml.auxflash.as_ref() {
+        let file = cfg.dist_file("auxi.tlvc");
+        std::fs::write(&file, &auxflash.data)
+            .context(format!("Failed to write auxi to {:?}", file))?;
+        archive.copy(cfg.dist_file("auxi.tlvc"), img_dir.join("auxi.tlvc"))?;
+    }
 
     // Copy `openocd.cfg` into the archive if it exists; it's not used for
     // the LPC55 boards.
@@ -713,6 +852,11 @@ struct LoadSegment {
 fn build_task(cfg: &PackageConfig, name: &str) -> Result<bool> {
     // Use relocatable linker script for this build
     fs::copy(cfg.arch_consts.rlink_script, "target/link.x")?;
+    if cfg.toml.need_tz_linker(&name) {
+        fs::copy("build/trustzone.x", "target/trustzone.x")?;
+    } else {
+        File::create(Path::new("target/trustzone.x"))?;
+    }
 
     let build_config = cfg
         .toml
@@ -739,10 +883,23 @@ fn link_task(
         task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
+        &cfg.toml.all_regions("flash".to_string())?,
+        image_name,
     )
     .context(format!("failed to generate linker script for {}", name))?;
 
+    let working_dir = &cfg.dist_dir;
+    fs::copy(
+        "target/memory.x",
+        working_dir.join(format!("{}-memory.x", name)),
+    )?;
+
     fs::copy(&cfg.arch_consts.link_script, "target/link.x")?;
+    if cfg.toml.need_tz_linker(&name) {
+        fs::copy("build/trustzone.x", "target/trustzone.x")?;
+    } else {
+        File::create(Path::new("target/trustzone.x"))?;
+    }
 
     // Link the static archive
     link(
@@ -770,9 +927,23 @@ fn link_dummy_task(cfg: &PackageConfig, name: &str) -> Result<()> {
         task_toml.stacksize.or(cfg.toml.stacksize).ok_or_else(|| {
             anyhow!("{}: no stack size specified and there is no default", name)
         })?,
+        &cfg.toml.all_regions("flash".to_string())?,
+        &cfg.toml.image_names[0],
     )
     .context(format!("failed to generate linker script for {}", name))?;
+
+    let working_dir = &cfg.dist_dir;
+    fs::copy(
+        "target/memory.x",
+        working_dir.join(format!("{}-memory.x", name)),
+    )?;
+
     fs::copy(cfg.arch_consts.tlink_script, "target/link.x")?;
+    if cfg.toml.need_tz_linker(&name) {
+        fs::copy("build/trustzone.x", "target/trustzone.x")?;
+    } else {
+        File::create(Path::new("target/trustzone.x"))?;
+    }
 
     // Link the static archive
     link(cfg, &format!("{}.elf", name), &format!("{}.tmp", name))
@@ -825,13 +996,19 @@ fn build_kernel(
     all_memories: &IndexMap<String, Range<AbiSize>>,
     entry_points: &HashMap<String, AbiSize>,
     image_name: &str,
+    secure: &Option<SecureData>,
 ) -> Result<(AbiSize, BTreeMap<String, AbiSize>)> {
     let mut image_id = fnv::FnvHasher::default();
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig =
-        make_kconfig(&cfg.toml, &allocs.tasks, entry_points, image_name)?;
+    let kconfig = make_kconfig(
+        &cfg.toml,
+        &allocs.tasks,
+        entry_points,
+        image_name,
+        secure,
+    )?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -864,6 +1041,7 @@ fn build_kernel(
         &cfg.img_file("kernel.modified", image_name),
         all_memories,
         all_output_sections,
+        secure,
     )? {
         std::fs::copy(
             &cfg.dist_file("kernel"),
@@ -897,9 +1075,8 @@ fn update_image_header(
     output: &Path,
     map: &IndexMap<String, Range<AbiSize>>,
     all_output_sections: &mut BTreeMap<AbiSize, LoadSegment>,
+    secure: &Option<SecureData>,
 ) -> Result<bool> {
-    use zerocopy::AsBytes;
-
     let mut file_image = std::fs::read(input)?;
     let elf = goblin::elf::Elf::parse(&file_image)?;
 
@@ -926,10 +1103,9 @@ fn update_image_header(
                 for (addr, sec) in all_output_sections {
                     if (*addr as AbiSize) > flash.start
                         && (*addr as AbiSize) < flash.end
+                        && (*addr as AbiSize) > end
                     {
-                        if (*addr as AbiSize) > end {
-                            end = addr + (sec.data.len() as AbiSize);
-                        }
+                        end = addr + (sec.data.len() as AbiSize);
                     }
                 }
 
@@ -941,12 +1117,87 @@ fn update_image_header(
                     ..Default::default()
                 };
 
-                for (i, (_, range)) in map.iter().enumerate() {
-                    header.sau_entries[i].rbar = range.start;
-                    header.sau_entries[i].rlar = (range.end - 1) & !0x1f | 1;
-                }
+                let last = if let Some(s) = secure {
+                    let mut i = 0;
 
-                let last = map.len();
+                    // Our memory layout with a secure task looks like the
+                    // following:
+                    // +---------------+
+                    // |               |
+                    // |   Task        |
+                    // | (Non-secure)  |
+                    // |               |
+                    // |               |
+                    // +---------------+
+                    // |               |
+                    // |   Task        |
+                    // | (Non-secure)  |
+                    // |               |
+                    // |               |
+                    // +---------------+
+                    // |               |
+                    // |   Task        |
+                    // | (Secure)      |
+                    // +---------------+
+                    // |    NSC        |
+                    // +---------------+
+                    // |               |
+                    // |   Task        |
+                    // | (Non-secure)  |
+                    // |               |
+                    // |               |
+                    // +---------------+
+                    //
+                    // The entries in the SAU specify regions that are
+                    // non-secure OR non-secure callable (NSC).
+                    // This means the entry for our flash gets broken
+                    // down into three entries:
+                    // 1) Non-secure range before the secure task
+                    // 2) non-secure range after the secure task
+                    // 3) NSC region in the secure task
+                    for (_, range) in map.iter() {
+                        if range.contains(&s.secure.start) {
+                            // These values correspond to SAU_RBAR and
+                            // SAU_RLAR which are defined in D1.2.221 and
+                            // D1.2.222 of the ARMv8m manual
+                            //
+                            // Bit0 of RLAR indicates a region is valid,
+                            // Bit1 indicates that the region is NSC
+                            // All entries much be 32-byte aligned
+                            header.sau_entries[i].rbar = range.start;
+                            header.sau_entries[i].rlar =
+                                (s.secure.start - 1) & !0x1f | 1;
+
+                            i += 1;
+
+                            header.sau_entries[i].rbar = s.secure.end;
+                            header.sau_entries[i].rlar =
+                                (range.end - 1) & !0x1f | 1;
+
+                            i += 1;
+
+                            header.sau_entries[i].rbar = s.nsc.start;
+                            header.sau_entries[i].rlar =
+                                (s.nsc.end - 1) & !0x1f | 3;
+
+                            i += 1;
+                        } else {
+                            header.sau_entries[i].rbar = range.start;
+                            header.sau_entries[i].rlar =
+                                (range.end - 1) & !0x1f | 1;
+                            i += 1;
+                        }
+                    }
+                    i
+                } else {
+                    for (i, (_, range)) in map.iter().enumerate() {
+                        header.sau_entries[i].rbar = range.start;
+                        header.sau_entries[i].rlar =
+                            (range.end - 1) & !0x1f | 1;
+                    }
+
+                    map.len()
+                };
 
                 // TODO need a better place to put this...
                 header.sau_entries[last].rbar = 0x4000_0000;
@@ -1030,6 +1281,8 @@ fn generate_task_linker_script(
     map: &BTreeMap<String, Range<AbiSize>>,
     sections: Option<&IndexMap<String, String>>,
     stacksize: AbiSize,
+    images: &IndexMap<String, Range<AbiSize>>,
+    image_name: &str,
 ) -> Result<()> {
     // Put the linker script somewhere the linker can find it
     let mut linkscr = File::create(Path::new(&format!("target/{}", name)))?;
@@ -1074,6 +1327,23 @@ fn generate_task_linker_script(
         emit(&mut linkscr, &name, start, end - start)?;
     }
     writeln!(linkscr, "}}")?;
+    for (name, out) in images {
+        if name == image_name {
+            writeln!(linkscr, "__this_image = {:#010x};", out.start)?;
+        }
+        writeln!(
+            linkscr,
+            "__IMAGE_{}_BASE = {:#010x};",
+            name.to_ascii_uppercase(),
+            out.start
+        )?;
+        writeln!(
+            linkscr,
+            "__IMAGE_{}_END = {:#010x};",
+            name.to_ascii_uppercase(),
+            out.end
+        )?;
+    }
 
     // The task may have defined additional section-to-memory mappings.
     if let Some(map) = sections {
@@ -1186,6 +1456,13 @@ fn build(
     let mut cmd = build_config.cmd("rustc");
     cmd.arg("--release");
 
+    // We're capturing stderr (for diagnosis), so `cargo` won't automatically
+    // turn on color.  If *we* are a TTY, then force it on.
+    if atty::is(Stream::Stderr) {
+        cmd.arg("--color");
+        cmd.arg("always");
+    }
+
     // This works because we control the environment in which we're about
     // to invoke cargo, and never modify CARGO_TARGET in that environment.
     let cargo_out = Path::new("target").to_path_buf();
@@ -1196,20 +1473,26 @@ fn build(
         .map(|r| format!(" --remap-path-prefix={}={}", r.0.display(), r.1))
         .collect();
 
-    cmd.env(
-        "RUSTFLAGS",
-        &format!(
-            "
-             -C link-arg=-z -C link-arg=common-page-size=0x20 \
-             -C link-arg=-z -C link-arg=max-page-size=0x20 \
-             -C llvm-args=--enable-machine-outliner=never \
-             -C overflow-checks=y \
-             -C metadata={} \
-             {}
-             ",
-            cfg.link_script_hash, remap_path_prefix,
-        ),
+    let mut rustflags: String = format!(
+        "
+         -C link-arg=-z -C link-arg=common-page-size=0x20 \
+         -C link-arg=-z -C link-arg=max-page-size=0x20 \
+         -C llvm-args=--enable-machine-outliner=never \
+         -C overflow-checks=y \
+         -C metadata={} \
+         {}
+         ",
+        cfg.link_script_hash, remap_path_prefix,
     );
+
+    match cfg.arch_target {
+        ArchTarget::RISCV32 => {
+            rustflags.push_str(" -C link-arg=--orphan-handling=error")
+        }
+        _ => {}
+    }
+
+    cmd.env("RUSTFLAGS", &rustflags);
     cmd.arg("--");
     cmd.arg("-C")
         .arg("link-arg=-Tlink.x")
@@ -1239,9 +1522,31 @@ fn build(
     let prev_time = std::fs::metadata(&src_file).and_then(|f| f.modified());
 
     let status = cmd
-        .status()
+        .output()
         .context(format!("failed to run rustc ({:?})", cmd))?;
-    if !status.success() {
+
+    // Immediately echo `stderr` back out, using a raw write because it may
+    // contain terminal control characters
+    std::io::stderr().write_all(&status.stderr)?;
+
+    if !status.status.success() {
+        // We've got a special case here: if the kernel memory is too small,
+        // then the build will fail with a cryptic linker error.  We can't
+        // convert `status.stderr` to a `String`, because it probably contains
+        // terminal control characters, so do a raw `&[u8]` search instead.
+        if name == "kernel"
+            && memchr::memmem::find(
+                &status.stderr,
+                b"will not fit in region".as_slice(),
+            )
+            .is_some()
+        {
+            bail!(
+                "command failed, see output for details\n    \
+                         The kernel may have run out of space; try increasing \
+                         its allocation in the app's TOML file"
+            )
+        }
         bail!("command failed, see output for details");
     }
 
@@ -1287,7 +1592,7 @@ fn link(
     // We expect the caller to set up our linker scripts, but copy them into
     // our working directory here
     let working_dir = &cfg.dist_dir;
-    for f in ["link.x", "memory.x"] {
+    for f in ["link.x", "memory.x", "trustzone.x"] {
         std::fs::copy(format!("target/{}", f), working_dir.join(f))
             .context(format!("Could not copy {} to link dir", f))?;
     }
@@ -1371,7 +1676,7 @@ pub struct Allocations {
 pub fn allocate_all(
     toml: &Config,
     task_sizes: &HashMap<&str, IndexMap<&str, u64>>,
-) -> Result<BTreeMap<String, (Allocations, IndexMap<String, Range<AbiSize>>)>> {
+) -> Result<BTreeMap<String, AllocationMap>> {
     // Collect all allocation requests into queues, one per memory type, indexed
     // by allocation size. This is equivalent to required alignment because of
     // the naturally-aligned-power-of-two requirement.
@@ -1390,7 +1695,7 @@ pub fn allocate_all(
 
     for image_name in &toml.image_names {
         let mut allocs = Allocations::default();
-        let mut free = toml.memories(&image_name)?;
+        let mut free = toml.memories(image_name)?;
         let kernel_requests = &kernel.requires;
 
         let mut task_requests: BTreeMap<
@@ -1578,6 +1883,7 @@ pub fn make_kconfig(
     task_allocations: &BTreeMap<String, BTreeMap<String, Range<AbiSize>>>,
     entry_points: &HashMap<String, AbiSize>,
     image_name: &str,
+    secure: &Option<SecureData>,
 ) -> Result<KernelConfig> {
     // Generate the three record sections concurrently.
     let mut regions = vec![];
@@ -1597,6 +1903,7 @@ pub fn make_kconfig(
     // reference them. We'll build a lookup table so we can find them
     // efficiently by name later.
     let mut peripheral_index = IndexMap::new();
+    let sname = &"secure".to_string();
 
     // Build a set of all peripheral names used by tasks, which we'll use
     // to filter out unused peripherals.
@@ -1657,6 +1964,19 @@ pub fn make_kconfig(
         regions.push(abi::RegionDesc {
             base: p.address,
             size: p.size,
+            attributes,
+        });
+    }
+
+    if let Some(s) = secure {
+        peripheral_index.insert(sname, regions.len());
+
+        // Entry point needs to be read/execute
+        let attributes =
+            abi::RegionAttributes::READ | abi::RegionAttributes::EXECUTE;
+        regions.push(abi::RegionDesc {
+            base: s.nsc.start,
+            size: s.nsc.end - s.nsc.start,
             attributes,
         });
     }
@@ -1923,29 +2243,33 @@ fn load_elf(
 
         flash += size;
 
-        // Check for address overlap
-        let range = addr..addr + size as AbiSize;
-        if let Some(overlap) = output.range(range.clone()).next() {
-            if overlap.1.source_file != input {
-                bail!(
-                    "{}: address range {:x?} overlaps {:x} \
+        // We use this function to re-load an ELF file after we've modfified
+        // it. Don't check for overlap if this happens.
+        if !output.contains_key(&addr) {
+            let range = addr..addr + size as AbiSize;
+            if let Some(overlap) = output.range(range.clone()).next() {
+                if overlap.1.source_file != input {
+                    bail!(
+                        "{}: address range {:x?} overlaps {:x} \
                     (from {}); does {} have an insufficient amount of flash?",
-                    input.display(),
-                    range,
-                    overlap.0,
-                    overlap.1.source_file.display(),
-                    input.display(),
-                );
-            } else {
-                bail!(
-                    "{}: ELF file internally inconsistent: \
+                        input.display(),
+                        range,
+                        overlap.0,
+                        overlap.1.source_file.display(),
+                        input.display(),
+                    );
+                } else {
+                    bail!(
+                        "{}: ELF file internally inconsistent: \
                     address range {:x?} overlaps {:x}",
-                    input.display(),
-                    range,
-                    overlap.0,
-                );
+                        input.display(),
+                        range,
+                        overlap.0,
+                    );
+                }
             }
         }
+
         output.insert(
             addr,
             LoadSegment {
@@ -2150,6 +2474,8 @@ fn objcopy_translate_format(
         .arg(in_format)
         .arg("-O")
         .arg(out_format)
+        .arg("--gap-fill")
+        .arg("0xFF")
         .arg(src)
         .arg(dest);
 

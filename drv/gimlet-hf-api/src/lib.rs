@@ -11,11 +11,13 @@ use drv_hash_api::SHA256_SZ;
 use userlib::*;
 use zerocopy::AsBytes;
 
+pub use drv_qspi_api::{PAGE_SIZE_BYTES, SECTOR_SIZE_BYTES};
+
 /// Errors that can be produced from the host flash server API.
 ///
 /// This enumeration doesn't include errors that result from configuration
 /// issues, like sending host flash messages to some other task.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 pub enum HfError {
     WriteEnableFailed = 1,
     ServerRestarted = 2,
@@ -25,10 +27,11 @@ pub enum HfError {
     HashNotConfigured = 6,
     NoDevSelect = 7,
     DevSelectFailed = 8,
+    NotMuxedToSP = 9,
 }
 
 /// Controls whether the SP or host CPU has access to flash
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum HfMuxState {
     SP = 1,
@@ -37,7 +40,7 @@ pub enum HfMuxState {
 
 /// Selects between multiple flash chips. This is not used on all hardware
 /// revisions; it was added in Gimlet rev B.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, AsBytes)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, AsBytes)]
 #[repr(u8)]
 pub enum HfDevSelect {
     Flash0 = 0,

@@ -27,7 +27,7 @@ use zerocopy::{AsBytes, FromBytes};
 use derive_idol_err::IdolError;
 use userlib::*;
 
-#[derive(FromPrimitive, PartialEq)]
+#[derive(FromPrimitive, Eq, PartialEq)]
 pub enum Op {
     WriteRead = 1,
     WriteReadBlock = 2,
@@ -37,7 +37,7 @@ pub enum Op {
 /// the case of [`ResponseCode::Dead`]).  These response codes pretty specific,
 /// not because the caller is expected to necessarily handle them differently,
 /// but to give upstack software some modicum of context surrounding the error.
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq, IdolError)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq, IdolError)]
 #[repr(u32)]
 pub enum ResponseCode {
     /// Server has died
@@ -91,7 +91,7 @@ pub enum ResponseCode {
 /// assumed to follow the numbering for the peripheral as described by the
 /// microcontroller.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Controller {
     I2C0 = 0,
@@ -105,7 +105,7 @@ pub enum Controller {
     Mock = 0xff,
 }
 
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 #[allow(clippy::unusual_byte_groupings)]
 pub enum ReservedAddress {
     GeneralCall = 0b0000_000,
@@ -137,14 +137,14 @@ pub enum ReservedAddress {
 /// letter/number convention should be used (e.g., "B1") -- but this is purely
 /// convention.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 pub struct PortIndex(pub u8);
 
 ///
 /// A multiplexer identifier for a given I2C bus.  Multiplexer identifiers
 /// need not start at 0.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Mux {
     M1 = 1,
@@ -157,7 +157,7 @@ pub enum Mux {
 /// A segment identifier on a given multiplexer.  Segment identifiers
 /// need not start at 0.
 ///
-#[derive(Copy, Clone, Debug, FromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, FromPrimitive, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Segment {
     S1 = 1,
@@ -285,11 +285,11 @@ impl I2cDevice {
     ///
     /// On failure, a [`ResponseCode`] will indicate more detail.
     ///
-    pub fn read_reg<R: AsBytes, V: Default + AsBytes + FromBytes>(
+    pub fn read_reg<R: AsBytes, V: AsBytes + FromBytes>(
         &self,
         reg: R,
     ) -> Result<V, ResponseCode> {
-        let mut val = V::default();
+        let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
         let (code, _) = sys_send(
@@ -388,11 +388,9 @@ impl I2cDevice {
     /// (And indeed, on these devices, attempting to read a register will
     /// in fact overwrite the contents of the first two registers.)
     ///
-    pub fn read<V: Default + AsBytes + FromBytes>(
-        &self,
-    ) -> Result<V, ResponseCode> {
+    pub fn read<V: AsBytes + FromBytes>(&self) -> Result<V, ResponseCode> {
         let empty = [0u8; 1];
-        let mut val = V::default();
+        let mut val = V::new_zeroed();
         let mut response = 0_usize;
 
         let (code, _) = sys_send(

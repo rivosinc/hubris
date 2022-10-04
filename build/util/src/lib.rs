@@ -4,6 +4,8 @@
 
 use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use std::collections::BTreeMap;
 use std::env;
 
 /// Exposes information about the CPU as cfg variables that isn't
@@ -80,6 +82,101 @@ pub fn task_config<T: DeserializeOwned>() -> Result<T> {
 /// provided.
 pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
     toml_from_env("HUBRIS_TASK_CONFIG")
+}
+
+pub fn task_peripherals() -> BTreeMap<String, Peripheral> {
+    ron::de::from_str(
+        &env::var("HUBRIS_TASK_PERIPHERALS")
+            .expect("missing HUBRIS_TASK_PERIPHERALS"),
+    )
+    .expect("Was not able to deserialize HUBRIS_TASK_PERIPHERALS")
+}
+
+pub fn task_peripherals_str() -> String {
+    let map: BTreeMap<String, Peripheral> = task_peripherals();
+    let mut consts: String = String::new();
+    for (name, periph) in map {
+        consts.push_str("#[allow(dead_code)]\n");
+        consts.push_str(
+            format!(
+                "const {}_BASE_ADDR: u32 = 0x{:X} as u32;\n",
+                name.to_ascii_uppercase(),
+                periph.address
+            )
+            .as_str(),
+        );
+        consts.push_str("#[allow(dead_code)]\n");
+        consts.push_str(
+            format!(
+                "const {}_SIZE: u32 = 0x{:X} as u32;\n",
+                name.to_ascii_uppercase(),
+                periph.size
+            )
+            .as_str(),
+        );
+    }
+
+    println!("Peripheral consts: {}", consts);
+
+    return consts;
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Peripheral {
+    pub address: u32,
+    pub size: u32,
+}
+/// Returns a map of task names to their IDs.
+pub fn task_ids() -> TaskIds {
+    let tasks = env::var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+    TaskIds(
+        tasks
+            .split(',')
+            .enumerate()
+            .map(|(i, name)| (name.to_string(), i))
+            .collect(),
+    )
+}
+
+/// Map of task names to their IDs.
+pub struct TaskIds(BTreeMap<String, usize>);
+
+impl TaskIds {
+    /// Get the ID of a task by name.
+    pub fn get(&self, task_name: &str) -> Option<usize> {
+        self.0.get(task_name).copied()
+    }
+
+    /// Convert a list of task names into a list of task IDs, ordered the same.
+    pub fn names_to_ids<S>(&self, names: &[S]) -> Result<Vec<usize>>
+    where
+        S: AsRef<str>,
+    {
+        names
+            .iter()
+            .map(|name| {
+                let name = name.as_ref();
+                self.get(name)
+                    .ok_or_else(|| anyhow!("unknown task `{}`", name))
+            })
+            .collect()
+    }
+
+    /// Helper function to convert a map of operation names to allowed callers
+    /// (by name) to a map of operation names to allowed callers (by task ID).
+    pub fn remap_allowed_caller_names_to_ids(
+        &self,
+        allowed_callers: &BTreeMap<String, Vec<String>>,
+    ) -> Result<BTreeMap<String, Vec<usize>>> {
+        allowed_callers
+            .iter()
+            .map(|(name, tasks)| {
+                let task_ids = self.names_to_ids(tasks)?;
+                Ok((name.clone(), task_ids))
+            })
+            .collect()
+    }
 }
 
 /// Parse the contents of an environment variable as toml.

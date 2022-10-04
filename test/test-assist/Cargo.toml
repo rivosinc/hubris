@@ -18,7 +18,7 @@ cortex-m = {version = "0.7", features = ["inline-asm"]}
 cortex-m-semihosting = { version = "0.5.0", optional = true }
 
 [target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
-riscv = { version = "0.8" }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
 riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", features = ["default", "user-mode"] }
 
 [features]

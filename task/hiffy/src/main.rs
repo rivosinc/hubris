@@ -41,7 +41,19 @@ cfg_if::cfg_if! {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(any(
+    //
+    // The "micro" feature denotes a minimal RAM footprint.  Note that this
+    // will restrict Hiffy consumers to functions that return less than 64
+    // bytes (minus overhead).  As of this writing, no Idol call returns more
+    // than this -- but this will mean that I2cRead functionality that induces
+    // a bus or device scan will result in a return stack overflow.
+    // (Fortunately, this failure mode is relatively crisp for the consumer.)
+    //
+    if #[cfg(feature = "micro")] {
+        const HIFFY_DATA_SIZE: usize = 256;
+        const HIFFY_TEXT_SIZE: usize = 256;
+        const HIFFY_RSTACK_SIZE: usize = 64;
+    } else if #[cfg(any(
         target_board = "gimlet-a",
         target_board = "gimlet-b",
         target_board = "gimletlet-2",
@@ -51,10 +63,10 @@ cfg_if::cfg_if! {
         const HIFFY_DATA_SIZE: usize = 20_480;
         const HIFFY_TEXT_SIZE: usize = 2048;
         const HIFFY_RSTACK_SIZE: usize = 2048;
-    } else if #[cfg(feature = "micro")] {
+    } else if #[cfg(target_board = "donglet-g031")] {
         const HIFFY_DATA_SIZE: usize = 256;
         const HIFFY_TEXT_SIZE: usize = 256;
-        const HIFFY_RSTACK_SIZE: usize = 64;
+        const HIFFY_RSTACK_SIZE: usize = 2048;
     } else {
         const HIFFY_DATA_SIZE: usize = 2_048;
         const HIFFY_TEXT_SIZE: usize = 2048;
@@ -148,19 +160,21 @@ fn main() -> ! {
 
         let text = unsafe { &HIFFY_TEXT };
         let data = unsafe { &HIFFY_DATA };
-        let mut rstack = unsafe { &mut HIFFY_RSTACK[0..] };
+        let rstack = unsafe { &mut HIFFY_RSTACK[0..] };
 
         let check = |offset: usize, op: &Op| -> Result<(), Failure> {
             trace_execute(offset, *op);
             Ok(())
         };
 
+        // XXX: workaround for false-positive due to rust-lang/rust-clippy#9126
+        #[allow(clippy::explicit_auto_deref)]
         let rv = execute::<_, NLABELS>(
             text,
             HIFFY_FUNCS,
             data,
             &mut stack,
-            &mut rstack,
+            rstack,
             &mut *HIFFY_SCRATCH.borrow_mut(),
             check,
         );

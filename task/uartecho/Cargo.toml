@@ -8,8 +8,8 @@ edition = "2018"
 [dependencies]
 cfg-if = "1"
 cortex-m = {version = "0.7", features = ["inline-asm"]}
+heapless = "0.7.16"
 ringbuf = {path = "../../lib/ringbuf"}
-tinyvec = "1.5.1"
 userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
 
 drv-stm32h7-usart = {path = "../../drv/stm32h7-usart", optional = true}
@@ -22,11 +22,13 @@ stm32h743 = ["drv-stm32h7-usart/h743"]
 stm32h753 = ["drv-stm32h7-usart/h753"]
 usart1 = []
 usart2 = []
-usart3 = []
-uart4 = []
-uart5 = []
-usart6 = []
 uart7 = []
+
+hardware_flow_control = []
+
+# we could expand this if needed; exactly one of these must be specified
+baud_rate_115_200 = []
+baud_rate_3M = []
 
 [[bin]]
 name = "task-uartecho"

@@ -26,7 +26,8 @@ fn main() -> ! {
     // works.
     int_ctrl.disable_int(RTC_INT).unwrap();
 
-    let regs = core::ptr::slice_from_raw_parts_mut(0x1000_0040 as *mut u32, 10);
+    let regs =
+        core::ptr::slice_from_raw_parts_mut(AON_RTC_BASE_ADDR as *mut u32, 10);
     unsafe {
         (*regs)[2] = 0x0;
         (*regs)[3] = 0x0;
@@ -53,3 +54,5 @@ fn main() -> ! {
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/rtc_config.rs"));

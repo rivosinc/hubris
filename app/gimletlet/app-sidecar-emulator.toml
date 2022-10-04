@@ -32,8 +32,9 @@ start = true
 features = ["itm"]
 stacksize = 1536
 
-[tasks.jefe.config]
-reset-reason-owner = "sys"
+[tasks.jefe.config.allowed-callers]
+set_reset_reason = ["sys"]
+request_reset = ["hiffy"]
 
 [tasks.sys]
 path = "../../drv/stm32xx-sys"
@@ -46,8 +47,8 @@ start = true
 task-slots = ["jefe"]
 
 [tasks.i2c_driver]
-path = "../../drv/stm32h7-i2c-server"
-name = "drv-stm32h7-i2c-server"
+path = "../../drv/stm32xx-i2c-server"
+name = "drv-stm32xx-i2c-server"
 features = ["h753", "itm"]
 priority = 2
 max-sizes = {flash = 16384, ram = 2048}

@@ -122,6 +122,30 @@ SECTIONS
 
   .eh_frame (INFO) : { KEEP(*(.eh_frame)) }
   .eh_frame_hdr (INFO) : { *(.eh_frame_hdr) }
+
+  .debug_loc (INFO) : { *(.debug_loc) }
+  .debug_abbrev (INFO) : { *(.debug_abbrev) }
+  .debug_info (INFO) : { *(.debug_info) }
+  .debug_aranges (INFO) : { *(.debug_aranges) }
+  .debug_ranges (INFO) : { *(.debug_ranges) }
+  .debug_str (INFO) : { *(.debug_str) }
+  .debug_pubnames (INFO) : { *(.debug_pubnames) }
+  .debug_pubtypes (INFO) : { *(.debug_pubtypes) }
+  .debug_line (INFO) : { *(.debug_line) }
+  .debug_frame(INFO) : { *(.debug_frame) }
+
+  .riscv.attributes (INFO) : { *(.riscv.attributes) }
+
+  .llvmbc (INFO) : { *(.llvmbc) }
+  .llvmcmd (INFO) : { *(.llvmcmd) }
+
+  .note.GNU-stack (INFO) : { *(.note.GNU-stack) }
+
+  .symtab (INFO) : { *(.symtab) }
+  .shstrtab (INFO) : { *(.shstrtab) }
+  .strtab (INFO) : { *(.strtab) }
+
+  .comment (INFO) : { *(.comment) }
 }
 
 /* Do not exceed this mark in the error messages above                                    | */
