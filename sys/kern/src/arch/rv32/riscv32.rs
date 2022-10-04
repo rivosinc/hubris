@@ -434,7 +434,7 @@ fn timer_handler() {
 
                 let next = task::select(current, tasks);
                 let next = &mut tasks[next];
-                // Safety: next comes from teh task table and we don't use it again
+                // Safety: next comes from the task table and we don't use it again
                 // until next kernel entry, so we meet the function requirements.
                 crate::task::switch_to(next);
             }
@@ -502,7 +502,7 @@ fn platform_interrupt_handler(irq: u32) {
             with_task_table(|tasks| {
                 let next = task::select(current, tasks);
                 let next = &mut tasks[next];
-                // Safety: next comes from teh task table and we don't use it again
+                // Safety: next comes from the task table and we don't use it again
                 // until next kernel entry, so we meet the function requirements.
                 crate::task::switch_to(next);
             })
@@ -609,7 +609,7 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
             }
 
             let next = &mut tasks[next];
-            // Safety: next comes from teh task table and we don't use it again
+            // Safety: next comes from the task table and we don't use it again
             // until next kernel entry, so we meet the function requirements.
             crate::task::switch_to(next);
         });
