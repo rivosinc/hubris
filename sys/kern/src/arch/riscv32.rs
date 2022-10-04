@@ -638,7 +638,7 @@ unsafe fn reset_timer() {
 }
 
 #[allow(unused_variables)]
-pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     unsafe {
         //
         // Configure the timer
@@ -666,7 +666,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
     unsafe {
-        CURRENT_TASK_PTR = Some(NonNull::from(task));
+        crate::task::switch_to(task);
         asm!("
             lw sp, ({sp})
             mret",
