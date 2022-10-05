@@ -630,10 +630,7 @@ fn translate_srec_to_other_formats(
     name: &str,
 ) -> Result<()> {
     let src = cfg.img_dir(image_name).join(format!("{}.srec", name));
-    for (out_type, ext) in [
-        ("ihex", "ihex"),
-        ("binary", "bin"),
-    ] {
+    for (out_type, ext) in [("ihex", "ihex"), ("binary", "bin")] {
         objcopy_translate_format(
             &cfg.arch_consts.objcopy_cmd,
             "srec",
