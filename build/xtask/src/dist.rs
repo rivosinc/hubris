@@ -2565,7 +2565,6 @@ fn write_elf(
     Ok(())
 }
 
-
 fn objcopy_translate_format(
     cmd_str: &str,
     in_format: &str,
