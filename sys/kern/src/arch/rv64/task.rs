@@ -39,7 +39,7 @@ pub unsafe fn get_current_task() -> &'static task::Task {
 }
 
 #[allow(unused_variables)]
-pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Configure MPP to switch us to User mode on exit from Machine
     // mode (when we call "mret" below).
     unsafe {
@@ -64,7 +64,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
     unsafe {
-        set_current_task(task);
+        crate::task::activate_next_task(task);
         asm!("
             ld sp, ({0})
             mret",

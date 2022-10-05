@@ -16,8 +16,7 @@ extern crate riscv_rt;
 use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
 
-use crate::arch::apply_memory_protection;
-use crate::arch::{get_current_task, set_current_task};
+use crate::arch::get_current_task;
 use crate::arch::{incr_ticks, reset_timer};
 
 // Provide our own interrupt vector to handle save/restore of the task on
@@ -162,10 +161,9 @@ fn timer_handler() {
 
                 let next = task::select(current, tasks);
                 let next = &mut tasks[next];
-                apply_memory_protection(next);
-                // Safety: next comes from teh task table and we don't use it again
+                // Safety: next comes from the task table and we don't use it again
                 // until next kernel entry, so we meet the function requirements.
-                set_current_task(next);
+                crate::task::activate_next_task(next);
             }
 
             // Reset mtime back to 0.  In theory we could save an instruction on
@@ -252,11 +250,10 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
             }
 
             let next = &mut tasks[next];
-            apply_memory_protection(next);
             // Safety: this leaks a pointer aliasing into static scope, but
             // we're not going to read it back until the next kernel entry so
             // we won't be aliasing/racing.
-            set_current_task(next);
+            crate::task::activate_next_task(next);
         });
     }
 }
