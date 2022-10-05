@@ -1238,7 +1238,6 @@ dependencies = [
  "drv-ext-int-ctrl-api",
  "idol",
  "idol-runtime",
- "indexmap",
  "num-traits",
  "phash",
  "phash-gen",
@@ -1246,10 +1245,7 @@ dependencies = [
  "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
- "ron 0.7.0",
- "serde",
  "task-config",
- "toml",
  "userlib",
  "zerocopy",
 ]
