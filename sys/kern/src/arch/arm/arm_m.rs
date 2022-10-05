@@ -657,7 +657,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         mpu.ctrl.write(ENABLE | PRIVDEFENA);
     }
 
-    CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
+    unsafe {
+        crate::task::activate_next_task(task);
+    }
 
     extern "C" {
         // Exposed by the linker script.
@@ -907,7 +909,6 @@ pub unsafe extern "C" fn SVCall() {
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &mut task::Task) {
     CURRENT_TASK_PTR.store(task, Ordering::Relaxed);
-    crate::profiling::event_context_switch(task as *mut _ as usize);
 }
 
 /// Reads the tick counter.
@@ -1087,11 +1088,10 @@ unsafe extern "C" fn pendsv_entry() {
     with_task_table(|tasks| {
         let next = task::select(current, tasks);
         let next = &mut tasks[next];
-        apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            set_current_task(next);
+            crate::task::activate_next_task(next);
         }
     });
     crate::profiling::event_secondary_syscall_exit();
@@ -1426,11 +1426,10 @@ unsafe extern "C" fn handle_fault(task: *mut task::Task) {
         }
 
         let next = &mut tasks[next];
-        apply_memory_protection(next);
         // Safety: next comes from the task table and we don't use it again
         // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            set_current_task(next);
+            crate::task::activate_next_task(next);
         }
     });
 }
@@ -1608,12 +1607,10 @@ unsafe extern "C" fn handle_fault(
         }
 
         let next = &mut tasks[next];
-        apply_memory_protection(next);
-        // Safety: this leaks a pointer aliasing next into static scope, but
-        // we're not going to read it back until the next kernel entry, so we
-        // won't be aliasing/racing.
+        // Safety: next comes from the task table and we don't use it again
+        // until next kernel entry, so we meet set_current_task's requirements.
         unsafe {
-            set_current_task(next);
+            crate::task::activate_next_task(next);
         }
     });
 }

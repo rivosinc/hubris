@@ -434,17 +434,16 @@ fn timer_handler() {
 
                 let next = task::select(current, tasks);
                 let next = &mut tasks[next];
-                apply_memory_protection(next);
-                // Safety: next comes from teh task table and we don't use it again
+                // Safety: next comes from the task table and we don't use it again
                 // until next kernel entry, so we meet the function requirements.
-                set_current_task(next);
+                crate::task::activate_next_task(next);
             }
 
-            // Reset mtime back to 0.  In theory we could save an instruction on
-            // RV32 here and only write the low-order bits, assuming that it has
-            // been less than 12 seconds or so since our last interrupt(!), but
-            // let's avoid any possibility of a nasty surprise.
-            core::ptr::write_volatile(crate::startup::MTIME as *mut u64, 0);
+            //
+            // Increase mtimecmp for the next interrupt
+            // This will also clear the pending timer interrupt.
+            //
+            reset_timer();
         })
     }
     crate::profiling::event_timer_isr_exit();
@@ -503,11 +502,9 @@ fn platform_interrupt_handler(irq: u32) {
             with_task_table(|tasks| {
                 let next = task::select(current, tasks);
                 let next = &mut tasks[next];
-                apply_memory_protection(next);
-
                 // Safety: next comes from the task table and we don't use it again
-                // until next kernel entry, so we meet set_current_task's requirements.
-                set_current_task(next);
+                // until next kernel entry, so we meet the function requirements.
+                crate::task::activate_next_task(next);
             })
         };
     }
@@ -612,11 +609,9 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
             }
 
             let next = &mut tasks[next];
-            apply_memory_protection(next);
-            // Safety: this leaks a pointer aliasing into static scope, but
-            // we're not going to read it back until the next kernel entry so
-            // we won't be aliasing/racing.
-            set_current_task(next);
+            // Safety: next comes from the task table and we don't use it again
+            // until next kernel entry, so we meet the function requirements.
+            crate::task::activate_next_task(next);
         });
     }
 }
@@ -626,59 +621,41 @@ unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
 // We currently only support single HART systems.  From reading elsewhere,
 // additional harts have their own mtimecmp offset at 0x8 intervals from hart0.
 //
-// As per FE310-G002 Manual, section 9.1, the address of mtimecmp on
-// our supported board is 0x0200_4000, which also matches qemu.
-//
-// On both RV32 and RV64 systems the mtime and mtimecmp memory-mapped registers
-// are 64-bits wide.
-//
-
 // Configure the timer.
 //
 // RISC-V Privileged Architecture Manual
 // 3.2.1 Machine Timer Registers (mtime and mtimecmp)
 //
-// To keep things simple, especially on RV32 systems where we cannot atomically
-// write to the mtime/mtimecmp memory-mapped registers as they are 64 bits
-// wide, we only utilise the first 32-bits of each register, setting the
-// high-order bits to 0 on startup, and restarting the low-order bits of mtime
-// back to 0 on each interrupt.
-//
-#[no_mangle]
-unsafe fn set_timer(tick_divisor: u32) {
-    // Set high-order bits of mtime to zero.  We only call this function prior
-    // to enabling interrupts so it should be safe.
+unsafe fn reset_timer() {
+    //
+    // Increase mtimecmp for the next interrupt
+    // This will also clear the pending timer interrupt.
+    //
     unsafe {
-        asm!("
-            li {0}, {mtimecmp}  # load mtimecmp address
-            li {1}, -1          # start with all low-order bits set
-            sw {1}, 0({0})      # set low-order bits -1
-            sw zero, 4({0})     # set high-order bits to 0
-            sw {2}, 0({0})      # set low-order bits to tick_divisor
-
-            li {0}, {mtime}     # load mtime address
-            sw zero, 4({0})     # set high-order bits to 0
-            sw zero, 0({0})     # set low-order bits back to 0
-            ",
-            out(reg) _,
-            out(reg) _,
-            in(reg) tick_divisor,
-            mtime = const crate::startup::MTIME,
-            mtimecmp = const crate::startup::MTIMECMP,
+        let mut mtimecmp =
+            core::ptr::read_volatile(crate::startup::MTIMECMP as *mut u64);
+        mtimecmp = mtimecmp + CLOCK_FREQ_KHZ as u64;
+        core::ptr::write_volatile(
+            crate::startup::MTIMECMP as *mut u64,
+            mtimecmp,
         );
     }
 }
 
 #[allow(unused_variables)]
-pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
+pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     unsafe {
         //
         // Configure the timer
         //
         CLOCK_FREQ_KHZ = tick_divisor;
 
-        // Reset mtime back to 0, set mtimecmp to chosen timer
-        set_timer(tick_divisor - 1);
+        // make MTIMECMP start with MTIME
+        let mtime = core::ptr::read_volatile(crate::startup::MTIME as *mut u64);
+        core::ptr::write_volatile(crate::startup::MTIMECMP as *mut u64, mtime);
+
+        // increment mtimecmp for appropriate timer interrupts
+        reset_timer();
 
         // Machine timer interrupt enable
         register::mie::set_mtimer();
@@ -694,7 +671,7 @@ pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
     unsafe {
-        CURRENT_TASK_PTR = Some(NonNull::from(task));
+        crate::task::activate_next_task(task);
         asm!("
             lw sp, ({sp})
             mret",
