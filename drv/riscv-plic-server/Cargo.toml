@@ -21,10 +21,6 @@ idol = {git = "https://github.com/oxidecomputer/idolatry.git"}
 task-config = { path = "../../lib/task-config" }
 abi = {path = "../../sys/abi" }
 phash-gen = {path = "../../build/phash-gen"}
-ron = "0.7"
-toml = "0.5.6"
-serde = { version = "1.0.114", features = ["derive"] }
-indexmap = { version = "1.4.0" }
 
 [features]
 semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
