@@ -446,6 +446,14 @@ pub fn package(
 
         translate_srec_to_other_formats(&cfg, image_name, "combined")?;
 
+        if cfg.toml.target.contains("riscv") {
+            write_elf(
+                &all_output_sections,
+                kentry,
+                &cfg.img_file("combined.elf", image_name),
+            )?;
+        }
+
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
             let root_cert = &signing.root_cert;
@@ -623,7 +631,6 @@ fn translate_srec_to_other_formats(
 ) -> Result<()> {
     let src = cfg.img_dir(image_name).join(format!("{}.srec", name));
     for (out_type, ext) in [
-        (cfg.arch_consts.objcopy_target, "elf"),
         ("ihex", "ihex"),
         ("binary", "bin"),
     ] {
@@ -635,6 +642,17 @@ fn translate_srec_to_other_formats(
             &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
         )?;
     }
+
+    if !cfg.toml.target.as_str().contains("riscv") {
+        objcopy_translate_format(
+            &cfg.arch_consts.objcopy_cmd,
+            "srec",
+            &src,
+            cfg.arch_consts.objcopy_target,
+            &cfg.img_dir(image_name).join(format!("{}.{}", name, "elf")),
+        )?;
+    }
+
     Ok(())
 }
 
@@ -2461,6 +2479,95 @@ fn write_srec(
     std::fs::write(out, srec_image)?;
     Ok(())
 }
+
+fn write_elf(
+    sections: &BTreeMap<AbiSize, LoadSegment>,
+    kentry: AbiSize,
+    out: &Path,
+) -> Result<()> {
+    use goblin::container::{Container, Ctx, Endian};
+    use goblin::elf::header::{Header, EM_RISCV, ET_EXEC};
+    use goblin::elf::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
+    use goblin::elf::ProgramHeader;
+    use scroll::Pwrite;
+
+    let ctx = Ctx::new(Container::Big, Endian::Little);
+
+    // Generate all the program headers and collect all the sections together.
+    let mut program_headers = Vec::new();
+    let mut sections_data = Vec::new();
+    for (&base, sec) in sections {
+        if sec.data.is_empty() {
+            continue;
+        }
+
+        // Incredibly simple algorithm that attempts to align where this program section appears in
+        // the file (what the loop adjusts) with its location in virtual address space (which was
+        // fixed by the compiler already).
+        while ((base as usize) & 0xfff) != (sections_data.len() & 0xfff) {
+            sections_data.push(0);
+        }
+
+        program_headers.push(ProgramHeader {
+            p_type: PT_LOAD,
+            p_flags: PF_X | PF_W | PF_R,
+            p_offset: sections_data.len() as u64,
+            p_vaddr: base as u64,
+            p_paddr: base as u64,
+            p_filesz: sec.data.len() as u64,
+            p_memsz: sec.data.len() as u64,
+            p_align: 0x1000,
+        });
+
+        sections_data.extend_from_slice(sec.data.as_slice());
+    }
+
+    // HACK(zach): Bonus RAM section
+    program_headers.push(ProgramHeader {
+        p_type: PT_LOAD,
+        p_flags: PF_W | PF_R,
+        p_offset: 0,
+        p_vaddr: 0x30000000,
+        p_paddr: 0x30000000,
+        p_filesz: 0,
+        p_memsz: 0x100000,
+        p_align: 0x1000,
+    });
+
+    let program_headers_offset =
+        Header::size(ctx) + ProgramHeader::size(ctx) * program_headers.len();
+
+    // Page align the start of sections data.
+    let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
+
+    program_headers
+        .iter_mut()
+        .for_each(|phdr| phdr.p_offset += sections_data_offset as u64);
+
+    let mut elf_out = vec![0; sections_data_offset + sections_data.len()];
+
+    let mut header = Header::new(ctx);
+    header.e_type = ET_EXEC;
+    header.e_entry = kentry as u64;
+    header.e_machine = EM_RISCV;
+    header.e_phnum = program_headers.len() as u16;
+    header.e_phentsize = ProgramHeader::size(ctx) as u16;
+    header.e_phoff = Header::size(ctx) as u64;
+    elf_out.pwrite(header, 0)?;
+
+    let mut offset = Header::size(ctx);
+    for program_header in program_headers {
+        elf_out.pwrite(program_header, offset)?;
+        offset += ProgramHeader::size(ctx);
+    }
+
+    elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+
+    std::fs::write(out, elf_out)?;
+
+    Ok(())
+}
+
 
 fn objcopy_translate_format(
     cmd_str: &str,
