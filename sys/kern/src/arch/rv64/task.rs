@@ -22,17 +22,13 @@ pub unsafe fn set_current_task(task: &task::Task) {
     // TODO: make me an atomic
     unsafe {
         let task: usize = core::mem::transmute::<&task::Task, usize>(task);
-        asm!(
-            "csrw mscratch, {0}",
-            in(reg) task
-        );
+        register::mscratch::write(task);
     }
 }
 
 pub unsafe fn get_current_task() -> &'static task::Task {
-    let mut task: usize;
     unsafe {
-        asm!("csrr {0}, mscratch", out(reg) task);
+        let task = register::mscratch::read();
         uassert!(task != 0);
         core::mem::transmute::<usize, &task::Task>(task)
     }
