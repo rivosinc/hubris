@@ -446,7 +446,7 @@ pub fn package(
 
         translate_srec_to_other_formats(&cfg, image_name, "combined")?;
 
-        if cfg.toml.target.contains("riscv") {
+        if cfg.toml.target.contains("riscv64") {
             write_elf(
                 &all_output_sections,
                 kentry,
@@ -640,7 +640,7 @@ fn translate_srec_to_other_formats(
         )?;
     }
 
-    if !cfg.toml.target.as_str().contains("riscv") {
+    if !cfg.toml.target.as_str().contains("riscv64") {
         objcopy_translate_format(
             &cfg.arch_consts.objcopy_cmd,
             "srec",
