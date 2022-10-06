@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::arch::asm;
-
 // Timer handling.
 //
 // We currently only support single HART systems.  From reading elsewhere,
@@ -34,18 +32,8 @@ pub unsafe fn set_timer(tick_divisor: u32) {
     // Set high-order bits of mtime to zero.  We only call this function prior
     // to enabling interrupts so it should be safe.
     unsafe {
-        asm!("
-        li {0}, {mtimecmp}  # load mtimecmp address
-        sd {1}, 0({0})      # set mtimecmp register
-
-        li {0}, {mtime}     # load mtime address
-        sd zero, 0({0})     # set low-order bits back to 0
-        ",
-            out(reg) _,
-            in(reg) tick_divisor,
-            mtime = const MTIME,
-            mtimecmp = const MTIMECMP,
-        );
+        core::ptr::write_volatile(MTIME as *mut u64, 0);
+        core::ptr::write_volatile(MTIMECMP as *mut u64, tick_divisor.into());
     }
 }
 
