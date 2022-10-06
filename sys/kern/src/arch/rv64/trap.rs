@@ -198,13 +198,12 @@ fn trap_handler(task: &mut task::Task) {
             unsafe {
                 // Advance program counter past ecall instruction.
                 let epc = register::mepc::read() as u64 + 4;
-                task.save_mut().set_pc(epc);
-                asm!(
-                    "
-                    mv a0, a7               # arg0 = syscall number
-                    csrr a1, mscratch       # arg1 = task ptr
-                    jal syscall_entry
-                    ",
+                let saved_state = task.save_mut();
+
+                saved_state.set_pc(epc);
+                crate::syscalls::syscall_entry(
+                    saved_state.arg7() as u32,
+                    get_current_task(),
                 );
             }
         }
