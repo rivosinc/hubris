@@ -59,7 +59,7 @@ use crate::umem::{safe_copy, USlice};
 /// the way in and restored on the way out, (2) call this from the syscall
 /// interrupt handler, only, and (3) not call it reentrantly.
 #[no_mangle]
-pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
+pub unsafe extern "C" fn syscall_entry(nr: u32, task: *const Task) {
     crate::profiling::event_syscall_enter(nr);
 
     // The task pointer is about to alias our task table, at which point it
