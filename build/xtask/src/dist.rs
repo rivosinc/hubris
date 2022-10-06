@@ -446,14 +446,10 @@ pub fn package(
 
         translate_srec_to_other_formats(&cfg, image_name, "combined")?;
 
-        // This is crude, but matches Goblin's expectations.
-        let big_container: bool =
-            cfg.arch_consts.objcopy_target.starts_with("elf64");
-
         write_elf(
             &all_output_sections,
             kentry,
-            big_container,
+            &cfg,
             &cfg.img_file("combined.elf", image_name),
         )?;
 
@@ -2473,18 +2469,18 @@ fn write_srec(
 fn write_elf(
     sections: &BTreeMap<AbiSize, LoadSegment>,
     kentry: AbiSize,
-    big_container: bool,
+    cfg: &PackageConfig,
     out: &Path,
 ) -> Result<()> {
     use goblin::container::{Container, Ctx, Endian};
-    use goblin::elf::header::{Header, EM_RISCV, ET_EXEC};
+    use goblin::elf::header::{Header, ET_EXEC};
     use goblin::elf::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
     use goblin::elf::ProgramHeader;
     use scroll::Pwrite;
 
     // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
     let ctx = Ctx::new(
-        if big_container {
+        if cfg.arch_consts.objcopy_target.starts_with("elf64") {
             Container::Big
         } else {
             Container::Little
@@ -2537,10 +2533,19 @@ fn write_elf(
     let mut header = Header::new(ctx);
     header.e_type = ET_EXEC;
     header.e_entry = kentry as u64;
-    header.e_machine = EM_RISCV;
     header.e_phnum = program_headers.len() as u16;
     header.e_phentsize = ProgramHeader::size(ctx) as u16;
     header.e_phoff = Header::size(ctx) as u64;
+
+    match cfg.arch_target {
+        ArchTarget::ARM => {
+            header.e_machine = goblin::elf::header::EM_ARM;
+        }
+        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
+            header.e_machine = goblin::elf::header::EM_RISCV;
+        }
+    }
+
     elf_out.pwrite(header, 0)?;
 
     let mut offset = Header::size(ctx);
