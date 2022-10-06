@@ -61,6 +61,12 @@ impl SavedState {
     }
 }
 
+impl SavedState {
+    pub fn arg7(&self) -> usize {
+        self.a7 as usize
+    }
+}
+
 /// Map the volatile registers to (architecture-independent) syscall argument
 /// and return slots.
 impl task::ArchState for SavedState {
