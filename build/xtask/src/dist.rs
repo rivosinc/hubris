@@ -446,13 +446,16 @@ pub fn package(
 
         translate_srec_to_other_formats(&cfg, image_name, "combined")?;
 
-        if cfg.toml.target.contains("riscv64") {
-            write_elf(
-                &all_output_sections,
-                kentry,
-                &cfg.img_file("combined.elf", image_name),
-            )?;
-        }
+        // This is crude, but matches Goblin's expectations.
+        let big_container: bool =
+            cfg.arch_consts.objcopy_target.starts_with("elf64");
+
+        write_elf(
+            &all_output_sections,
+            kentry,
+            big_container,
+            &cfg.img_file("combined.elf", image_name),
+        )?;
 
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
@@ -637,16 +640,6 @@ fn translate_srec_to_other_formats(
             &src,
             out_type,
             &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
-        )?;
-    }
-
-    if !cfg.toml.target.as_str().contains("riscv64") {
-        objcopy_translate_format(
-            &cfg.arch_consts.objcopy_cmd,
-            "srec",
-            &src,
-            cfg.arch_consts.objcopy_target,
-            &cfg.img_dir(image_name).join(format!("{}.{}", name, "elf")),
         )?;
     }
 
@@ -2480,6 +2473,7 @@ fn write_srec(
 fn write_elf(
     sections: &BTreeMap<AbiSize, LoadSegment>,
     kentry: AbiSize,
+    big_container: bool,
     out: &Path,
 ) -> Result<()> {
     use goblin::container::{Container, Ctx, Endian};
@@ -2488,7 +2482,15 @@ fn write_elf(
     use goblin::elf::ProgramHeader;
     use scroll::Pwrite;
 
-    let ctx = Ctx::new(Container::Big, Endian::Little);
+    // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
+    let ctx = Ctx::new(
+        if big_container {
+            Container::Big
+        } else {
+            Container::Little
+        },
+        Endian::Little,
+    );
 
     // Generate all the program headers and collect all the sections together.
     let mut program_headers = Vec::new();
@@ -2502,7 +2504,8 @@ fn write_elf(
         // the file (what the loop adjusts) with its location in virtual address space (which was
         // fixed by the compiler already).
         while ((base as usize) & 0xfff) != (sections_data.len() & 0xfff) {
-            sections_data.push(0);
+            // Fill with 0xFF to align with the expected result of a flash erase cycle.
+            sections_data.push(0xff);
         }
 
         program_headers.push(ProgramHeader {
