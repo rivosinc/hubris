@@ -2519,18 +2519,6 @@ fn write_elf(
         sections_data.extend_from_slice(sec.data.as_slice());
     }
 
-    // HACK(zach): Bonus RAM section
-    program_headers.push(ProgramHeader {
-        p_type: PT_LOAD,
-        p_flags: PF_W | PF_R,
-        p_offset: 0,
-        p_vaddr: 0x30000000,
-        p_paddr: 0x30000000,
-        p_filesz: 0,
-        p_memsz: 0x100000,
-        p_align: 0x1000,
-    });
-
     let program_headers_offset =
         Header::size(ctx) + ProgramHeader::size(ctx) * program_headers.len();
 
