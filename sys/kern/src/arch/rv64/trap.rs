@@ -197,6 +197,10 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::UserEnvCall) => {
             unsafe {
                 // Advance program counter past ecall instruction.
+                // This path handles the ecall instruction only and
+                // so the mepc is advanced by 4. For other paths,
+                // that deal with compressed instructions will have to
+                // adjust this accordingly.
                 let epc = register::mepc::read() as u64 + 4;
                 let saved_state = task.save_mut();
 
