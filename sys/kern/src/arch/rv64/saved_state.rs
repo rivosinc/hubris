@@ -59,9 +59,6 @@ impl SavedState {
     pub fn set_pc(&mut self, val: u64) {
         self.pc = val;
     }
-}
-
-impl SavedState {
     pub fn arg7(&self) -> usize {
         self.a7 as usize
     }
