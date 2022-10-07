@@ -29,6 +29,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         File::create(out.join("plic_config.rs")).unwrap()
     };
 
+    writeln!(file, "{}", build_util::task_irq_consts())?;
+
     writeln!(
         file,
         "use phash::{{PerfectHashMap, MutablePerfectHashMap}};"
