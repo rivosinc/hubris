@@ -332,6 +332,24 @@ impl Config {
             ron::ser::to_string(&task_peripherals).unwrap(),
         );
 
+        // Expose interrupt notification bits as constants
+        let interrupts: IndexMap<String, u32> = task_toml.interrupts.clone();
+        let mut notif_consts: String = String::new();
+
+        for (name, notif) in interrupts {
+            notif_consts.push_str("const ");
+            for part in name.split('.') {
+                notif_consts.push_str(
+                    format!("{}_", part.to_ascii_uppercase()).as_str(),
+                );
+            }
+            notif_consts.push_str(
+                format!("NOTIFICATION: u32 = 0x{:X};\n", notif).as_str(),
+            );
+        }
+
+        out.env.insert("HUBRIS_TASK_IRQS".to_string(), notif_consts);
+
         Ok(out)
     }
 

@@ -121,6 +121,10 @@ pub fn task_peripherals_str() -> String {
     return consts;
 }
 
+pub fn task_irq_consts() -> String {
+    env::var("HUBRIS_TASK_IRQS").expect("missing HUBRIS_TASK_IRQS")
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Peripheral {
