@@ -21,7 +21,7 @@ pub unsafe fn set_current_task(task: &task::Task) {
     // Safety: should be ok if the contract above is met
     // TODO: make me an atomic
     unsafe {
-        let task: usize = core::mem::transmute::<&task::Task, usize>(task);
+        let task = task as *const task::Task as usize;
         register::mscratch::write(task);
     }
 }
@@ -30,7 +30,7 @@ pub unsafe fn get_current_task() -> &'static task::Task {
     unsafe {
         let task = register::mscratch::read();
         uassert!(task != 0);
-        core::mem::transmute::<usize, &task::Task>(task)
+        &*(task as *const task::Task)
     }
 }
 
