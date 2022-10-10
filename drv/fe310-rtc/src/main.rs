@@ -14,7 +14,6 @@ task_slot!(INT_CONTROLLER, ext_int_ctrl);
 
 #[export_name = "main"]
 fn main() -> ! {
-    const RTC_INT: u32 = 0x1;
     ringbuf!(u64, 64, 0);
 
     let mut num_ints: u64 = 0;
@@ -24,7 +23,7 @@ fn main() -> ! {
     // The PLIC should disable all interrupts on reset, but this is here just to
     // be sure, as well as guaranteee it's disabled to verify that the enable
     // works.
-    int_ctrl.disable_int(RTC_INT).unwrap();
+    int_ctrl.disable_int(RTC_NOTIFICATION).unwrap();
 
     let regs =
         core::ptr::slice_from_raw_parts_mut(AON_RTC_BASE_ADDR as *mut u32, 10);
@@ -35,12 +34,13 @@ fn main() -> ! {
         (*regs)[0] = (0x1 << 12) | (0xF);
     };
 
-    int_ctrl.enable_int(RTC_INT).unwrap();
+    int_ctrl.enable_int(RTC_NOTIFICATION).unwrap();
 
     loop {
-        let result = sys_recv_closed(&mut [], RTC_INT, TaskId::KERNEL).unwrap();
+        let result =
+            sys_recv_closed(&mut [], RTC_NOTIFICATION, TaskId::KERNEL).unwrap();
 
-        if result.operation & RTC_INT != 0x0 {
+        if result.operation & RTC_NOTIFICATION != 0x0 {
             unsafe {
                 (*regs)[2] = 0x0;
                 (*regs)[3] = 0x0;
@@ -50,7 +50,7 @@ fn main() -> ! {
             sys_log!("RTC Interrupt number {}", num_ints);
             ringbuf_entry!(num_ints);
 
-            int_ctrl.complete_int(RTC_INT).unwrap();
+            int_ctrl.complete_int(RTC_NOTIFICATION).unwrap();
         }
     }
 }
