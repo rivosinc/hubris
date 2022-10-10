@@ -348,6 +348,84 @@ impl Config {
             );
         }
 
+        // This generates constants for interrupts coming through an external
+        // interrupt controller. In order for this to work, the task must be
+        // named `ext_int_ctrl`, and must have a task config with at least the
+        // following entries:
+        // ints -> Array of notification
+        // notification -> Array of notification masks
+        // name -> Array of task names
+        // source -> Array of source names
+        // EX:
+        //  [tasks.ext_int_ctrl.config]
+        //  ints = [52]
+        //  tasks = ['"rtc-driver"']
+        //  notification = [1]
+        //  source = ['"rtc"']
+        //
+        // In this example, there is a single interrupt coming on line 52 from
+        // a device known as "rtc". The interrupt controller will notify the
+        // task named "rtc-driver" using the bitmask 0x1. This will generate
+        // the following constant for rtc-driver:
+        // `const RTC_NOTIFICATION: u32 = 0x1
+        if let Some(ext_int_ctrl_toml) = self.tasks.get("ext_int_ctrl") {
+            let ext_interrupts = ext_int_ctrl_toml
+                .config
+                .as_ref()
+                .expect("External Interrupt Controller config is missing")
+                .as_table()
+                .expect("External Interrupt Controller config is not a struct");
+
+            let val_into_array = |name: &str| -> &Vec<ordered_toml::Value> {
+                ext_interrupts
+                    .get(name)
+                    .expect(format!("External Interrupt Controller config missing field: {}", name).as_str())
+                    .as_array()
+                    .expect(format!("External Interrupt Controller config field {} is not an array", name).as_str())
+            };
+
+            let notifications = val_into_array("notification");
+            let task_names = val_into_array("tasks");
+            let source_names = val_into_array("source");
+
+            for (i, name_val) in task_names.iter().enumerate() {
+                let name = name_val
+                           .as_str()
+                           .expect(format!("External Interrupt Controller config field \"name\" entry {} was not a string", i).as_str())
+                           .strip_prefix("\"")
+                           .expect(format!("External Interrupt Controller config field \"name\" entry {} missing leading quotation mark", i).as_str())
+                           .strip_suffix("\"")
+                           .expect(format!("External Interrupt Controller config field \"name\" entry {} missing closing quotation mark", i).as_str());
+                let source = source_names[i]
+                             .as_str()
+                             .expect(format!("External Interrupt Controller config field \"source\" entry {} was not a string", i).as_str())
+                             .strip_prefix("\"")
+                             .expect(format!("External Interrupt Controller config field \"source\" entry {} missing leading quotation mark", i).as_str())
+                             .strip_suffix("\"")
+                             .expect(format!("External Interrupt Controller config field \"source\" entry {} missing closing quotation mark", i).as_str());
+                let notif = notifications[i]
+                            .as_integer()
+                            .expect(format!("External Interrupt Controller config field \"notification\" entry {} was not an integer", i).as_str());
+
+                if name == task_name {
+                    for character in source.chars() {
+                        if !character.is_ascii_alphanumeric() {
+                            panic!("External Interrupt Controller config field \"source\" entry {} ({}) contains non-alphanumeric character: {}", i, source, character);
+                        }
+                    }
+
+                    notif_consts.push_str("const ");
+                    notif_consts.push_str(
+                        format!("{}_", source.to_ascii_uppercase()).as_str(),
+                    );
+                    notif_consts.push_str(
+                        format!("NOTIFICATION: u32 = 0x{:X};\n", notif)
+                            .as_str(),
+                    );
+                }
+            }
+        }
+
         out.env.insert("HUBRIS_TASK_IRQS".to_string(), notif_consts);
 
         Ok(out)
