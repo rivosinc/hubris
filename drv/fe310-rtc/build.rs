@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         File::create(out.join("rtc_config.rs")).unwrap()
     };
 
+    writeln!(file, "{}", build_util::task_irq_consts())?;
     writeln!(file, "{}", build_util::task_peripherals_str())?;
 
     return Ok(());
