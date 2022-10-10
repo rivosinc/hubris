@@ -438,20 +438,14 @@ pub fn package(
 
         // Generate combined SREC, which is our source of truth for combined images.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        write_srec(
-            &all_output_sections,
-            kentry,
-            &cfg.img_file("combined.srec", image_name),
-        )?;
-
-        translate_srec_to_other_formats(&cfg, image_name, "combined")?;
-
         write_elf(
             &all_output_sections,
             kentry,
             &cfg,
             &cfg.img_file("combined.elf", image_name),
         )?;
+
+        translate_elf_to_other_formats(&cfg, image_name, "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
@@ -622,7 +616,7 @@ fn secure_update(
     }
 }
 
-/// Convert SREC to other formats for convenience.
+/// Convert SREC to other formats for convenience. Used in the signing flow.
 fn translate_srec_to_other_formats(
     cfg: &PackageConfig,
     image_name: &str,
@@ -633,6 +627,28 @@ fn translate_srec_to_other_formats(
         objcopy_translate_format(
             &cfg.arch_consts.objcopy_cmd,
             "srec",
+            &src,
+            out_type,
+            &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Convert ELF to other formats for convenience.
+fn translate_elf_to_other_formats(
+    cfg: &PackageConfig,
+    image_name: &str,
+    name: &str,
+) -> Result<()> {
+    let src = cfg.img_dir(image_name).join(format!("{}.elf", name));
+    for (out_type, ext) in
+        [("ihex", "ihex"), ("binary", "bin"), ("srec", "srec")]
+    {
+        objcopy_translate_format(
+            &cfg.arch_consts.objcopy_cmd,
+            &cfg.arch_consts.objcopy_target,
             &src,
             out_type,
             &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
@@ -2431,41 +2447,6 @@ fn binary_to_srec(
     Ok(())
 }
 
-fn write_srec(
-    sections: &BTreeMap<AbiSize, LoadSegment>,
-    kentry: AbiSize,
-    out: &Path,
-) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("hubris".to_string())];
-    for (&base, sec) in sections {
-        // SREC record size limit is 255 (0xFF). 32-bit addressed records
-        // additionally contain a four-byte address and one-byte checksum, for a
-        // payload limit of 255 - 5.
-        let mut addr = base.try_into()?;
-        for chunk in sec.data.chunks(255 - 5) {
-            srec_out.push(srec::Record::S3(srec::Data {
-                address: srec::Address32(addr),
-                data: chunk.to_vec(),
-            }));
-            addr += chunk.len() as u32;
-        }
-    }
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
-    }
-
-    srec_out.push(srec::Record::S7(srec::Address32(kentry.try_into()?)));
-
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
-    Ok(())
-}
-
 fn write_elf(
     sections: &BTreeMap<AbiSize, LoadSegment>,
     kentry: AbiSize,
@@ -2475,7 +2456,10 @@ fn write_elf(
     use goblin::container::{Container, Ctx, Endian};
     use goblin::elf::header::{Header, ET_EXEC};
     use goblin::elf::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
-    use goblin::elf::ProgramHeader;
+    use goblin::elf::section_header::{
+        SHF_ALLOC, SHF_EXECINSTR, SHT_NULL, SHT_PROGBITS, SHT_STRTAB,
+    };
+    use goblin::elf::{ProgramHeader, SectionHeader};
     use scroll::Pwrite;
 
     // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
@@ -2488,20 +2472,24 @@ fn write_elf(
         Endian::Little,
     );
 
-    // Generate all the program headers and collect all the sections together.
+    let last_section = sections.last_key_value().unwrap();
+
+    let sections_base_address = kentry;
+    let sections_length = (*(last_section.0) as u64
+        + last_section.1.data.len() as u64)
+        - sections_base_address as u64;
+
     let mut program_headers = Vec::new();
-    let mut sections_data = Vec::new();
+    // Preallocate a vector for section data, filled with 0xFF. This pattern is chosen
+    // to replicate the erase pattern we'd find in flash, and match the padding value
+    // previously chosen for the objcopy gap filler.
+    let mut sections_data = vec![0xFF; sections_length.try_into().unwrap()];
+
+    // Generate all the program headers and collect all the sections together.
     for (&base, sec) in sections {
         if sec.data.is_empty() {
+            // Do not create a program header for an empty section. There's nothing to load.
             continue;
-        }
-
-        // Incredibly simple algorithm that attempts to align where this program section appears in
-        // the file (what the loop adjusts) with its location in virtual address space (which was
-        // fixed by the compiler already).
-        while ((base as usize) & 0xfff) != (sections_data.len() & 0xfff) {
-            // Fill with 0xFF to align with the expected result of a flash erase cycle.
-            sections_data.push(0xff);
         }
 
         program_headers.push(ProgramHeader {
@@ -2512,10 +2500,17 @@ fn write_elf(
             p_paddr: base as u64,
             p_filesz: sec.data.len() as u64,
             p_memsz: sec.data.len() as u64,
-            p_align: 0x1000,
+            p_align: 0x20, // This matches the alignment guarantees of the kernel & task build
         });
 
-        sections_data.extend_from_slice(sec.data.as_slice());
+        let this_section_base_offset = base - sections_base_address;
+        let this_section_end_offset =
+            this_section_base_offset as usize + sec.data.len() as usize;
+
+        sections_data.splice(
+            this_section_base_offset as usize..this_section_end_offset as usize,
+            sec.data.iter().cloned(),
+        );
     }
 
     let program_headers_offset =
@@ -2524,11 +2519,50 @@ fn write_elf(
     // Page align the start of sections data.
     let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
 
+    // Page align the Section Header String Table.
+    let shstrtab_offset =
+        (sections_data_offset + sections_data.len() + 0xfff) & !0xfff;
+
+    // Create a Section Header String Table, to hold the actual section
+    // names.
+    let mut shstrtab = Vec::new();
+    shstrtab.push(0x00 as u8);
+    shstrtab.extend_from_slice(".text".as_bytes());
+    shstrtab.push(0x00 as u8);
+    shstrtab.extend_from_slice(".shstrtab".as_bytes());
+    shstrtab.push(0x00 as u8);
+    shstrtab.shrink_to_fit();
+
+    // Page align the Section Headers.
+    let sh_data_offset = (shstrtab_offset + shstrtab.len() + 0xfff) & !0xfff;
+
+    // We need to create a null section, as without this, objcopy fails to locate
+    // any section headers, and aborts.
+    let mut null_section_header = SectionHeader::new();
+    null_section_header.sh_type = SHT_NULL;
+
+    // We create a fake '.text' section to guide objcopy toward the instruction
+    // bitstream.
+    let mut text_section_header = SectionHeader::new();
+    text_section_header.sh_type = SHT_PROGBITS;
+    text_section_header.sh_flags = (SHF_ALLOC | SHF_EXECINSTR) as u64;
+    text_section_header.sh_name = 1;
+    text_section_header.sh_offset = sections_data_offset as u64;
+    text_section_header.sh_size = sections_data.len() as u64;
+    text_section_header.sh_addr = kentry as u64;
+
+    // We create a Section Header String Table to placate objcopy, which
+    // complains loudly if we cannot provide names to our section headers.
+    // This will not arrive in the derived images.
+    let mut table_section_header = SectionHeader::new();
+    table_section_header.sh_type = SHT_STRTAB;
+    table_section_header.sh_name = 2;
+    table_section_header.sh_offset = shstrtab_offset as u64;
+    table_section_header.sh_size = shstrtab.len() as u64;
+
     program_headers
         .iter_mut()
         .for_each(|phdr| phdr.p_offset += sections_data_offset as u64);
-
-    let mut elf_out = vec![0; sections_data_offset + sections_data.len()];
 
     let mut header = Header::new(ctx);
     header.e_type = ET_EXEC;
@@ -2536,15 +2570,22 @@ fn write_elf(
     header.e_phnum = program_headers.len() as u16;
     header.e_phentsize = ProgramHeader::size(ctx) as u16;
     header.e_phoff = Header::size(ctx) as u64;
+    header.e_shnum = 3;
+    header.e_shentsize = SectionHeader::size(ctx) as u16;
+    header.e_shstrndx = 2; // Index 0 will become <null>, 1 becomes ".text", 2 becomes ".shstrtab"
+    header.e_shoff = sh_data_offset as u64;
 
     match cfg.arch_target {
         ArchTarget::ARM => {
             header.e_machine = goblin::elf::header::EM_ARM;
         }
         ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
+            // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
             header.e_machine = goblin::elf::header::EM_RISCV;
         }
     }
+
+    let mut elf_out = vec![0; sh_data_offset + (SectionHeader::size(ctx) * 3)];
 
     elf_out.pwrite(header, 0)?;
 
@@ -2555,6 +2596,16 @@ fn write_elf(
     }
 
     elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+    elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
+    elf_out.pwrite(null_section_header, sh_data_offset)?;
+    elf_out.pwrite(
+        text_section_header,
+        sh_data_offset + SectionHeader::size(ctx),
+    )?;
+    elf_out.pwrite(
+        table_section_header,
+        sh_data_offset + (SectionHeader::size(ctx) * 2),
+    )?;
 
     std::fs::write(out, elf_out)?;
 
@@ -2575,6 +2626,8 @@ fn objcopy_translate_format(
         .arg(out_format)
         .arg("--gap-fill")
         .arg("0xFF")
+        .arg("--srec-forceS3") // Manually constructed Srecords use the S3 format
+        .arg("--srec-len=255") // Objcopy will select a shorter line length if allowed, this forces it to match the manual Srecord construction.
         .arg(src)
         .arg(dest);
 
