@@ -76,9 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    println!("{}", &env::var("HUBRIS_TASK_ID_MAP")?);
-    let task_id_map: std::collections::BTreeMap<String, u16> =
-        ron::de::from_str(&env::var("HUBRIS_TASK_ID_MAP")?)?;
+    let task_id_map: build_util::TaskIds = build_util::task_ids();
 
     let mut irq_task_map: Vec<(InterruptNum, (TaskId, u32))> = Vec::new();
     let mut per_task_irqs: HashMap<InterruptOwner, Vec<InterruptNum>> =
@@ -87,7 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (i, irq) in TASK_CONFIG.ints.into_iter().enumerate() {
         let task: String = TASK_CONFIG.tasks[i].to_string();
         let task_id: TaskId = match task_id_map.get(&task) {
-            Some(id_num) => TaskId(*id_num),
+            Some(id_num) => TaskId(id_num.try_into().unwrap()),
             None => panic!("Error: no matching task ID for task {}", task),
         };
 
