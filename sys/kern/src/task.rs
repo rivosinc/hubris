@@ -16,9 +16,10 @@ use zerocopy::FromBytes;
 use crate::arch;
 use crate::err::UserError;
 use crate::profiling;
-use crate::startup::HUBRIS_TASK_STATE_CHANGE_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+
+const HUBRIS_TASK_STATE_CHANGE_NOTIFICATION: u32 = 1;
 
 /// Internal representation of a task.
 ///
