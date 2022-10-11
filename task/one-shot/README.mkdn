@@ -1,0 +1,3 @@
+# Task One shot
+
+This is a sample task to demonstrate one-shot behavior i.e. tasks that do the work and perform exit task operation to move to stopped state.
