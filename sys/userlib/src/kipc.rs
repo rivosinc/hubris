@@ -25,11 +25,12 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
 }
 
 pub fn exit_current_task() {
-    sys_send(TaskId::KERNEL,
-             Kipcnum::ExitCurrentTask as u16,
-             &[],
-             &mut [],
-             &[],
+    sys_send(
+        TaskId::KERNEL,
+        Kipcnum::ExitCurrentTask as u16,
+        &[],
+        &mut [],
+        &[],
     );
 }
 

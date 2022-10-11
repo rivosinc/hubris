@@ -868,10 +868,7 @@ pub fn force_fault(
 /// The task will not be scheduled again until requested to restart it again.
 ///
 /// Returns a `NextTask` because the calling task cannot be scheduled anymore.
-pub fn exit_task(
-    tasks: &mut[Task],
-    index: usize,
-) -> NextTask {
+pub fn exit_task(tasks: &mut [Task], index: usize) -> NextTask {
     tasks[index].set_healthy_state(SchedState::Stopped);
     notify_supervisor(tasks)
 }

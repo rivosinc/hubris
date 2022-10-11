@@ -25,7 +25,9 @@ pub fn handle_kernel_message(
             read_task_status(tasks, caller, args.message?, args.response?)
         }
         Ok(Kipcnum::RestartTask) => restart_task(tasks, caller, args.message?),
-        Ok(Kipcnum::ExitCurrentTask) => exit_current_task(tasks, caller, args.message?),
+        Ok(Kipcnum::ExitCurrentTask) => {
+            exit_current_task(tasks, caller, args.message?)
+        }
         Ok(Kipcnum::FaultTask) => fault_task(tasks, caller, args.message?),
         Ok(Kipcnum::ReadImageId) => {
             read_image_id(tasks, caller, args.response?)
