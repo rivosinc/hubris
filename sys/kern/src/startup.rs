@@ -27,7 +27,7 @@ use core::sync::atomic::Ordering;
 /// `false` late in `start_kernel`.
 static TASK_TABLE_IN_USE: AtomicBool = AtomicBool::new(true);
 
-pub const HUBRIS_FAULT_NOTIFICATION: u32 = 1;
+pub const HUBRIS_TASK_STATE_CHANGE_NOTIFICATION: u32 = 1;
 
 /// The main kernel entry point.
 ///
