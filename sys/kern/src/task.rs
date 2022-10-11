@@ -16,7 +16,7 @@ use zerocopy::FromBytes;
 use crate::arch;
 use crate::err::UserError;
 use crate::profiling;
-use crate::startup::HUBRIS_FAULT_NOTIFICATION;
+use crate::startup::HUBRIS_TASK_STATE_CHANGE_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
 
@@ -811,7 +811,7 @@ pub fn priority_scan(
 
 fn notify_supervisor(tasks: &mut [Task]) -> NextTask {
     let supervisor_awoken =
-        tasks[0].post(NotificationSet(HUBRIS_FAULT_NOTIFICATION));
+        tasks[0].post(NotificationSet(HUBRIS_TASK_STATE_CHANGE_NOTIFICATION));
     if supervisor_awoken {
         NextTask::Specific(0)
     } else {
