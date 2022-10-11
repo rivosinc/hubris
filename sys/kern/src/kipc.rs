@@ -25,6 +25,7 @@ pub fn handle_kernel_message(
             read_task_status(tasks, caller, args.message?, args.response?)
         }
         Ok(Kipcnum::RestartTask) => restart_task(tasks, caller, args.message?),
+        Ok(Kipcnum::ExitCurrentTask) => exit_current_task(tasks, caller, args.message?),
         Ok(Kipcnum::FaultTask) => fault_task(tasks, caller, args.message?),
         Ok(Kipcnum::ReadImageId) => {
             read_image_id(tasks, caller, args.response?)
@@ -95,6 +96,14 @@ fn read_task_status(
         .save_mut()
         .set_send_response_and_length(0, response_len);
     Ok(NextTask::Same)
+}
+
+fn exit_current_task(
+    tasks: &mut [Task],
+    caller: usize,
+    _message: USlice<u8>,
+) -> Result<NextTask, UserError> {
+    Ok(crate::task::exit_task(tasks, caller))
 }
 
 fn restart_task(
