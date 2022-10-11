@@ -3733,6 +3733,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-one-shot"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting 0.5.0",
+ "riscv-semihosting",
+ "userlib",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
