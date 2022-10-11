@@ -605,6 +605,7 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
+    ExitCurrentTask = 6,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -617,6 +618,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
+            6 => Ok(Self::ExitCurrentTask),
             _ => Err(()),
         }
     }
