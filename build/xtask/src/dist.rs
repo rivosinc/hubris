@@ -436,7 +436,7 @@ pub fn package(
             );
         }
 
-        // Generate combined SREC, which is our source of truth for combined images.
+        // Generate combined ELF, which is our source of truth for combined images.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
         write_elf(
             &all_output_sections,
@@ -2453,68 +2453,124 @@ fn write_elf(
     cfg: &PackageConfig,
     out: &Path,
 ) -> Result<()> {
+    if cfg.arch_consts.objcopy_target.starts_with("elf64") {
+        println!("Building ELF64");
+        write_elf64(sections, kentry, cfg, out)?;
+    } else {
+        println!("Building ELF32");
+        write_elf32(sections, kentry, cfg, out)?;
+    }
+
+    Ok(())
+}
+
+fn write_elf32(
+    sections: &BTreeMap<AbiSize, LoadSegment>,
+    kentry: AbiSize,
+    cfg: &PackageConfig,
+    out: &Path,
+) -> Result<()> {
     use goblin::container::{Container, Ctx, Endian};
-    use goblin::elf::header::{Header, ET_EXEC};
-    use goblin::elf::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
-    use goblin::elf::section_header::{
-        SHF_ALLOC, SHF_EXECINSTR, SHT_NULL, SHT_PROGBITS, SHT_STRTAB,
+    use goblin::elf32::header::{Header, ET_EXEC};
+    use goblin::elf32::program_header::ProgramHeader;
+    use goblin::elf32::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
+    use goblin::elf32::section_header::SectionHeader;
+    use goblin::elf32::section_header::{
+        SHF_ALLOC, SHF_EXECINSTR, SHT_PROGBITS, SHT_STRTAB,
     };
-    use goblin::elf::{ProgramHeader, SectionHeader};
     use scroll::Pwrite;
 
-    // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
-    let ctx = Ctx::new(
-        if cfg.arch_consts.objcopy_target.starts_with("elf64") {
-            Container::Big
-        } else {
-            Container::Little
-        },
-        Endian::Little,
-    );
+    let ctx = Ctx::new(Container::Little, Endian::Little);
 
-    let last_section = sections.last_key_value().unwrap();
+    let mut sections_base_address: AbiSize = kentry;
+    let mut sections_length: u64 = 0;
 
-    let sections_base_address = kentry;
-    let sections_length = (*(last_section.0) as u64
-        + last_section.1.data.len() as u64)
-        - sections_base_address as u64;
+    for candidate_section in sections {
+        if candidate_section.1.data.len() > 0 {
+            if *candidate_section.0 < sections_base_address {
+                sections_base_address = *candidate_section.0;
+            }
+
+            let end =
+                (*candidate_section.0) + candidate_section.1.data.len() as u64;
+
+            if end > sections_length {
+                sections_length = end;
+            }
+        }
+    }
+    sections_length -= sections_base_address;
 
     let mut program_headers = Vec::new();
+    let mut section_headers = Vec::new();
+
+    // Create a Section Header String Table, to hold the actual section
+    // names.
+    let mut shstrtab = Vec::new();
+    shstrtab.push(0x00 as u8);
+
     // Preallocate a vector for section data, filled with 0xFF. This pattern is chosen
     // to replicate the erase pattern we'd find in flash, and match the padding value
     // previously chosen for the objcopy gap filler.
     let mut sections_data = vec![0xFF; sections_length.try_into().unwrap()];
-
+    let mut section_header_name_index = 0 as usize;
     // Generate all the program headers and collect all the sections together.
-    for (&base, sec) in sections {
+    for (base, sec) in sections {
         if sec.data.is_empty() {
             // Do not create a program header for an empty section. There's nothing to load.
             continue;
         }
 
-        program_headers.push(ProgramHeader {
-            p_type: PT_LOAD,
-            p_flags: PF_X | PF_W | PF_R,
-            p_offset: sections_data.len() as u64,
-            p_vaddr: base as u64,
-            p_paddr: base as u64,
-            p_filesz: sec.data.len() as u64,
-            p_memsz: sec.data.len() as u64,
-            p_align: 0x20, // This matches the alignment guarantees of the kernel & task build
-        });
-
         let this_section_base_offset = base - sections_base_address;
         let this_section_end_offset =
             this_section_base_offset as usize + sec.data.len() as usize;
+
+        program_headers.push(ProgramHeader {
+            p_type: PT_LOAD,
+            p_flags: PF_X | PF_W | PF_R,
+            p_offset: this_section_base_offset as u32,
+            p_vaddr: *base as u32,
+            p_paddr: *base as u32,
+            p_filesz: sec.data.len() as u32,
+            p_memsz: sec.data.len() as u32,
+            p_align: 0x20, // This matches the alignment guarantees of the kernel & task build
+        });
+
+        section_headers.push(SectionHeader {
+            sh_type: SHT_PROGBITS,
+            sh_flags: (SHF_ALLOC | SHF_EXECINSTR) as u32,
+            sh_name: shstrtab.len() as u32,
+            sh_offset: this_section_base_offset as u32,
+            sh_size: sec.data.len() as u32,
+            sh_addr: kentry as u32,
+            sh_addralign: 0x20,
+            sh_entsize: 0, // No fixed-size entries here
+            sh_link: 0,
+            sh_info: 0,
+        });
+
+        let task_name = sec.source_file.file_name().to_owned().unwrap();
+
+        let mut section_name: String = String::from(".text.");
+        section_name.push_str(section_header_name_index.to_string().as_str());
+        section_name.push('.');
+        section_name.push_str(task_name.to_str().unwrap());
+        shstrtab.extend_from_slice(section_name.as_bytes());
+        shstrtab.push(0x00 as u8);
 
         sections_data.splice(
             this_section_base_offset as usize..this_section_end_offset as usize,
             sec.data.iter().cloned(),
         );
+
+        section_header_name_index += 1;
     }
 
-    let program_headers_offset =
-        Header::size(ctx) + ProgramHeader::size(ctx) * program_headers.len();
+    shstrtab.shrink_to_fit();
+
+    // We can now compute these offsets
+    let program_headers_offset = goblin::elf::Header::size(ctx)
+        + goblin::elf::ProgramHeader::size(ctx) * program_headers.len();
 
     // Page align the start of sections data.
     let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
@@ -2523,12 +2579,19 @@ fn write_elf(
     let shstrtab_offset =
         (sections_data_offset + sections_data.len() + 0xfff) & !0xfff;
 
-    // Create a Section Header String Table, to hold the actual section
-    // names.
-    let mut shstrtab = Vec::new();
-    shstrtab.push(0x00 as u8);
-    shstrtab.extend_from_slice(".text".as_bytes());
-    shstrtab.push(0x00 as u8);
+    // Add the section header for the Section Header String Table
+    section_headers.push(SectionHeader {
+        sh_name: section_header_name_index as u32,
+        sh_type: SHT_STRTAB,
+        sh_flags: 0,
+        sh_addr: 0,
+        sh_offset: shstrtab_offset as u32,
+        sh_size: shstrtab.len() as u32,
+        sh_link: 0,
+        sh_info: 0,
+        sh_addralign: 0,
+        sh_entsize: 0,
+    });
     shstrtab.extend_from_slice(".shstrtab".as_bytes());
     shstrtab.push(0x00 as u8);
     shstrtab.shrink_to_fit();
@@ -2536,44 +2599,39 @@ fn write_elf(
     // Page align the Section Headers.
     let sh_data_offset = (shstrtab_offset + shstrtab.len() + 0xfff) & !0xfff;
 
-    // We need to create a null section, as without this, objcopy fails to locate
-    // any section headers, and aborts.
-    let mut null_section_header = SectionHeader::new();
-    null_section_header.sh_type = SHT_NULL;
-
-    // We create a fake '.text' section to guide objcopy toward the instruction
-    // bitstream.
-    let mut text_section_header = SectionHeader::new();
-    text_section_header.sh_type = SHT_PROGBITS;
-    text_section_header.sh_flags = (SHF_ALLOC | SHF_EXECINSTR) as u64;
-    text_section_header.sh_name = 1;
-    text_section_header.sh_offset = sections_data_offset as u64;
-    text_section_header.sh_size = sections_data.len() as u64;
-    text_section_header.sh_addr = kentry as u64;
-
-    // We create a Section Header String Table to placate objcopy, which
-    // complains loudly if we cannot provide names to our section headers.
-    // This will not arrive in the derived images.
-    let mut table_section_header = SectionHeader::new();
-    table_section_header.sh_type = SHT_STRTAB;
-    table_section_header.sh_name = 2;
-    table_section_header.sh_offset = shstrtab_offset as u64;
-    table_section_header.sh_size = shstrtab.len() as u64;
-
-    program_headers
-        .iter_mut()
-        .for_each(|phdr| phdr.p_offset += sections_data_offset as u64);
-
-    let mut header = Header::new(ctx);
-    header.e_type = ET_EXEC;
-    header.e_entry = kentry as u64;
-    header.e_phnum = program_headers.len() as u16;
-    header.e_phentsize = ProgramHeader::size(ctx) as u16;
-    header.e_phoff = Header::size(ctx) as u64;
-    header.e_shnum = 3;
-    header.e_shentsize = SectionHeader::size(ctx) as u16;
-    header.e_shstrndx = 2; // Index 0 will become <null>, 1 becomes ".text", 2 becomes ".shstrtab"
-    header.e_shoff = sh_data_offset as u64;
+    let mut header = Header {
+        e_ident: [
+            127,
+            69,
+            76,
+            70,
+            goblin::elf32::header::ELFCLASS32,
+            goblin::elf32::header::ELFDATA2LSB,
+            goblin::elf32::header::EV_CURRENT,
+            goblin::elf32::header::ELFOSABI_NONE,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ],
+        e_type: ET_EXEC,
+        e_machine: 0, // Overridden later
+        e_version: 1,
+        e_entry: kentry as u32,
+        e_phoff: goblin::elf::Header::size(ctx) as u32,
+        e_shoff: sh_data_offset as u32,
+        e_flags: 0,
+        e_ehsize: goblin::elf::Header::size(ctx) as u16,
+        e_phentsize: goblin::elf::ProgramHeader::size(ctx) as u16,
+        e_phnum: program_headers.len() as u16,
+        e_shentsize: goblin::elf::SectionHeader::size(ctx) as u16,
+        e_shnum: section_headers.len() as u16,
+        e_shstrndx: (section_headers.len() - 1) as u16,
+    };
 
     match cfg.arch_target {
         ArchTarget::ARM => {
@@ -2585,27 +2643,247 @@ fn write_elf(
         }
     }
 
-    let mut elf_out = vec![0; sh_data_offset + (SectionHeader::size(ctx) * 3)];
+    match cfg.arch_target {
+        ArchTarget::ARM => {
+            header.e_machine = goblin::elf::header::EM_ARM;
+        }
+        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
+            // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
+            header.e_machine = goblin::elf::header::EM_RISCV;
+        }
+    }
+
+    let mut elf_out = vec![
+        0;
+        sh_data_offset
+            + goblin::elf::SectionHeader::size(ctx)
+                * section_headers.len()
+    ];
 
     elf_out.pwrite(header, 0)?;
 
-    let mut offset = Header::size(ctx);
+    let mut offset = goblin::elf::Header::size(ctx);
     for program_header in program_headers {
         elf_out.pwrite(program_header, offset)?;
-        offset += ProgramHeader::size(ctx);
+        offset += goblin::elf::ProgramHeader::size(ctx);
     }
 
     elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
     elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
-    elf_out.pwrite(null_section_header, sh_data_offset)?;
-    elf_out.pwrite(
-        text_section_header,
-        sh_data_offset + SectionHeader::size(ctx),
-    )?;
-    elf_out.pwrite(
-        table_section_header,
-        sh_data_offset + (SectionHeader::size(ctx) * 2),
-    )?;
+
+    let mut sh_offset = sh_data_offset;
+    for section_header in section_headers {
+        println!("Writing Section Header @ {:X}", sh_offset);
+        elf_out.pwrite(section_header, sh_offset)?;
+        sh_offset += goblin::elf::SectionHeader::size(ctx);
+    }
+
+    std::fs::write(out, elf_out)?;
+
+    Ok(())
+}
+
+fn write_elf64(
+    sections: &BTreeMap<AbiSize, LoadSegment>,
+    kentry: AbiSize,
+    cfg: &PackageConfig,
+    out: &Path,
+) -> Result<()> {
+    use goblin::container::{Container, Ctx, Endian};
+    use goblin::elf64::header::{Header, ET_EXEC};
+    use goblin::elf64::program_header::ProgramHeader;
+    use goblin::elf64::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
+    use goblin::elf64::section_header::SectionHeader;
+    use goblin::elf64::section_header::{
+        SHF_ALLOC, SHF_EXECINSTR, SHT_PROGBITS, SHT_STRTAB,
+    };
+    use scroll::Pwrite;
+
+    // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
+    let ctx = Ctx::new(Container::Big, Endian::Little);
+
+    let mut sections_base_address: AbiSize = kentry;
+    let mut sections_length: u64 = 0;
+
+    for candidate_section in sections {
+        if candidate_section.1.data.len() > 0 {
+            if *candidate_section.0 < sections_base_address {
+                sections_base_address = *candidate_section.0;
+            }
+
+            let end =
+                (*candidate_section.0) + candidate_section.1.data.len() as u64;
+
+            if end > sections_length {
+                sections_length = end;
+            }
+        }
+    }
+    sections_length -= sections_base_address;
+
+    let mut program_headers = Vec::new();
+    let mut section_headers = Vec::new();
+
+    // Create a Section Header String Table, to hold the actual section
+    // names.
+    let mut shstrtab = Vec::new();
+    shstrtab.push(0x00 as u8);
+
+    // Preallocate a vector for section data, filled with 0xFF. This pattern is chosen
+    // to replicate the erase pattern we'd find in flash, and match the padding value
+    // previously chosen for the objcopy gap filler.
+    let mut sections_data = vec![0xFF; sections_length.try_into().unwrap()];
+    let mut section_header_name_index = 0 as usize;
+    // Generate all the program headers and collect all the sections together.
+    for (base, sec) in sections {
+        if sec.data.is_empty() {
+            // Do not create a program header for an empty section. There's nothing to load.
+            continue;
+        }
+
+        let this_section_base_offset = base - sections_base_address;
+        let this_section_end_offset =
+            this_section_base_offset as usize + sec.data.len() as usize;
+
+        program_headers.push(ProgramHeader {
+            p_type: PT_LOAD,
+            p_flags: PF_X | PF_W | PF_R,
+            p_offset: this_section_base_offset as u64,
+            p_vaddr: *base as u64,
+            p_paddr: *base as u64,
+            p_filesz: sec.data.len() as u64,
+            p_memsz: sec.data.len() as u64,
+            p_align: 0x20, // This matches the alignment guarantees of the kernel & task build
+        });
+
+        section_headers.push(SectionHeader {
+            sh_type: SHT_PROGBITS,
+            sh_flags: (SHF_ALLOC | SHF_EXECINSTR) as u64,
+            sh_name: section_header_name_index as u32,
+            sh_offset: this_section_base_offset as u64,
+            sh_size: sec.data.len() as u64,
+            sh_addr: kentry as u64,
+            sh_addralign: 0x20,
+            sh_entsize: 0, // No fixed-size entries here
+            sh_link: 0,
+            sh_info: 0,
+        });
+
+        let task_name = sec.source_file.file_name().to_owned().unwrap();
+
+        let mut section_name: String = String::from(".text.");
+        section_name.push_str(task_name.to_str().unwrap());
+        shstrtab.extend_from_slice(section_name.as_bytes());
+        shstrtab.push(0x00 as u8);
+
+        sections_data.splice(
+            this_section_base_offset as usize..this_section_end_offset as usize,
+            sec.data.iter().cloned(),
+        );
+
+        section_header_name_index += 1;
+    }
+
+    shstrtab.shrink_to_fit();
+
+    // We can now compute these offsets
+    let program_headers_offset = goblin::elf::Header::size(ctx)
+        + goblin::elf::ProgramHeader::size(ctx) * program_headers.len();
+
+    // Page align the start of sections data.
+    let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
+
+    // Page align the Section Header String Table.
+    let shstrtab_offset =
+        (sections_data_offset + sections_data.len() + 0xfff) & !0xfff;
+
+    // Add the section header for the Section Header String Table
+    section_headers.push(SectionHeader {
+        sh_name: section_header_name_index as u32,
+        sh_type: SHT_STRTAB,
+        sh_flags: 0,
+        sh_addr: 0,
+        sh_offset: shstrtab_offset as u64,
+        sh_size: shstrtab.len() as u64,
+        sh_link: 0,
+        sh_info: 0,
+        sh_addralign: 0,
+        sh_entsize: 0,
+    });
+    shstrtab.extend_from_slice(".shstrtab".as_bytes());
+    shstrtab.push(0x00 as u8);
+    shstrtab.shrink_to_fit();
+
+    // Page align the Section Headers.
+    let sh_data_offset = (shstrtab_offset + shstrtab.len() + 0xfff) & !0xfff;
+
+    let mut header = Header {
+        e_ident: [
+            127,
+            69,
+            76,
+            70,
+            goblin::elf64::header::ELFCLASS64,
+            goblin::elf64::header::ELFDATA2LSB,
+            goblin::elf64::header::EV_CURRENT,
+            goblin::elf64::header::ELFOSABI_NONE,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ],
+        e_type: ET_EXEC,
+        e_machine: 0, // Overridden later
+        e_version: 1,
+        e_entry: kentry as u64,
+        e_phoff: goblin::elf::Header::size(ctx) as u64,
+        e_shoff: sh_data_offset as u64,
+        e_flags: 0,
+        e_ehsize: goblin::elf::Header::size(ctx) as u16,
+        e_phentsize: goblin::elf::ProgramHeader::size(ctx) as u16,
+        e_phnum: program_headers.len() as u16,
+        e_shentsize: goblin::elf::SectionHeader::size(ctx) as u16,
+        e_shnum: section_headers.len() as u16,
+        e_shstrndx: (section_headers.len() - 1) as u16,
+    };
+
+    match cfg.arch_target {
+        ArchTarget::ARM => {
+            header.e_machine = goblin::elf::header::EM_ARM;
+        }
+        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
+            // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
+            header.e_machine = goblin::elf::header::EM_RISCV;
+        }
+    }
+
+    let mut elf_out = vec![
+        0;
+        sh_data_offset
+            + goblin::elf::SectionHeader::size(ctx)
+                * section_headers.len()
+    ];
+
+    elf_out.pwrite(header, 0)?;
+
+    let mut offset = goblin::elf::Header::size(ctx);
+    for program_header in program_headers {
+        elf_out.pwrite(program_header, offset)?;
+        offset += goblin::elf::ProgramHeader::size(ctx);
+    }
+
+    elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+    elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
+
+    let mut sh_offset = sh_data_offset;
+    for section_header in section_headers {
+        elf_out.pwrite(section_header, sh_offset)?;
+        sh_offset += goblin::elf::SectionHeader::size(ctx);
+    }
 
     std::fs::write(out, elf_out)?;
 
