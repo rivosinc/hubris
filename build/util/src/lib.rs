@@ -6,7 +6,49 @@ use anyhow::{anyhow, Context, Result};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::env;
+
+/// Reads the given environment variable and marks that it's used
+///
+/// This ensures a rebuild if the variable changes
+pub fn env_var(key: &str) -> Result<String, std::env::VarError> {
+    println!("cargo:rerun-if-env-changed={}", key);
+    std::env::var(key)
+}
+
+/// Reads the `OUT_DIR` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because Cargo should know when it changes.
+pub fn out_dir() -> std::path::PathBuf {
+    std::path::PathBuf::from(
+        std::env::var("OUT_DIR").expect("Could not get OUT_DIR"),
+    )
+}
+
+/// Reads the `TARGET` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because Cargo should know when `OUT_DIR` changes.
+pub fn target() -> String {
+    std::env::var("TARGET").unwrap()
+}
+
+/// Reads the `TARGET_OS` environment variable
+///
+/// This function goes through `std::env::var` directly, rather than our own
+/// `env_var`, because Cargo should know when it changes.
+pub fn target_os() -> String {
+    std::env::var("CARGO_CFG_TARGET_OS").unwrap()
+}
+
+/// Checks to see whether the given feature is enabled
+pub fn has_feature(s: &str) -> bool {
+    std::env::var(format!(
+        "CARGO_FEATURE_{}",
+        s.to_uppercase().replace('-', "_")
+    ))
+    .is_ok()
+}
 
 /// Exposes information about the CPU as cfg variables that isn't
 /// available in rustc's standard environment.
@@ -17,7 +59,7 @@ use std::env;
 /// For RISC-V targets, this will set `riscv_no_atomics` if the target doesn't
 /// implement the `A` extension.
 pub fn expose_cpu_info() {
-    let mut target = env::var("TARGET").unwrap();
+    let mut target = crate::target();
 
     if target.starts_with("thumbv6m") {
         println!("cargo:rustc-cfg=armv6m");
@@ -43,8 +85,7 @@ pub fn expose_cpu_info() {
 /// Exposes the board type from the `HUBRIS_BOARD` envvar into
 /// `cfg(target_board="...")`.
 pub fn expose_target_board() {
-    println!("cargo:rerun-if-env-changed=HUBRIS_BOARD");
-    if let Ok(board) = env::var("HUBRIS_BOARD") {
+    if let Ok(board) = crate::env_var("HUBRIS_BOARD") {
         println!("cargo:rustc-cfg=target_board=\"{}\"", board);
     }
 }
@@ -69,7 +110,7 @@ pub fn config<T: DeserializeOwned>() -> Result<T> {
 /// Pulls the task configuration. See `config` for more details.
 pub fn task_config<T: DeserializeOwned>() -> Result<T> {
     let task_name =
-        env::var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME");
+        crate::env_var("HUBRIS_TASK_NAME").expect("missing HUBRIS_TASK_NAME");
     task_maybe_config()?.ok_or_else(|| {
         anyhow!(
             "app.toml missing task config section [tasks.{}.config]",
@@ -86,8 +127,9 @@ pub fn task_maybe_config<T: DeserializeOwned>() -> Result<Option<T>> {
 
 pub fn task_peripherals() -> BTreeMap<String, Peripheral> {
     ron::de::from_str(
-        &env::var("HUBRIS_TASK_PERIPHERALS")
-            .expect("missing HUBRIS_TASK_PERIPHERALS"),
+        env_var("HUBRIS_TASK_PERIPHERALS")
+            .expect("missing HUBRIS_TASK_PERIPHERALS")
+            .as_str(),
     )
     .expect("Was not able to deserialize HUBRIS_TASK_PERIPHERALS")
 }
@@ -122,7 +164,7 @@ pub fn task_peripherals_str() -> String {
 }
 
 pub fn task_irq_consts() -> String {
-    env::var("HUBRIS_TASK_IRQS").expect("missing HUBRIS_TASK_IRQS")
+    env_var("HUBRIS_TASK_IRQS").expect("missing HUBRIS_TASK_IRQS")
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -133,7 +175,7 @@ pub struct Peripheral {
 }
 /// Returns a map of task names to their IDs.
 pub fn task_ids() -> TaskIds {
-    let tasks = env::var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+    let tasks = crate::env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
     TaskIds(
         tasks
             .split(',')
@@ -193,9 +235,8 @@ impl TaskIds {
 /// - `Err(e)` if deserialization failed or the environment variable did not
 ///   contain UTF-8.
 fn toml_from_env<T: DeserializeOwned>(var: &str) -> Result<Option<T>> {
-    println!("cargo:rerun-if-env-changed={}", var);
-    let config = match env::var(var) {
-        Err(env::VarError::NotPresent) => return Ok(None),
+    let config = match crate::env_var(var) {
+        Err(std::env::VarError::NotPresent) => return Ok(None),
         Err(e) => {
             return Err(e).with_context(|| {
                 format!("accessing environment variable {}", var)

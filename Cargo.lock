@@ -786,6 +786,7 @@ dependencies = [
 name = "drv-auxflash-server"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "cfg-if 1.0.0",
  "drv-auxflash-api",
  "drv-stm32h7-qspi",
@@ -2023,6 +2024,9 @@ dependencies = [
 [[package]]
 name = "hubris-num-tasks"
 version = "0.1.0"
+dependencies = [
+ "build-util",
+]
 
 [[package]]
 name = "hypocalls"
@@ -3351,6 +3355,7 @@ name = "stage0"
 version = "0.1.0"
 dependencies = [
  "abi",
+ "build-util",
  "cortex-m",
  "cortex-m-rt",
  "dice",
@@ -3674,6 +3679,7 @@ name = "task-net-api"
 version = "0.1.0"
 dependencies = [
  "build-net",
+ "build-util",
  "derive-idol-err",
  "drv-spi-api",
  "idol",
