@@ -56,6 +56,14 @@ stacksize = 512
 start = true
 task-slots = [{peer = "pong"}]
 
+[tasks.one_shot]
+name = "task-one-shot"
+priority = 1
+max-sizes = { flash = 8192, ram = 1024 }
+stacksize = 512
+start = true
+features = ["semihosting"]
+
 [tasks.idle]
 name = "task-idle"
 priority = 5
