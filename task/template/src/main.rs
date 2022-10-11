@@ -5,10 +5,6 @@
 #![no_std]
 #![no_main]
 
-// NOTE: you will probably want to remove this when you write your actual code;
-// we need to import userlib to get this to compile, but it throws a warning
-// because we're not actually using it yet!
-#[allow(unused_imports)]
 use userlib::*;
 
 #[export_name = "main"]
@@ -18,3 +14,12 @@ fn main() -> ! {
         // will turn this into a single undefined instruction.
     }
 }
+
+// This line includes the config file generated in the `build.rs`. Currently,
+// it will add constants for any peripherals and interrupts used. See
+// the `riscv-plic-server` and `fe310-rtc` drivers for examples on how these
+// are used.
+//
+// This can be removed if the task has no peripherals and no interrupts to
+// handle.
+include!(concat!(env!("OUT_DIR"), "/config.rs"));
