@@ -237,8 +237,8 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         }
                     }
 
-                    abi::TaskState::Healthy(abi::SchedState::Stopped) |
-                        abi::TaskState::Healthy(abi::SchedState::Exited) => {
+                    abi::TaskState::Healthy(abi::SchedState::Stopped)
+                    | abi::TaskState::Healthy(abi::SchedState::Exited) => {
                         if self.disposition[i] == Disposition::Start {
                             kipc::restart_task(i, true);
                         }
