@@ -24,6 +24,15 @@ pub fn read_task_status(task: usize) -> abi::TaskState {
     ssmarshal::deserialize(&response[..len]).unwrap_lite().0
 }
 
+pub fn exit_current_task() {
+    sys_send(TaskId::KERNEL,
+             Kipcnum::ExitCurrentTask as u16,
+             &[],
+             &mut [],
+             &[],
+    );
+}
+
 pub fn restart_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);
