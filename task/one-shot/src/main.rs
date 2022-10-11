@@ -13,6 +13,5 @@ fn main() -> ! {
     sys_log!("Exiting now!");
     kipc::exit_current_task();
 
-    // Adding this just to make rustc happy
-    loop {}
+    unreachable!();
 }
