@@ -3860,6 +3860,7 @@ dependencies = [
 name = "task-template"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "userlib",
 ]
 
