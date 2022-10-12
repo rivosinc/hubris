@@ -1,0 +1,21 @@
+[package]
+name = "chip-opentitan-earlgrey"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-chip-api = { path = "../../drv/chip-api" }
+drv-ibex-timer = { path = "../../drv/ibex-timer" }
+drv-int-chip-api = { path = "../../drv/int-chip-api" }
+drv-int-ctrl-api = { path = "../../drv/int-ctrl-api" }
+drv-riscv-plic = { path = "../../drv/riscv-plic" }
+drv-timer-api = { path = "../../drv/timer-api" }
+
+
+[build-dependencies]
+build-kconfig = {path = "../../build/kconfig"}
+build-util = {path = "../../build/util"}
+call_rustfmt = {path = "../../build/call_rustfmt"}
+ron = { workspace = true }
+serde = { workspace = true }
+quote = { workspace = true }

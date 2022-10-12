@@ -1,0 +1,25 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "demo-opentitan-earlgrey"
+version = "0.1.0"
+
+[dependencies]
+cfg-if = { workspace = true }
+riscv = { workspace = true }
+riscv-rt-wrapper = { path = "../../lib/riscv-rt-wrapper", features = [ "vectored-interrupts" ] }
+chip-opentitan-earlgrey = { path = "../../chips/opentitan-earlgrey" }
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+features = [ "riscv-epmp-mml", "riscv-epmp-mmwp" ]
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "demo-opentitan-earlgrey"
+test = false
+bench = false

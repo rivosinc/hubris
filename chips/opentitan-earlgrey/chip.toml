@@ -1,0 +1,459 @@
+[adc_ctrl_aon]
+address = 1078198272
+interrupt-controller = "plic"
+size = 128
+[adc_ctrl_aon.interrupts]
+match_done = 154
+
+[aes]
+address = 1091567616
+size = 256
+
+[alert_handler]
+address = 1075118080
+interrupt-controller = "plic"
+size = 2048
+[alert_handler.interrupts]
+classa = 127
+classb = 128
+classc = 129
+classd = 130
+
+[ibex_aontimer]
+address = 1078394880
+interrupt-controller = "plic"
+size = 64
+[ibex_aontimer.interrupts]
+wdog_timer_bark = 156
+wkup_timer_expired = 155
+
+[ast]
+address = 1078460416
+size = 1024
+
+[clkmgr_aon]
+address = 1078067200
+size = 128
+
+[core_ibex_cfg]
+address = 1092550656
+size = 256
+
+[csrng]
+address = 1091895296
+interrupt-controller = "plic"
+size = 128
+[csrng.interrupts]
+cs_cmd_req_done = 173
+cs_entropy_req = 174
+cs_fatal_err = 176
+cs_hw_inst_exc = 175
+
+[dm_mem]
+address = 65536
+size = 4096
+
+[dm_regs]
+address = 1092616192
+size = 4
+
+[edn0]
+address = 1092026368
+interrupt-controller = "plic"
+size = 128
+[edn0.interrupts]
+edn_cmd_req_done = 181
+edn_fatal_err = 182
+
+[edn1]
+address = 1092091904
+interrupt-controller = "plic"
+size = 128
+[edn1.interrupts]
+edn_cmd_req_done = 183
+edn_fatal_err = 184
+
+[eflash]
+address = 536870912
+size = 1048576
+
+[entropy_src]
+address = 1091960832
+interrupt-controller = "plic"
+size = 256
+[entropy_src.interrupts]
+es_entropy_valid = 177
+es_fatal_err = 180
+es_health_test_failed = 178
+es_observe_fifo_ready = 179
+
+[flash_ctrl_core]
+address = 1090519040
+size = 512
+
+[flash_ctrl_mem]
+address = 536870912
+size = 1048576
+
+[flash_ctrl_prim]
+address = 1090551808
+size = 128
+
+[gpio]
+address = 1074003968
+interrupt-controller = "plic"
+size = 64
+[gpio.interrupts]
+gpio0 = 33
+gpio1 = 34
+gpio10 = 43
+gpio11 = 44
+gpio12 = 45
+gpio13 = 46
+gpio14 = 47
+gpio15 = 48
+gpio16 = 49
+gpio17 = 50
+gpio18 = 51
+gpio19 = 52
+gpio2 = 35
+gpio20 = 53
+gpio21 = 54
+gpio22 = 55
+gpio23 = 56
+gpio24 = 57
+gpio25 = 58
+gpio26 = 59
+gpio27 = 60
+gpio28 = 61
+gpio29 = 62
+gpio3 = 36
+gpio30 = 63
+gpio31 = 64
+gpio4 = 37
+gpio5 = 38
+gpio6 = 39
+gpio7 = 40
+gpio8 = 41
+gpio9 = 42
+
+[hmac]
+address = 1091633152
+interrupt-controller = "plic"
+size = 4096
+[hmac.interrupts]
+fifo_empty = 166
+hmac_done = 165
+hmac_err = 167
+
+[i2c0]
+address = 1074266112
+interrupt-controller = "plic"
+size = 128
+[i2c0.interrupts]
+acq_full = 89
+cmd_complete = 86
+fmt_overflow = 79
+fmt_threshold = 77
+host_timeout = 91
+nak = 81
+rx_overflow = 80
+rx_threshold = 78
+scl_interference = 82
+sda_interference = 83
+sda_unstable = 85
+stretch_timeout = 84
+tx_overflow = 88
+tx_stretch = 87
+unexp_stop = 90
+
+[i2c1]
+address = 1074331648
+interrupt-controller = "plic"
+size = 128
+[i2c1.interrupts]
+acq_full = 104
+cmd_complete = 101
+fmt_overflow = 94
+fmt_threshold = 92
+host_timeout = 106
+nak = 96
+rx_overflow = 95
+rx_threshold = 93
+scl_interference = 97
+sda_interference = 98
+sda_unstable = 100
+stretch_timeout = 99
+tx_overflow = 103
+tx_stretch = 102
+unexp_stop = 105
+
+[i2c2]
+address = 1074397184
+interrupt-controller = "plic"
+size = 128
+[i2c2.interrupts]
+acq_full = 119
+cmd_complete = 116
+fmt_overflow = 109
+fmt_threshold = 107
+host_timeout = 121
+nak = 111
+rx_overflow = 110
+rx_threshold = 108
+scl_interference = 112
+sda_interference = 113
+sda_unstable = 115
+stretch_timeout = 114
+tx_overflow = 118
+tx_stretch = 117
+unexp_stop = 120
+
+[keymgr]
+address = 1091829760
+interrupt-controller = "plic"
+size = 256
+[keymgr.interrupts]
+op_done = 172
+
+[kmac]
+address = 1091698688
+interrupt-controller = "plic"
+size = 4096
+[kmac.interrupts]
+fifo_empty = 169
+kmac_done = 168
+kmac_err = 170
+
+[lc_ctrl]
+address = 1075052544
+size = 256
+
+[mmio]
+address = 1073741824
+size = 268435456
+
+[otbn]
+address = 1091764224
+interrupt-controller = "plic"
+size = 65536
+[otbn.interrupts]
+done = 171
+
+[otp_ctrl_core]
+address = 1074987008
+size = 8192
+
+[otp_ctrl_prim]
+address = 1074995200
+size = 32
+
+[pattgen]
+address = 1074659328
+interrupt-controller = "plic"
+size = 64
+[pattgen.interrupts]
+done_ch0 = 122
+done_ch1 = 123
+
+[pinmux_aon]
+address = 1078329344
+size = 4096
+
+[plic]
+address = 1207959552
+kernel-reserved = true
+size = 134217728
+[plic.config]
+pbits = 3
+context_id = 0
+max_irq = 184
+[plic.interrupts]
+irq = 11
+
+[pwm_aon]
+address = 1078263808
+size = 128
+
+[pwrmgr_aon]
+address = 1077936128
+interrupt-controller = "plic"
+size = 128
+[pwrmgr_aon.interrupts]
+wakeup = 152
+
+[ram_main]
+address = 268435456
+size = 131072
+
+[ram_ret_aon]
+address = 1080033280
+size = 4096
+
+[rom]
+address = 32768
+size = 32768
+
+[rom_ctrl_regs]
+address = 1092485120
+size = 128
+
+[rom_ctrl_rom]
+address = 32768
+size = 32768
+
+[rstmgr_aon]
+address = 1078001664
+size = 128
+
+[sensor_ctrl]
+address = 1078525952
+interrupt-controller = "plic"
+size = 64
+[sensor_ctrl.interrupts]
+init_status_change = 158
+io_status_change = 157
+
+[spi_device]
+address = 1074069504
+interrupt-controller = "plic"
+size = 8192
+[spi_device.interrupts]
+generic_rx_error = 68
+generic_rx_full = 65
+generic_rx_overflow = 69
+generic_rx_watermark = 66
+generic_tx_underflow = 70
+generic_tx_watermark = 67
+readbuf_flip = 75
+readbuf_watermark = 74
+tpm_header_not_empty = 76
+upload_cmdfifo_not_empty = 71
+upload_payload_not_empty = 72
+upload_payload_overflow = 73
+
+[spi_host0]
+address = 1076887552
+interrupt-controller = "plic"
+size = 64
+[spi_host0.interrupts]
+error = 131
+spi_event = 132
+
+[spi_host1]
+address = 1076953088
+interrupt-controller = "plic"
+size = 64
+[spi_host1.interrupts]
+error = 133
+spi_event = 134
+
+[sram_ctrl_main_ram]
+address = 268435456
+size = 131072
+
+[sram_ctrl_main_regs]
+address = 1092354048
+size = 32
+
+[sram_ctrl_ret_aon_ram]
+address = 1080033280
+size = 4096
+
+[sram_ctrl_ret_aon_regs]
+address = 1078984704
+size = 32
+
+[sysrst_ctrl_aon]
+address = 1078132736
+interrupt-controller = "plic"
+size = 256
+[sysrst_ctrl_aon.interrupts]
+event_detected = 153
+
+[ibex_timer]
+address = 1074790400
+interrupt-controller = "plic"
+kernel-reserved = true
+size = 512
+[ibex_timer.interrupts]
+timer_expired_hart0_timer0 = 124
+
+[uart0]
+address = 1073741824
+interrupt-controller = "plic"
+size = 64
+[uart0.interrupts]
+rx_break_err = 6
+rx_frame_err = 5
+rx_overflow = 4
+rx_parity_err = 8
+rx_timeout = 7
+rx_watermark = 2
+tx_empty = 3
+tx_watermark = 1
+
+[uart1]
+address = 1073807360
+interrupt-controller = "plic"
+size = 64
+[uart1.interrupts]
+rx_break_err = 14
+rx_frame_err = 13
+rx_overflow = 12
+rx_parity_err = 16
+rx_timeout = 15
+rx_watermark = 10
+tx_empty = 11
+tx_watermark = 9
+
+[uart2]
+address = 1073872896
+interrupt-controller = "plic"
+size = 64
+[uart2.interrupts]
+rx_break_err = 22
+rx_frame_err = 21
+rx_overflow = 20
+rx_parity_err = 24
+rx_timeout = 23
+rx_watermark = 18
+tx_empty = 19
+tx_watermark = 17
+
+[uart3]
+address = 1073938432
+interrupt-controller = "plic"
+size = 64
+[uart3.interrupts]
+rx_break_err = 30
+rx_frame_err = 29
+rx_overflow = 28
+rx_parity_err = 32
+rx_timeout = 31
+rx_watermark = 26
+tx_empty = 27
+tx_watermark = 25
+
+[usbdev]
+address = 1077018624
+interrupt-controller = "plic"
+size = 4096
+[usbdev.interrupts]
+av_empty = 142
+av_overflow = 144
+disconnected = 137
+frame = 149
+host_lost = 138
+link_in_err = 145
+link_out_err = 151
+link_reset = 139
+link_resume = 141
+link_suspend = 140
+pkt_received = 135
+pkt_sent = 136
+powered = 150
+rx_bitstuff_err = 148
+rx_crc_err = 146
+rx_full = 143
+rx_pid_err = 147
