@@ -2647,8 +2647,8 @@ fn write_elf(
                 sections_base_address = *candidate_section.0;
             }
 
-            let end: AbiSize =
-                (*candidate_section.0) as AbiSize + candidate_section.1.data.len() as AbiSize;
+            let end: AbiSize = (*candidate_section.0) as AbiSize
+                + candidate_section.1.data.len() as AbiSize;
 
             if end > sections_length {
                 sections_length = end;
