@@ -2639,7 +2639,7 @@ fn write_elf(
     );
 
     let mut sections_base_address: AbiSize = kentry;
-    let mut sections_length: u64 = 0;
+    let mut sections_length: AbiSize = 0;
 
     for candidate_section in sections {
         if candidate_section.1.data.len() > 0 {
@@ -2647,8 +2647,8 @@ fn write_elf(
                 sections_base_address = *candidate_section.0;
             }
 
-            let end =
-                (*candidate_section.0) + candidate_section.1.data.len() as u64;
+            let end: AbiSize =
+                (*candidate_section.0) as AbiSize + candidate_section.1.data.len() as AbiSize;
 
             if end > sections_length {
                 sections_length = end;
@@ -2920,6 +2920,8 @@ fn write_elf(
             elf_out.pwrite(section_header, sh_offset)?;
             sh_offset += goblin::elf::SectionHeader::size(ctx);
         }
+
+        std::fs::write(out, elf_out)?;
     }
 
     Ok(())
