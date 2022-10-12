@@ -15,6 +15,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
+use paste::paste;
 use path_slash::PathBufExt;
 use serde::Serialize;
 use zerocopy::AsBytes;
@@ -2447,40 +2448,195 @@ fn binary_to_srec(
     Ok(())
 }
 
+macro_rules! make_header_containers {
+    ($abisize:literal,
+     $program_headers:ident,
+     $section_headers:ident) => {
+        paste! {
+            let mut $program_headers: Vec<
+                goblin::[<elf $abisize>]::program_header::ProgramHeader,
+            > = Vec::new();
+            let mut $section_headers: Vec<
+                goblin::[<elf $abisize>]::section_header::SectionHeader,
+            > = Vec::new();
+        }
+    };
+}
+
+macro_rules! make_program_header_common {
+    ($program_header:ty, $abisize:ty, $file_offset:expr, $mem_address:expr, $program_size:expr, $alignment:literal, $collection:ident) => {
+        paste! {
+            use $program_header as [<ph_ $abisize>];
+            use [<ph_ $abisize>]::{PF_R, PF_W, PF_X, PT_LOAD};
+            $collection.push([<ph_ $abisize>]::ProgramHeader {
+                p_type: PT_LOAD,
+                p_flags: PF_X | PF_W | PF_R,
+                p_offset: $file_offset as $abisize,
+                p_vaddr: $mem_address as $abisize,
+                p_paddr: $mem_address as $abisize,
+                p_filesz: $program_size as $abisize,
+                p_memsz: $program_size as $abisize,
+                p_align: $alignment, // This matches the alignment guarantees of the kernel & task build
+            });
+        }
+    };
+}
+
+macro_rules! make_program_header {
+    ($abisize:literal,
+     $file_offset:expr,
+     $mem_address:expr,
+     $program_size:expr,
+     $alignment:literal,
+     $collection:ident) => {
+        paste! {
+            make_program_header_common!(
+                goblin::[<elf $abisize>]::program_header,
+                [<u $abisize>],
+                $file_offset,
+                $mem_address,
+                $program_size,
+                $alignment,
+                $collection
+            );
+        }
+    };
+}
+
+macro_rules! make_section_header_common {
+    ($section_header:ty, $abisize:ty, $section_type:expr, $section_flags:expr, $name_offset:expr, $file_offset:expr, $program_size:expr, $mem_address:expr, $alignment:literal, $collection:ident) => {
+        paste! {
+            use $section_header as [<sh_ $abisize>];
+            $collection.push([<sh_ $abisize>]::SectionHeader {
+                sh_type: $section_type,
+                sh_flags: $section_flags as $abisize,
+                sh_name: $name_offset as u32,
+                sh_offset: $file_offset as $abisize,
+                sh_size: $program_size as $abisize,
+                sh_addr: $mem_address as $abisize,
+                sh_addralign: $alignment,
+                sh_entsize: 0, // No fixed-size entries here
+                sh_link: 0,
+                sh_info: 0,
+            });
+        }
+    };
+}
+
+macro_rules! make_section_header {
+    ($abisize:literal,
+     $section_type:expr,
+     $section_flags:expr,
+     $name_offset:expr,
+     $file_offset:expr,
+     $program_size:expr,
+     $mem_address:expr,
+     $alignment:literal,
+     $collection:ident) => {
+        paste! {
+            make_section_header_common!(
+                goblin::elf::section_header::[<section_header $abisize>],
+                [<u $abisize>],
+                $section_type,
+                $section_flags,
+                $name_offset,
+                $file_offset,
+                $program_size,
+                $mem_address,
+                $alignment,
+                $collection
+            );
+        }
+    };
+}
+
+macro_rules! make_header_common {
+    ($var:ident, $header:ty, $elfclass:expr, $le_be:expr, $abisize:ty, $entry:expr, $section_offset:expr, $program_headers:ident, $section_headers:ident, $section_name_offset:expr, $ctx:ident) => {
+        paste! {
+            use $header as [<h_ $abisize>];
+            let mut $var = [<h_ $abisize>]::Header {
+                e_ident: [
+                    127,
+                    69,
+                    76,
+                    70,
+                    $elfclass,
+                    $le_be,
+                    [<h_ $abisize>]::EV_CURRENT,
+                    [<h_ $abisize>]::ELFOSABI_NONE,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ],
+                e_type: [<h_ $abisize>]::ET_EXEC,
+                e_machine: 0, // Overridden later
+                e_version: 1,
+                e_entry: $entry as $abisize,
+                e_phoff: goblin::elf::Header::size($ctx) as $abisize,
+                e_shoff: $section_offset as $abisize,
+                e_flags: 0,
+                e_ehsize: goblin::elf::Header::size($ctx) as u16,
+                e_phentsize: goblin::elf::ProgramHeader::size($ctx) as u16,
+                e_phnum: $program_headers.len() as u16,
+                e_shentsize: goblin::elf::SectionHeader::size($ctx) as u16,
+                e_shnum: $section_headers.len() as u16,
+                e_shstrndx: $section_name_offset as u16,
+            };
+        };
+    };
+}
+
+macro_rules! make_header {
+    ($abisize:literal,
+     le,
+     $var:ident,
+     $entry:expr,
+     $section_offset:expr,
+     $program_headers:ident,
+     $section_headers:ident,
+     $section_name_offset:expr,
+     $ctx:ident) => {
+        paste! {
+            make_header_common! {
+                $var,
+                goblin::[<elf $abisize>]::header,
+                goblin::[<elf $abisize>]::header::[<ELFCLASS $abisize>],
+                goblin::[<elf $abisize>]::header::ELFDATA2LSB,
+                [<u $abisize>],
+                $entry,
+                $section_offset,
+                $program_headers,
+                $section_headers,
+                $section_name_offset,
+                $ctx
+            };
+        }
+    };
+}
+
 fn write_elf(
     sections: &BTreeMap<AbiSize, LoadSegment>,
     kentry: AbiSize,
     cfg: &PackageConfig,
     out: &Path,
 ) -> Result<()> {
-    if cfg.arch_consts.objcopy_target.starts_with("elf64") {
-        println!("Building ELF64");
-        write_elf64(sections, kentry, cfg, out)?;
-    } else {
-        println!("Building ELF32");
-        write_elf32(sections, kentry, cfg, out)?;
-    }
-
-    Ok(())
-}
-
-fn write_elf32(
-    sections: &BTreeMap<AbiSize, LoadSegment>,
-    kentry: AbiSize,
-    cfg: &PackageConfig,
-    out: &Path,
-) -> Result<()> {
     use goblin::container::{Container, Ctx, Endian};
-    use goblin::elf32::header::{Header, ET_EXEC};
-    use goblin::elf32::program_header::ProgramHeader;
-    use goblin::elf32::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
-    use goblin::elf32::section_header::SectionHeader;
-    use goblin::elf32::section_header::{
-        SHF_ALLOC, SHF_EXECINSTR, SHT_PROGBITS, SHT_STRTAB,
-    };
     use scroll::Pwrite;
 
-    let ctx = Ctx::new(Container::Little, Endian::Little);
+    // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
+    let ctx = Ctx::new(
+        if cfg.arch_consts.objcopy_target.starts_with("elf64") {
+            Container::Big
+        } else {
+            Container::Little
+        },
+        Endian::Little,
+    );
 
     let mut sections_base_address: AbiSize = kentry;
     let mut sections_length: u64 = 0;
@@ -2501,13 +2657,40 @@ fn write_elf32(
     }
     sections_length -= sections_base_address;
 
-    let mut program_headers = Vec::new();
-    let mut section_headers = Vec::new();
-
     // Create a Section Header String Table, to hold the actual section
     // names.
     let mut shstrtab = Vec::new();
-    shstrtab.push(0x00 as u8);
+    shstrtab.push(0x00 as u8); // For the SHT_NULL section.
+
+    // Create both 32 and 64 bit header vectors. We'll select which one to use based
+    // on the container configuration, which we infer from the arch_constants
+    // to determine if we're building ELF64 or ELF32.
+    make_header_containers!(32, program_headers32, section_headers32);
+    make_header_containers!(64, program_headers64, section_headers64);
+
+    // Create a null section header, as required by ELF
+    make_section_header!(
+        64,
+        goblin::elf64::section_header::SHT_NULL,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        section_headers64
+    );
+    make_section_header!(
+        32,
+        goblin::elf32::section_header::SHT_NULL,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        section_headers32
+    );
 
     // Preallocate a vector for section data, filled with 0xFF. This pattern is chosen
     // to replicate the erase pattern we'd find in flash, and match the padding value
@@ -2525,29 +2708,49 @@ fn write_elf32(
         let this_section_end_offset =
             this_section_base_offset as usize + sec.data.len() as usize;
 
-        program_headers.push(ProgramHeader {
-            p_type: PT_LOAD,
-            p_flags: PF_X | PF_W | PF_R,
-            p_offset: this_section_base_offset as u32,
-            p_vaddr: *base as u32,
-            p_paddr: *base as u32,
-            p_filesz: sec.data.len() as u32,
-            p_memsz: sec.data.len() as u32,
-            p_align: 0x20, // This matches the alignment guarantees of the kernel & task build
-        });
-
-        section_headers.push(SectionHeader {
-            sh_type: SHT_PROGBITS,
-            sh_flags: (SHF_ALLOC | SHF_EXECINSTR) as u32,
-            sh_name: shstrtab.len() as u32,
-            sh_offset: this_section_base_offset as u32,
-            sh_size: sec.data.len() as u32,
-            sh_addr: kentry as u32,
-            sh_addralign: 0x20,
-            sh_entsize: 0, // No fixed-size entries here
-            sh_link: 0,
-            sh_info: 0,
-        });
+        if ctx.container.is_big() {
+            make_program_header!(
+                64,
+                this_section_base_offset,
+                *base,
+                sec.data.len(),
+                0x20, // alignment
+                program_headers64
+            );
+            make_section_header!(
+                64,
+                goblin::elf64::section_header::SHT_PROGBITS,
+                (goblin::elf64::section_header::SHF_ALLOC
+                    | goblin::elf64::section_header::SHF_EXECINSTR),
+                shstrtab.len(),
+                this_section_base_offset,
+                sec.data.len(),
+                *base,
+                0x20,
+                section_headers64
+            );
+        } else {
+            make_program_header!(
+                32,
+                this_section_base_offset,
+                *base,
+                sec.data.len(),
+                0x20, // alignment
+                program_headers32
+            );
+            make_section_header!(
+                32,
+                goblin::elf32::section_header::SHT_PROGBITS,
+                (goblin::elf32::section_header::SHF_ALLOC
+                    | goblin::elf32::section_header::SHF_EXECINSTR),
+                shstrtab.len(),
+                this_section_base_offset,
+                sec.data.len(),
+                *base,
+                0x20,
+                section_headers32
+            );
+        }
 
         let task_name = sec.source_file.file_name().to_owned().unwrap();
 
@@ -2566,11 +2769,13 @@ fn write_elf32(
         section_header_name_index += 1;
     }
 
-    shstrtab.shrink_to_fit();
-
     // We can now compute these offsets
     let program_headers_offset = goblin::elf::Header::size(ctx)
-        + goblin::elf::ProgramHeader::size(ctx) * program_headers.len();
+        + if ctx.container.is_big() {
+            goblin::elf::ProgramHeader::size(ctx) * program_headers64.len()
+        } else {
+            goblin::elf::ProgramHeader::size(ctx) * program_headers32.len()
+        };
 
     // Page align the start of sections data.
     let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
@@ -2580,312 +2785,142 @@ fn write_elf32(
         (sections_data_offset + sections_data.len() + 0xfff) & !0xfff;
 
     // Add the section header for the Section Header String Table
-    section_headers.push(SectionHeader {
-        sh_name: section_header_name_index as u32,
-        sh_type: SHT_STRTAB,
-        sh_flags: 0,
-        sh_addr: 0,
-        sh_offset: shstrtab_offset as u32,
-        sh_size: shstrtab.len() as u32,
-        sh_link: 0,
-        sh_info: 0,
-        sh_addralign: 0,
-        sh_entsize: 0,
-    });
+    let shstrtab_name_offset = shstrtab.len();
     shstrtab.extend_from_slice(".shstrtab".as_bytes());
     shstrtab.push(0x00 as u8);
     shstrtab.shrink_to_fit();
 
-    // Page align the Section Headers.
-    let sh_data_offset = (shstrtab_offset + shstrtab.len() + 0xfff) & !0xfff;
-
-    let mut header = Header {
-        e_ident: [
-            127,
-            69,
-            76,
-            70,
-            goblin::elf32::header::ELFCLASS32,
-            goblin::elf32::header::ELFDATA2LSB,
-            goblin::elf32::header::EV_CURRENT,
-            goblin::elf32::header::ELFOSABI_NONE,
+    if ctx.container.is_big() {
+        make_section_header!(
+            64,
+            goblin::elf64::section_header::SHT_STRTAB,
+            0,
+            shstrtab_name_offset,
+            shstrtab_offset,
+            shstrtab.len(),
             0,
             0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ],
-        e_type: ET_EXEC,
-        e_machine: 0, // Overridden later
-        e_version: 1,
-        e_entry: kentry as u32,
-        e_phoff: goblin::elf::Header::size(ctx) as u32,
-        e_shoff: sh_data_offset as u32,
-        e_flags: 0,
-        e_ehsize: goblin::elf::Header::size(ctx) as u16,
-        e_phentsize: goblin::elf::ProgramHeader::size(ctx) as u16,
-        e_phnum: program_headers.len() as u16,
-        e_shentsize: goblin::elf::SectionHeader::size(ctx) as u16,
-        e_shnum: section_headers.len() as u16,
-        e_shstrndx: (section_headers.len() - 1) as u16,
-    };
-
-    match cfg.arch_target {
-        ArchTarget::ARM => {
-            header.e_machine = goblin::elf::header::EM_ARM;
-        }
-        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
-            // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
-            header.e_machine = goblin::elf::header::EM_RISCV;
-        }
-    }
-
-    match cfg.arch_target {
-        ArchTarget::ARM => {
-            header.e_machine = goblin::elf::header::EM_ARM;
-        }
-        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
-            // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
-            header.e_machine = goblin::elf::header::EM_RISCV;
-        }
-    }
-
-    let mut elf_out = vec![
-        0;
-        sh_data_offset
-            + goblin::elf::SectionHeader::size(ctx)
-                * section_headers.len()
-    ];
-
-    elf_out.pwrite(header, 0)?;
-
-    let mut offset = goblin::elf::Header::size(ctx);
-    for program_header in program_headers {
-        elf_out.pwrite(program_header, offset)?;
-        offset += goblin::elf::ProgramHeader::size(ctx);
-    }
-
-    elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
-    elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
-
-    let mut sh_offset = sh_data_offset;
-    for section_header in section_headers {
-        println!("Writing Section Header @ {:X}", sh_offset);
-        elf_out.pwrite(section_header, sh_offset)?;
-        sh_offset += goblin::elf::SectionHeader::size(ctx);
-    }
-
-    std::fs::write(out, elf_out)?;
-
-    Ok(())
-}
-
-fn write_elf64(
-    sections: &BTreeMap<AbiSize, LoadSegment>,
-    kentry: AbiSize,
-    cfg: &PackageConfig,
-    out: &Path,
-) -> Result<()> {
-    use goblin::container::{Container, Ctx, Endian};
-    use goblin::elf64::header::{Header, ET_EXEC};
-    use goblin::elf64::program_header::ProgramHeader;
-    use goblin::elf64::program_header::{PF_R, PF_W, PF_X, PT_LOAD};
-    use goblin::elf64::section_header::SectionHeader;
-    use goblin::elf64::section_header::{
-        SHF_ALLOC, SHF_EXECINSTR, SHT_PROGBITS, SHT_STRTAB,
-    };
-    use scroll::Pwrite;
-
-    // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
-    let ctx = Ctx::new(Container::Big, Endian::Little);
-
-    let mut sections_base_address: AbiSize = kentry;
-    let mut sections_length: u64 = 0;
-
-    for candidate_section in sections {
-        if candidate_section.1.data.len() > 0 {
-            if *candidate_section.0 < sections_base_address {
-                sections_base_address = *candidate_section.0;
-            }
-
-            let end =
-                (*candidate_section.0) + candidate_section.1.data.len() as u64;
-
-            if end > sections_length {
-                sections_length = end;
-            }
-        }
-    }
-    sections_length -= sections_base_address;
-
-    let mut program_headers = Vec::new();
-    let mut section_headers = Vec::new();
-
-    // Create a Section Header String Table, to hold the actual section
-    // names.
-    let mut shstrtab = Vec::new();
-    shstrtab.push(0x00 as u8);
-
-    // Preallocate a vector for section data, filled with 0xFF. This pattern is chosen
-    // to replicate the erase pattern we'd find in flash, and match the padding value
-    // previously chosen for the objcopy gap filler.
-    let mut sections_data = vec![0xFF; sections_length.try_into().unwrap()];
-    let mut section_header_name_index = 0 as usize;
-    // Generate all the program headers and collect all the sections together.
-    for (base, sec) in sections {
-        if sec.data.is_empty() {
-            // Do not create a program header for an empty section. There's nothing to load.
-            continue;
-        }
-
-        let this_section_base_offset = base - sections_base_address;
-        let this_section_end_offset =
-            this_section_base_offset as usize + sec.data.len() as usize;
-
-        program_headers.push(ProgramHeader {
-            p_type: PT_LOAD,
-            p_flags: PF_X | PF_W | PF_R,
-            p_offset: this_section_base_offset as u64,
-            p_vaddr: *base as u64,
-            p_paddr: *base as u64,
-            p_filesz: sec.data.len() as u64,
-            p_memsz: sec.data.len() as u64,
-            p_align: 0x20, // This matches the alignment guarantees of the kernel & task build
-        });
-
-        section_headers.push(SectionHeader {
-            sh_type: SHT_PROGBITS,
-            sh_flags: (SHF_ALLOC | SHF_EXECINSTR) as u64,
-            sh_name: section_header_name_index as u32,
-            sh_offset: this_section_base_offset as u64,
-            sh_size: sec.data.len() as u64,
-            sh_addr: kentry as u64,
-            sh_addralign: 0x20,
-            sh_entsize: 0, // No fixed-size entries here
-            sh_link: 0,
-            sh_info: 0,
-        });
-
-        let task_name = sec.source_file.file_name().to_owned().unwrap();
-
-        let mut section_name: String = String::from(".text.");
-        section_name.push_str(task_name.to_str().unwrap());
-        shstrtab.extend_from_slice(section_name.as_bytes());
-        shstrtab.push(0x00 as u8);
-
-        sections_data.splice(
-            this_section_base_offset as usize..this_section_end_offset as usize,
-            sec.data.iter().cloned(),
+            section_headers64
         );
-
-        section_header_name_index += 1;
+    } else {
+        make_section_header!(
+            32,
+            goblin::elf32::section_header::SHT_STRTAB,
+            0,
+            shstrtab_name_offset,
+            shstrtab_offset,
+            shstrtab.len(),
+            0,
+            0,
+            section_headers32
+        );
     }
-
-    shstrtab.shrink_to_fit();
-
-    // We can now compute these offsets
-    let program_headers_offset = goblin::elf::Header::size(ctx)
-        + goblin::elf::ProgramHeader::size(ctx) * program_headers.len();
-
-    // Page align the start of sections data.
-    let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
-
-    // Page align the Section Header String Table.
-    let shstrtab_offset =
-        (sections_data_offset + sections_data.len() + 0xfff) & !0xfff;
-
-    // Add the section header for the Section Header String Table
-    section_headers.push(SectionHeader {
-        sh_name: section_header_name_index as u32,
-        sh_type: SHT_STRTAB,
-        sh_flags: 0,
-        sh_addr: 0,
-        sh_offset: shstrtab_offset as u64,
-        sh_size: shstrtab.len() as u64,
-        sh_link: 0,
-        sh_info: 0,
-        sh_addralign: 0,
-        sh_entsize: 0,
-    });
-    shstrtab.extend_from_slice(".shstrtab".as_bytes());
-    shstrtab.push(0x00 as u8);
-    shstrtab.shrink_to_fit();
-
     // Page align the Section Headers.
     let sh_data_offset = (shstrtab_offset + shstrtab.len() + 0xfff) & !0xfff;
 
-    let mut header = Header {
-        e_ident: [
-            127,
-            69,
-            76,
-            70,
-            goblin::elf64::header::ELFCLASS64,
-            goblin::elf64::header::ELFDATA2LSB,
-            goblin::elf64::header::EV_CURRENT,
-            goblin::elf64::header::ELFOSABI_NONE,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ],
-        e_type: ET_EXEC,
-        e_machine: 0, // Overridden later
-        e_version: 1,
-        e_entry: kentry as u64,
-        e_phoff: goblin::elf::Header::size(ctx) as u64,
-        e_shoff: sh_data_offset as u64,
-        e_flags: 0,
-        e_ehsize: goblin::elf::Header::size(ctx) as u16,
-        e_phentsize: goblin::elf::ProgramHeader::size(ctx) as u16,
-        e_phnum: program_headers.len() as u16,
-        e_shentsize: goblin::elf::SectionHeader::size(ctx) as u16,
-        e_shnum: section_headers.len() as u16,
-        e_shstrndx: (section_headers.len() - 1) as u16,
+    let shstrtab_name_offset32: usize = if section_headers32.len() > 0 {
+        section_headers32.len() - 1 as usize
+    } else {
+        0 as usize
     };
+
+    let shstrtab_name_offset64: usize = if section_headers64.len() > 0 {
+        section_headers64.len() - 1 as usize
+    } else {
+        0 as usize
+    };
+
+    // Make both headers, but we'll only write out one.
+    make_header!(
+        32,
+        le,
+        header32,
+        kentry,
+        sh_data_offset,
+        program_headers32,
+        section_headers32,
+        shstrtab_name_offset32,
+        ctx
+    );
+    make_header!(
+        64,
+        le,
+        header64,
+        kentry,
+        sh_data_offset,
+        program_headers64,
+        section_headers64,
+        shstrtab_name_offset64,
+        ctx
+    );
 
     match cfg.arch_target {
         ArchTarget::ARM => {
-            header.e_machine = goblin::elf::header::EM_ARM;
+            header32.e_machine = goblin::elf::header::EM_ARM;
+            header64.e_machine = goblin::elf::header::EM_ARM;
         }
         ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
             // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
-            header.e_machine = goblin::elf::header::EM_RISCV;
+            header32.e_machine = goblin::elf::header::EM_RISCV;
+            header64.e_machine = goblin::elf::header::EM_RISCV;
         }
     }
 
-    let mut elf_out = vec![
-        0;
-        sh_data_offset
-            + goblin::elf::SectionHeader::size(ctx)
-                * section_headers.len()
-    ];
+    // Assemble all components into the final ELF bitstream:
+    // - Header
+    // - Program Headers
+    // - Sections Bitstream
+    // - Section Header String Table
+    // - Section Headers
+    if ctx.container.is_big() {
+        let mut elf_out = vec![
+            0;
+            sh_data_offset
+                + goblin::elf::SectionHeader::size(ctx)
+                    * section_headers64.len()
+        ];
+        elf_out.pwrite(header64, 0)?;
 
-    elf_out.pwrite(header, 0)?;
+        let mut offset = goblin::elf::Header::size(ctx);
+        for program_header in program_headers64 {
+            elf_out.pwrite(program_header, offset)?;
+            offset += goblin::elf::ProgramHeader::size(ctx);
+        }
 
-    let mut offset = goblin::elf::Header::size(ctx);
-    for program_header in program_headers {
-        elf_out.pwrite(program_header, offset)?;
-        offset += goblin::elf::ProgramHeader::size(ctx);
+        elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+        elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
+
+        let mut sh_offset = sh_data_offset;
+        for section_header in section_headers64 {
+            elf_out.pwrite(section_header, sh_offset)?;
+            sh_offset += goblin::elf::SectionHeader::size(ctx);
+        }
+
+        std::fs::write(out, elf_out)?;
+    } else {
+        let mut elf_out = vec![
+            0;
+            sh_data_offset
+                + goblin::elf::SectionHeader::size(ctx)
+                    * section_headers32.len()
+        ];
+        elf_out.pwrite(header32, 0)?;
+
+        let mut offset = goblin::elf::Header::size(ctx);
+        for program_header in program_headers32 {
+            elf_out.pwrite(program_header, offset)?;
+            offset += goblin::elf::ProgramHeader::size(ctx);
+        }
+
+        elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+        elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
+
+        let mut sh_offset = sh_data_offset;
+        for section_header in section_headers32 {
+            elf_out.pwrite(section_header, sh_offset)?;
+            sh_offset += goblin::elf::SectionHeader::size(ctx);
+        }
     }
-
-    elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
-    elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
-
-    let mut sh_offset = sh_data_offset;
-    for section_header in section_headers {
-        elf_out.pwrite(section_header, sh_offset)?;
-        sh_offset += goblin::elf::SectionHeader::size(ctx);
-    }
-
-    std::fs::write(out, elf_out)?;
 
     Ok(())
 }
