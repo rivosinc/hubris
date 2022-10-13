@@ -2696,7 +2696,7 @@ fn write_elf(
     // to replicate the erase pattern we'd find in flash, and match the padding value
     // previously chosen for the objcopy gap filler.
     let mut sections_data = vec![0xFF; sections_length.try_into().unwrap()];
-    let mut section_header_name_index = 0 as usize;
+
     // Generate all the program headers and collect all the sections together.
     for (base, sec) in sections {
         if sec.data.is_empty() {
@@ -2717,18 +2717,6 @@ fn write_elf(
                 0x20, // alignment
                 program_headers64
             );
-            make_section_header!(
-                64,
-                goblin::elf64::section_header::SHT_PROGBITS,
-                (goblin::elf64::section_header::SHF_ALLOC
-                    | goblin::elf64::section_header::SHF_EXECINSTR),
-                shstrtab.len(),
-                this_section_base_offset,
-                sec.data.len(),
-                *base,
-                0x20,
-                section_headers64
-            );
         } else {
             make_program_header!(
                 32,
@@ -2738,51 +2726,57 @@ fn write_elf(
                 0x20, // alignment
                 program_headers32
             );
-            make_section_header!(
-                32,
-                goblin::elf32::section_header::SHT_PROGBITS,
-                (goblin::elf32::section_header::SHF_ALLOC
-                    | goblin::elf32::section_header::SHF_EXECINSTR),
-                shstrtab.len(),
-                this_section_base_offset,
-                sec.data.len(),
-                *base,
-                0x20,
-                section_headers32
-            );
         }
-
-        let task_name = sec.source_file.file_name().to_owned().unwrap();
-
-        let mut section_name: String = String::from(".text.");
-        section_name.push_str(section_header_name_index.to_string().as_str());
-        section_name.push('.');
-        section_name.push_str(task_name.to_str().unwrap());
-        shstrtab.extend_from_slice(section_name.as_bytes());
-        shstrtab.push(0x00 as u8);
 
         sections_data.splice(
             this_section_base_offset as usize..this_section_end_offset as usize,
             sec.data.iter().cloned(),
         );
-
-        section_header_name_index += 1;
     }
 
     // We can now compute these offsets
-    let program_headers_offset = goblin::elf::Header::size(ctx)
+    let sections_data_offset = goblin::elf::Header::size(ctx)
         + if ctx.container.is_big() {
             goblin::elf::ProgramHeader::size(ctx) * program_headers64.len()
         } else {
             goblin::elf::ProgramHeader::size(ctx) * program_headers32.len()
         };
 
-    // Page align the start of sections data.
-    let sections_data_offset = (program_headers_offset + 0xfff) & !0xfff;
+    // Create the single section header to represent the entire 'image'
+    // Note that we do this because producing per-program sections causes ObjCopy to not
+    // treat the image as one atomic unit. It will introduce additional data during translation
+    // which will result in an inability to boot.
+    shstrtab.extend_from_slice(".text".as_bytes()); // For the program data
+    shstrtab.push(0x00 as u8);
+    if ctx.container.is_big() {
+        make_section_header!(
+            64,
+            goblin::elf64::section_header::SHT_PROGBITS,
+            (goblin::elf64::section_header::SHF_ALLOC
+                | goblin::elf64::section_header::SHF_EXECINSTR),
+            shstrtab.len(),
+            sections_data_offset,
+            sections_length,
+            sections_base_address,
+            0x20,
+            section_headers64
+        );
+    } else {
+        make_section_header!(
+            32,
+            goblin::elf32::section_header::SHT_PROGBITS,
+            (goblin::elf32::section_header::SHF_ALLOC
+                | goblin::elf32::section_header::SHF_EXECINSTR),
+            shstrtab.len(),
+            sections_data_offset,
+            sections_length,
+            sections_base_address,
+            0x20,
+            section_headers32
+        );
+    }
 
-    // Page align the Section Header String Table.
-    let shstrtab_offset =
-        (sections_data_offset + sections_data.len() + 0xfff) & !0xfff;
+    let shstrtab_offset = sections_data_offset + sections_data.len();
 
     // Add the section header for the Section Header String Table
     let shstrtab_name_offset = shstrtab.len();
@@ -2815,8 +2809,8 @@ fn write_elf(
             section_headers32
         );
     }
-    // Page align the Section Headers.
-    let sh_data_offset = (shstrtab_offset + shstrtab.len() + 0xfff) & !0xfff;
+
+    let sh_data_offset = shstrtab_offset + shstrtab.len();
 
     let shstrtab_name_offset32: usize = if section_headers32.len() > 0 {
         section_headers32.len() - 1 as usize
