@@ -2746,8 +2746,7 @@ fn write_elf(
     // Note that we do this because producing per-program sections causes ObjCopy to not
     // treat the image as one atomic unit. It will introduce additional data during translation
     // which will result in an inability to boot.
-    shstrtab.extend_from_slice(".text".as_bytes()); // For the program data
-    shstrtab.push(0x00 as u8);
+
     if ctx.container.is_big() {
         make_section_header!(
             64,
@@ -2775,6 +2774,8 @@ fn write_elf(
             section_headers32
         );
     }
+    shstrtab.extend_from_slice(".text".as_bytes()); // For the program data
+    shstrtab.push(0x00 as u8);
 
     let shstrtab_offset = sections_data_offset + sections_data.len();
 
