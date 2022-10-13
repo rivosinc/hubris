@@ -47,7 +47,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.15.1",
+ "stm32g0",
 ]
 
 [[package]]
@@ -653,7 +653,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]
@@ -1407,7 +1407,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "userlib",
  "zerocopy",
 ]
@@ -1537,7 +1537,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 1.0.0",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -1553,7 +1553,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "stm32g0 0.15.1",
+ "stm32g0",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -1574,7 +1574,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32g0 0.15.1",
+ "stm32g0",
  "stm32h7",
  "userlib",
 ]
@@ -1590,7 +1590,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "stm32h7",
  "task-jefe-api",
  "userlib",
@@ -3408,17 +3408,6 @@ dependencies = [
 
 [[package]]
 name = "stm32g0"
-version = "0.14.0"
-source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-initial-support#19280bfc90cce3020482abc1d0c57d7d2a3bf162"
-dependencies = [
- "bare-metal 1.0.0",
- "cortex-m",
- "cortex-m-rt",
- "vcell",
-]
-
-[[package]]
-name = "stm32g0"
 version = "0.15.1"
 source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-update#9bb993b07a5906ac4503d702e7ff507f229d1b44"
 dependencies = [
@@ -4194,7 +4183,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]
