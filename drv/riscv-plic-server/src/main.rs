@@ -15,8 +15,6 @@ use drv_ext_int_ctrl_api::ExtIntCtrlError;
 use idol_runtime::RequestError;
 use idol_runtime::RequestError::Runtime;
 
-const PLIC_IRQ: u32 = 0x0000_0001;
-
 fn get_irq_owner(irq: u32) -> Result<(TaskId, u32), ()> {
     return match unsafe { HUBRIS_IRQ_TASK_LOOKUP.get(InterruptNum(irq)) } {
         Some(task) => return Ok(*task),
@@ -122,7 +120,7 @@ impl idl::InOrderExtIntCtrlImpl for ServerImpl {
 impl idol_runtime::NotificationHandler for ServerImpl {
     // The PLIC is only interested in interrupt notifications from the kernel
     fn current_notification_mask(&self) -> u32 {
-        return PLIC_IRQ;
+        return PLIC_IRQ_NOTIFICATION;
     }
 
     // An interrupt has come in.
@@ -162,7 +160,7 @@ impl idol_runtime::NotificationHandler for ServerImpl {
             }
         }
 
-        sys_irq_control(PLIC_IRQ, true);
+        sys_irq_control(PLIC_IRQ_NOTIFICATION, true);
     }
 }
 
@@ -188,7 +186,7 @@ fn main() -> ! {
 
     plic.set_threshold(0, Priority::never());
     let mut server: ServerImpl = ServerImpl {};
-    sys_irq_control(PLIC_IRQ, true);
+    sys_irq_control(PLIC_IRQ_NOTIFICATION, true);
     loop {
         idol_runtime::dispatch_n(&mut incoming, &mut server);
     }

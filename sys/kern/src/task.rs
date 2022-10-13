@@ -16,9 +16,10 @@ use zerocopy::FromBytes;
 use crate::arch;
 use crate::err::UserError;
 use crate::profiling;
-use crate::startup::HUBRIS_FAULT_NOTIFICATION;
 use crate::time::Timestamp;
 use crate::umem::USlice;
+
+const HUBRIS_TASK_STATE_CHANGE_NOTIFICATION: u32 = 1;
 
 /// Internal representation of a task.
 ///
@@ -810,6 +811,16 @@ pub fn priority_scan(
     choice.map(|(idx, _)| idx)
 }
 
+fn notify_supervisor(tasks: &mut [Task]) -> NextTask {
+    let supervisor_awoken =
+        tasks[0].post(NotificationSet(HUBRIS_TASK_STATE_CHANGE_NOTIFICATION));
+    if supervisor_awoken {
+        NextTask::Specific(0)
+    } else {
+        NextTask::Other
+    }
+}
+
 /// Puts a task into a forced fault condition.
 ///
 /// The task is designated by the `index` parameter. We need access to the
@@ -847,13 +858,21 @@ pub fn force_fault(
             }
         }
     };
-    let supervisor_awoken =
-        tasks[0].post(NotificationSet(HUBRIS_FAULT_NOTIFICATION));
-    if supervisor_awoken {
-        NextTask::Specific(0)
-    } else {
-        NextTask::Other
-    }
+    notify_supervisor(tasks)
+}
+
+/// Puts a task into stopped state.
+///
+/// The task is designated by the `index` parameter. We need access to the
+/// entire task table, as well as the designated task, so that we can take the
+/// opportunity to notify the supervisor.
+///
+/// The task will not be scheduled again until requested to restart it again.
+///
+/// Returns a `NextTask` because the calling task cannot be scheduled anymore.
+pub fn exit_task(tasks: &mut [Task], index: usize) -> NextTask {
+    tasks[index].set_healthy_state(SchedState::Exited);
+    notify_supervisor(tasks)
 }
 
 /// Produces a current `TaskId` (i.e. one with the correct generation) for

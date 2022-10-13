@@ -1251,7 +1251,6 @@ dependencies = [
  "drv-ext-int-ctrl-api",
  "idol",
  "idol-runtime",
- "indexmap",
  "num-traits",
  "phash",
  "phash-gen",
@@ -1259,10 +1258,7 @@ dependencies = [
  "riscv 0.8.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
- "ron 0.7.0",
- "serde",
  "task-config",
- "toml",
  "userlib",
  "zerocopy",
 ]
@@ -3750,6 +3746,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "task-one-shot"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting 0.5.0",
+ "riscv-semihosting",
+ "userlib",
+]
+
+[[package]]
 name = "task-ping"
 version = "0.1.0"
 dependencies = [
@@ -3868,6 +3873,7 @@ dependencies = [
 name = "task-template"
 version = "0.1.0"
 dependencies = [
+ "build-util",
  "userlib",
 ]
 

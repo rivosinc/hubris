@@ -113,8 +113,8 @@ pub enum Disposition {
 // notification, but can otherwise be arbitrary.
 const TIMER_INTERVAL: u64 = 100;
 const TIMER_MASK: u32 = 1 << 1;
-// We'll have notification 0 wired up to receive information about task faults.
-const FAULT_MASK: u32 = 1 << 0;
+// We'll have notification 0 wired up to receive information about task state changes.
+const TASK_STATE_CHANGE_MASK: u32 = 1 << 0;
 
 #[export_name = "main"]
 fn main() -> ! {
@@ -206,7 +206,7 @@ impl idl::InOrderJefeImpl for ServerImpl<'_> {
 
 impl idol_runtime::NotificationHandler for ServerImpl<'_> {
     fn current_notification_mask(&self) -> u32 {
-        FAULT_MASK | TIMER_MASK
+        TASK_STATE_CHANGE_MASK | TIMER_MASK
     }
 
     fn handle_notification(&mut self, bits: u32) {
@@ -221,7 +221,7 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
 
         // If our disposition has changed or if we have been notified of
         // a faulting task, we need to iterate over all of our tasks.
-        if changed || (bits & FAULT_MASK) != 0 {
+        if changed || (bits & TASK_STATE_CHANGE_MASK) != 0 {
             for i in 0..NUM_TASKS {
                 match kipc::read_task_status(i) {
                     abi::TaskState::Faulted { fault, .. } => {
@@ -237,7 +237,8 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         }
                     }
 
-                    abi::TaskState::Healthy(abi::SchedState::Stopped) => {
+                    abi::TaskState::Healthy(abi::SchedState::Stopped)
+                    | abi::TaskState::Healthy(abi::SchedState::Exited) => {
                         if self.disposition[i] == Disposition::Start {
                             kipc::restart_task(i, true);
                         }

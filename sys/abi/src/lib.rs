@@ -423,6 +423,8 @@ pub enum SchedState {
     /// This task is blocked waiting for messages, either from any source
     /// (`None`) or from a particular sender only.
     InRecv(Option<TaskId>),
+    /// This task ran and cleanly exited. It is ignored for scheduling purposes.
+    Exited,
 }
 
 impl From<SchedState> for TaskState {
@@ -619,6 +621,7 @@ pub enum Kipcnum {
     FaultTask = 3,
     ReadImageId = 4,
     Reset = 5,
+    ExitCurrentTask = 6,
 }
 
 impl core::convert::TryFrom<u16> for Kipcnum {
@@ -631,6 +634,7 @@ impl core::convert::TryFrom<u16> for Kipcnum {
             3 => Ok(Self::FaultTask),
             4 => Ok(Self::ReadImageId),
             5 => Ok(Self::Reset),
+            6 => Ok(Self::ExitCurrentTask),
             _ => Err(()),
         }
     }
