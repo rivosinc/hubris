@@ -176,7 +176,7 @@ pub fn config(
         | "nucleo-h753zi" | "stm32h7b3i-dk" | "gemini-bu-1" | "gimletlet-1"
         | "gimletlet-2" | "gimlet-a" | "gimlet-b" | "psc-a" | "sidecar-a"
         | "stm32g031-nucleo" | "donglet-g030" | "donglet-g031"
-        | "stm32g070" | "stm32g0b1" | "hifive-inventor" | "hifive1-revb" => {
+        | "stm32g070" | "stm32g0b1" | "hifive-inventor" | "hifive1-revb" | "opentitan-earlgrey" => {
             let cfg = FlashProgramConfig::new(chip_dir.join("openocd.cfg"));
 
             let mut flash = FlashConfig::new(FlashProgram::OpenOcd(cfg));
@@ -192,8 +192,11 @@ pub fn config(
             flash
         }
         _ => {
-            eprintln!("Warning: unrecognized board, won't know how to flash.");
-            return Ok(None);
+            eprintln!(
+                "Warning: unrecognized board '{}', won't know how to flash.",
+                board
+            );
+            return Ok(None)
         }
     };
 
@@ -217,6 +220,7 @@ pub fn chip_name(board: &str) -> anyhow::Result<&'static str> {
         "stm32g031-nucleo" => "STM32G031Y8Yx",
         "stm32g070" => "STM32G070KBTx",
         "hifive-inventor" | "hifive1-revb" => "FE310",
+        "opentitan-earlgrey" => "opentitan-earlgrey",
         "stm32g0b1" => anyhow::bail!("This board is not yet supported by probe-rs, please use OpenOCD directly"),
         _ => anyhow::bail!("unrecognized board {}", board),
 
