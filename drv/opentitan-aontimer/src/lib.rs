@@ -51,16 +51,10 @@ impl AonTimer {
         unsafe {
             // This is just a counter, reset it to 0.
             (*inst.base_addr)[WDOG_COUNT_IDX] = 0;
-            // write 1 to clear any pending interrupts
-            (*inst.base_addr)[INTR_STATE_IDX] =
-                INTR_STATE_BITS_WKUP | INTR_STATE_BITS_WDOG;
-            (*inst.base_addr)[WDOG_BARK_THOLD_IDX] =
-                inst.ms_to_reg_count(bark_thold_ms)?;
-            if bark_thold_ms > bite_thold_ms {
-                return Err(());
-            }
-            (*inst.base_addr)[WDOG_BITE_THOLD_IDX] =
-                inst.ms_to_reg_count(bite_thold_ms)?;
+
+            inst.clear_wdt_irq();
+            inst.set_bark_thold(bark_thold_ms)?;
+            inst.set_bite_thold(bite_thold_ms)?;
         }
         Ok(inst)
     }
@@ -102,7 +96,7 @@ impl AonTimer {
     }
 
     //Sets the bark threshold in ms. If the configuration is locked, returns false.
-    pub fn set_bark_thold(&self, bark_thold_ms: u64) -> Result<(), ()> {
+    fn set_bark_thold(&self, bark_thold_ms: u64) -> Result<(), ()> {
         if !self.check_lock() {
             return Err(());
         }
@@ -114,7 +108,7 @@ impl AonTimer {
     }
 
     //Sets the bite threshold in ms. If the configuration is locked, returns false.
-    pub fn set_bite_thold(&self, bite_thold_ms: u64) -> Result<(), ()> {
+    fn set_bite_thold(&self, bite_thold_ms: u64) -> Result<(), ()> {
         if !self.check_lock() {
             return Err(());
         }
@@ -134,8 +128,7 @@ impl AonTimer {
 
     pub fn clear_wdt_irq(&self) {
         unsafe {
-            (*self.base_addr)[INTR_STATE_IDX] =
-                INTR_STATE_BITS_WKUP | INTR_STATE_BITS_WDOG;
+            (*self.base_addr)[INTR_STATE_IDX] = INTR_STATE_BITS_WDOG;
         }
     }
 
