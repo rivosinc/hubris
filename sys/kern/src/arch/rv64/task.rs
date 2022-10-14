@@ -6,8 +6,31 @@ use crate::arch::set_timer;
 use crate::arch::SavedState;
 use crate::task;
 use crate::umem::USlice;
+
 use core::arch::asm;
 use riscv::register;
+#[cfg(feature = "riscv-supervisor-mode")]
+use riscv::register::{
+    scause as xcause, scause::Exception as xcauseException,
+    scause::Interrupt as xcauseInterrupt,
+    scause::Interrupt::SupervisorTimer as xInterruptTimer,
+    scause::Trap as xcauseTrap, sepc as xepc, sie as xie,
+    sie::set_stimer as set_xtimer, sscratch as xscratch, sstatus as xstatus,
+    sstatus::set_spp as set_xpp, sstatus::SPP as XPP, stval as xtval,
+    stvec as xtvec, stvec::TrapMode as xTrapMode,
+};
+
+#[cfg(not(feature = "riscv-supervisor-mode"))]
+use riscv::register::{
+    mcause as xcause, mcause::Exception as xcauseException,
+    mcause::Interrupt as xcauseInterrupt,
+    mcause::Interrupt::SupervisorTimer as xInterruptTimer,
+    mcause::Trap as xcauseTrap, mepc as xepc, mie as xie,
+    mie::set_mtimer as set_xtimer, mscratch as xscratch, mstatus as xstatus,
+    mstatus::set_mpp as set_xpp, mstatus::MPP as XPP, mtval as xtval,
+    mtvec as xtvec, mtvec::TrapMode as xTrapMode,
+};
+
 use unwrap_lite::UnwrapLite;
 
 /// Records the address of `task` as the current user task in mscratch.
@@ -20,18 +43,15 @@ use unwrap_lite::UnwrapLite;
 pub unsafe fn set_current_task(task: &task::Task) {
     // Safety: should be ok if the contract above is met
     // TODO: make me an atomic
-    unsafe {
-        let task = task as *const task::Task as usize;
-        register::mscratch::write(task);
-    }
+    let task = task as *const task::Task as usize;
+
+    xscratch::write(task);
 }
 
 pub unsafe fn get_current_task() -> &'static task::Task {
-    unsafe {
-        let task = register::mscratch::read();
-        uassert!(task != 0);
-        &*(task as *const task::Task)
-    }
+    let task = xscratch::read();
+    uassert!(task != 0);
+    unsafe { &*(task as *const task::Task) }
 }
 
 #[allow(unused_variables)]
@@ -39,12 +59,11 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Configure MPP to switch us to User mode on exit from Machine
     // mode (when we call "mret" below).
     unsafe {
-        use riscv::register::mstatus::{set_mpp, MPP};
-        set_mpp(MPP::User);
+        set_xpp(XPP::User);
     }
 
     // Write the initial task program counter.
-    register::mepc::write(task.save().pc() as *const usize as usize);
+    xepc::write(task.save().pc() as *const usize as usize);
 
     //
     // Configure the timer
@@ -54,7 +73,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         set_timer(tick_divisor - 1);
 
         // Machine timer interrupt enable
-        register::mie::set_mtimer();
+        set_xtimer();
     }
 
     // Load first task pointer, set its initial stack pointer, and exit out

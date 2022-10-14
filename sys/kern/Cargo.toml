@@ -33,6 +33,7 @@ phash-gen = {path = "../../build/phash-gen"}
 
 [features]
 vectored-interrupts = []
+riscv-supervisor-mode = []
 default = ["klog-semihosting"]
 klog-semihosting = ["cortex-m-semihosting", "riscv-semihosting"]
 klog-itm = []
