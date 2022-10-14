@@ -119,7 +119,7 @@ impl<const N: usize> fmt::Write for Stringbuf<{ N }> {
         for c in s.as_bytes() {
             self.entry(*c);
         }
-        return Ok(());
+        Ok(())
     }
 }
 
