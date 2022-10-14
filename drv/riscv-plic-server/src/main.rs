@@ -16,14 +16,14 @@ use idol_runtime::RequestError;
 use idol_runtime::RequestError::Runtime;
 
 fn get_irq_owner(irq: u32) -> Result<(TaskId, u32), ()> {
-    return match unsafe { HUBRIS_IRQ_TASK_LOOKUP.get(InterruptNum(irq)) } {
-        Some(task) => return Ok(*task),
+    match unsafe { HUBRIS_IRQ_TASK_LOOKUP.get(InterruptNum(irq)) } {
+        Some(task) => Ok(*task),
         None => Err(()),
-    };
+    }
 }
 
 fn set_irq_owner(irq: u32, owner: (TaskId, u32)) -> Result<(), ()> {
-    return unsafe { HUBRIS_IRQ_TASK_LOOKUP.set(InterruptNum(irq), owner) };
+    unsafe { HUBRIS_IRQ_TASK_LOOKUP.set(InterruptNum(irq), owner) }
 }
 
 fn get_task_irqs(
@@ -36,7 +36,7 @@ fn get_task_irqs(
 }
 
 fn irq_assigned(irq: u32) -> bool {
-    return unsafe { HUBRIS_IRQ_TASK_LOOKUP.contains(InterruptNum(irq)) };
+    unsafe { HUBRIS_IRQ_TASK_LOOKUP.contains(InterruptNum(irq)) }
 }
 
 #[repr(C)]
@@ -61,9 +61,9 @@ impl idl::InOrderExtIntCtrlImpl for ServerImpl {
                     plic.mask(0, irq.0.try_into().unwrap());
                 }
 
-                return Ok(());
+                Ok(())
             }
-            Err(()) => return Err(Runtime(ExtIntCtrlError::IRQUnassigned)),
+            Err(()) => Err(Runtime(ExtIntCtrlError::IRQUnassigned)),
         }
     }
 
@@ -85,9 +85,9 @@ impl idl::InOrderExtIntCtrlImpl for ServerImpl {
                     plic.unmask(0, irq.0.try_into().unwrap());
                 }
 
-                return Ok(());
+                Ok(())
             }
-            Err(()) => return Err(Runtime(ExtIntCtrlError::IRQUnassigned)),
+            Err(()) => Err(Runtime(ExtIntCtrlError::IRQUnassigned)),
         }
     }
 
@@ -110,9 +110,9 @@ impl idl::InOrderExtIntCtrlImpl for ServerImpl {
                     plic.complete(0, irq.0.try_into().unwrap());
                 }
 
-                return Ok(());
+                Ok(())
             }
-            Err(()) => return Err(Runtime(ExtIntCtrlError::IRQUnassigned)),
+            Err(()) => Err(Runtime(ExtIntCtrlError::IRQUnassigned)),
         }
     }
 }
@@ -120,7 +120,7 @@ impl idl::InOrderExtIntCtrlImpl for ServerImpl {
 impl idol_runtime::NotificationHandler for ServerImpl {
     // The PLIC is only interested in interrupt notifications from the kernel
     fn current_notification_mask(&self) -> u32 {
-        return PLIC_IRQ_NOTIFICATION;
+        PLIC_IRQ_NOTIFICATION
     }
 
     // An interrupt has come in.
@@ -128,12 +128,8 @@ impl idol_runtime::NotificationHandler for ServerImpl {
     //       Context 0.
     fn handle_notification(&mut self, _bits: u32) {
         let plic = unsafe { &mut *PLIC_REGISTER_BLOCK };
-        loop {
-            let irq: u32 = match plic.claim(0) {
-                Some(irq) => core::primitive::u16::from(irq) as u32,
-                None => break,
-            };
-
+        while let Some(irq) = plic.claim(0) {
+            let irq: u32 = core::primitive::u16::from(irq) as u32;
             // An error means an interrupt came in on a line that no task has
             // ownership over.
             let owner: (TaskId, u32) = match get_irq_owner(irq) {

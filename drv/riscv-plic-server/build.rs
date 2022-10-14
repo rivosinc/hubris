@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut per_task_irqs: HashMap<InterruptOwner, Vec<InterruptNum>> =
         HashMap::new();
 
-    for (i, irq) in TASK_CONFIG.ints.into_iter().enumerate() {
+    for (i, irq) in TASK_CONFIG.ints.iter().enumerate() {
         let task: String = TASK_CONFIG.tasks[i].to_string();
         let task_id: TaskId = match task_id_map.get(&task) {
             Some(id_num) => TaskId(id_num.try_into().unwrap()),
@@ -93,13 +93,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let int_num: InterruptNum = InterruptNum(*irq as u32);
 
-        let notification: u32 = TASK_CONFIG.notification[i];
+        let notif: u32 = TASK_CONFIG.notification[i];
 
-        irq_task_map.push((int_num, (task_id, notification)));
+        irq_task_map.push((int_num, (task_id, notif)));
 
         let owner: InterruptOwner = InterruptOwner {
             task: task_id.index() as u32,
-            notification: notification,
+            notification: notif,
         };
         per_task_irqs.entry(owner).or_default().push(int_num);
     }
@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .join("\n        ");
 
         writeln!(file, "
-static mut HUBRIS_IRQ_TASK_LOOKUP: MutablePerfectHashMap::<userlib::InterruptNum, (TaskId, u32)> = MutablePerfectHashMap {{
+static mut HUBRIS_IRQ_TASK_LOOKUP: MutablePerfectHashMap::<'_, userlib::InterruptNum, (TaskId, u32)> = MutablePerfectHashMap {{
 m: {:#x},
 values: &mut [
     {}
@@ -132,7 +132,7 @@ values: &mut [
     }
 
     if let Ok(task_irq_map) =
-        phash_gen::OwnedPerfectHashMap::build(task_irq_map.clone())
+        phash_gen::OwnedPerfectHashMap::build(task_irq_map)
     {
         let task_irq_value = task_irq_map
             .values
@@ -141,7 +141,7 @@ values: &mut [
             .collect::<Vec<String>>()
             .join("\n        ");
         writeln!(file, "
-pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<userlib::InterruptOwner, &'static [userlib::InterruptNum]> = PerfectHashMap {{
+pub const HUBRIS_TASK_IRQ_LOOKUP: PerfectHashMap::<'_, userlib::InterruptOwner, &'static [userlib::InterruptNum]> = PerfectHashMap {{
 m: {:#x},
 values: &[
     {}
