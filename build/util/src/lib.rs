@@ -118,7 +118,7 @@ pub fn task_peripherals_str() -> String {
 
     println!("Peripheral consts: {}", consts);
 
-    return consts;
+    consts
 }
 
 pub fn task_irq_consts() -> String {
