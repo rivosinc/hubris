@@ -10,6 +10,9 @@ pub use macros::*;
 pub mod trap;
 pub use trap::*;
 
+pub mod task;
+pub use task::*;
+
 pub mod saved_state;
 pub use saved_state::*;
 
@@ -18,9 +21,6 @@ pub use clock_freq::*;
 
 pub mod pmp;
 pub use pmp::*;
-
-pub mod task;
-pub use task::*;
 
 pub mod mtimer;
 pub use mtimer::*;
