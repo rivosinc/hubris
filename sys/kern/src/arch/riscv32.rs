@@ -164,8 +164,11 @@ impl task::ArchState for SavedState {
 // scaler that enables ITM, and because ITM is particularly useful when
 // debugging boot failures, this should be set as early in boot as it can
 // be.
-pub unsafe fn set_clock_freq(tick_divisor: u32) {
+pub fn set_clock_freq(tick_divisor: u32) {
     // TODO switch me to an atomic. Note that this may break Humility.
+    // SAFETY:
+    // In a single-threaded, single-process context (which the kernel is in),
+    // access to global mutables are safe as data races are impossible.
     unsafe {
         CLOCK_FREQ_KHZ = tick_divisor;
     }
@@ -250,11 +253,13 @@ cfg_if::cfg_if! {
         use riscv::register::mtvec::{self, TrapMode};
 
         // Setup interrupt vector `mtvec` with vectored mode to the trap table.
-        // SAFETY: if _start_trap does not have the neccasary alignment,
-        // the address could become corrupt and traps will not jump to the
-        // expected address
         #[export_name = "_setup_interrupts"]
-        pub unsafe extern "C" fn _setup_interrputs() {
+        extern "C" fn _setup_interrputs() {
+            // SAFETY:
+            // If `_trap_table` does not have the neccasary alignment, the
+            // address could become corrupt and traps will not jump to the
+            // expected address. As long as the linker works correctly, this
+            // write is safe.
             unsafe { mtvec::write(_trap_table as usize, TrapMode::Vectored); };
         }
 
@@ -269,7 +274,11 @@ cfg_if::cfg_if! {
         #[repr(align(0x100))]
         #[link_section = ".trap.rust"]
         #[export_name = "_trap_table"]
-        pub unsafe extern "C" fn _trap_table() {
+        /// # Safety
+        /// All of the entries jump to the same trap routine, so as long as they
+        /// don't get corrupted this should always go to `_start_trap`.
+        /// This table being corrupted will lead to undefined behavior.
+        unsafe extern "C" fn _trap_table() {
             unsafe { asm!( "
                 .rept 256 # TODO: This may need to be changed
                 j _start_trap
@@ -292,7 +301,18 @@ cfg_if::cfg_if! {
 #[repr(align(4))]
 #[link_section = ".trap.rust"]
 #[export_name = "_start_trap"]
-pub unsafe extern "C" fn _start_trap() {
+/// # Safety
+/// `trap_handler` takes a single argument, the current task pointer, that
+/// is loaded into `a0` at the beginning of this function. Additionally, this
+/// function is only ever called by the core, so there shouldn't be any issues
+/// with this being called by software. And because the context save and restore
+/// are in the correct order (which can be verified visually), the only
+/// unresolved issue of safety is the validity of CURRENT_TASK_PTR. If this
+/// were to not be a correct value, then there would be undefined behaviour.
+///
+/// Basically, this function is safe if the core jumps to it on a trap. If this
+/// were to be called by any other means it would result in undefined behavior.
+unsafe extern "C" fn _start_trap() {
     unsafe {
         asm!(
             "
@@ -410,7 +430,6 @@ fn timer_handler() {
             // Now, give up mutable access to *ticks so there's no chance of a
             // double-increment due to bugs below.
             let now = Timestamp::from(*ticks);
-            drop(ticks);
 
             // Process any timers.
             let switch = task::process_timers(tasks, now);
@@ -482,7 +501,7 @@ fn platform_interrupt_handler(irq: u32) {
         tasks[owner.task as usize].post(n)
     });
 
-    if switch == true {
+    if switch {
         // Safety: we can access this by virtue of being an interrupt handler, and
         // thus serialized with respect to anyone who might be trying to write it.
         let current = unsafe { CURRENT_TASK_PTR }
@@ -629,7 +648,7 @@ unsafe fn reset_timer() {
     unsafe {
         let mut mtimecmp =
             core::ptr::read_volatile(crate::startup::MTIMECMP as *mut u64);
-        mtimecmp = mtimecmp + CLOCK_FREQ_KHZ as u64;
+        mtimecmp += CLOCK_FREQ_KHZ as u64;
         core::ptr::write_volatile(
             crate::startup::MTIMECMP as *mut u64,
             mtimecmp,
