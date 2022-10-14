@@ -1,0 +1,19 @@
+[package]
+name = "tests-rv64-qemu-supervisor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+[[bin]]
+name = "tests-rv64-qemu-supervisor"
+path = "../../app/demo-rv64-qemu-virt/src/main.rs"
+test = false
+bench = false

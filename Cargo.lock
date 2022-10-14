@@ -600,7 +600,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.8.1",
- "riscv-rt",
+ "riscv-rt 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -612,7 +612,19 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.8.1",
- "riscv-rt",
+ "riscv-rt 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "demo-rv64-qemu-supervisor"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 1.0.0",
+ "kern",
+ "panic-halt",
+ "riscv 0.9.0",
+ "riscv-rt 0.9.0 (git+https://github.com/rust-embedded/riscv-rt.git?rev=3b4ab6f3)",
 ]
 
 [[package]]
@@ -624,7 +636,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.8.1",
- "riscv-rt",
+ "riscv-rt 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2149,7 +2161,7 @@ dependencies = [
  "phash-gen",
  "riscv 0.8.1",
  "riscv-pseudo-atomics",
- "riscv-rt",
+ "riscv-rt 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "riscv-semihosting",
  "ron 0.7.0",
  "serde",
@@ -2946,6 +2958,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "riscv"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73fc4bc7113424814738fe79755a5764e392b3d4d1bc757e6aa6f61cede32095"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+]
+
+[[package]]
 name = "riscv-pseudo-atomics"
 version = "0.1.0"
 source = "git+https://github.com/rivosinc/riscv-psuedo-atomics?branch=rivos/main#4a652974468bafbafe8b95603423e88904c98458"
@@ -2962,7 +2985,18 @@ checksum = "527ddfacbbfeed89256163c2655b0392c4aa76dd95c0189dc05044bf2c47c3f8"
 dependencies = [
  "r0 1.0.0",
  "riscv 0.8.0",
- "riscv-rt-macros",
+ "riscv-rt-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "riscv-target",
+]
+
+[[package]]
+name = "riscv-rt"
+version = "0.9.0"
+source = "git+https://github.com/rust-embedded/riscv-rt.git?rev=3b4ab6f3#3b4ab6f31b156dad160775af4f9b5e4366b7ba26"
+dependencies = [
+ "r0 1.0.0",
+ "riscv 0.8.0",
+ "riscv-rt-macros 0.2.0 (git+https://github.com/rust-embedded/riscv-rt.git?rev=3b4ab6f3)",
  "riscv-target",
 ]
 
@@ -2971,6 +3005,16 @@ name = "riscv-rt-macros"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f38509d7b17c2f604ceab3e5ff8ac97bb8cd2f544688c512be75c715edaf4daf"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "riscv-rt-macros"
+version = "0.2.0"
+source = "git+https://github.com/rust-embedded/riscv-rt.git?rev=3b4ab6f3#3b4ab6f31b156dad160775af4f9b5e4366b7ba26"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4198,6 +4242,14 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
+]
+
+[[package]]
+name = "tests-rv64-qemu-supervisor"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "kern",
 ]
 
 [[package]]
