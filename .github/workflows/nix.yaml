@@ -1,0 +1,23 @@
+name: "Nix flake checks"
+on:
+  pull_request:
+  push:
+jobs:
+  linux-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2.4.0
+    - uses: cachix/install-nix-action@v15
+      with:
+        extra_nix_config: |
+          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+    - run: nix flake check
+  darwin-checks:
+    runs-on: macOS-latest 
+    steps:
+    - uses: actions/checkout@v2.4.0
+    - uses: cachix/install-nix-action@v15
+      with:
+        extra_nix_config: |
+          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+    - run: nix flake check
