@@ -15,6 +15,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use colored::*;
 use indexmap::IndexMap;
+use paste::paste;
 use path_slash::PathBufExt;
 use serde::Serialize;
 use zerocopy::AsBytes;
@@ -436,15 +437,16 @@ pub fn package(
             );
         }
 
-        // Generate combined SREC, which is our source of truth for combined images.
+        // Generate combined ELF, which is our source of truth for combined images.
         let (kentry, _ksymbol_table) = kern_build.unwrap();
-        write_srec(
+        write_elf(
             &all_output_sections,
             kentry,
-            &cfg.img_file("combined.srec", image_name),
+            &cfg,
+            &cfg.img_file("combined.elf", image_name),
         )?;
 
-        translate_srec_to_other_formats(&cfg, image_name, "combined")?;
+        translate_elf_to_other_formats(&cfg, image_name, "combined")?;
 
         if let Some(signing) = &cfg.toml.signing {
             let priv_key = &signing.priv_key;
@@ -615,18 +617,14 @@ fn secure_update(
     }
 }
 
-/// Convert SREC to other formats for convenience.
+/// Convert SREC to other formats for convenience. Used in the signing flow.
 fn translate_srec_to_other_formats(
     cfg: &PackageConfig,
     image_name: &str,
     name: &str,
 ) -> Result<()> {
     let src = cfg.img_dir(image_name).join(format!("{}.srec", name));
-    for (out_type, ext) in [
-        (cfg.arch_consts.objcopy_target, "elf"),
-        ("ihex", "ihex"),
-        ("binary", "bin"),
-    ] {
+    for (out_type, ext) in [("ihex", "ihex"), ("binary", "bin")] {
         objcopy_translate_format(
             &cfg.arch_consts.objcopy_cmd,
             "srec",
@@ -635,6 +633,29 @@ fn translate_srec_to_other_formats(
             &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
         )?;
     }
+
+    Ok(())
+}
+
+/// Convert ELF to other formats for convenience.
+fn translate_elf_to_other_formats(
+    cfg: &PackageConfig,
+    image_name: &str,
+    name: &str,
+) -> Result<()> {
+    let src = cfg.img_dir(image_name).join(format!("{}.elf", name));
+    for (out_type, ext) in
+        [("ihex", "ihex"), ("binary", "bin"), ("srec", "srec")]
+    {
+        objcopy_translate_format(
+            &cfg.arch_consts.objcopy_cmd,
+            &cfg.arch_consts.objcopy_target,
+            &src,
+            out_type,
+            &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
+        )?;
+    }
+
     Ok(())
 }
 
@@ -2427,38 +2448,477 @@ fn binary_to_srec(
     Ok(())
 }
 
-fn write_srec(
+macro_rules! make_header_containers {
+    ($abisize:literal,
+     $program_headers:ident,
+     $section_headers:ident) => {
+        paste! {
+            let mut $program_headers: Vec<
+                goblin::[<elf $abisize>]::program_header::ProgramHeader,
+            > = Vec::new();
+            let mut $section_headers: Vec<
+                goblin::[<elf $abisize>]::section_header::SectionHeader,
+            > = Vec::new();
+        }
+    };
+}
+
+macro_rules! make_program_header_common {
+    ($program_header:ty, $abisize:ty, $file_offset:expr, $mem_address:expr, $program_size:expr, $alignment:literal, $collection:ident) => {
+        paste! {
+            use $program_header as [<ph_ $abisize>];
+            use [<ph_ $abisize>]::{PF_R, PF_W, PF_X, PT_LOAD};
+            $collection.push([<ph_ $abisize>]::ProgramHeader {
+                p_type: PT_LOAD,
+                p_flags: PF_X | PF_W | PF_R,
+                p_offset: $file_offset as $abisize,
+                p_vaddr: $mem_address as $abisize,
+                p_paddr: $mem_address as $abisize,
+                p_filesz: $program_size as $abisize,
+                p_memsz: $program_size as $abisize,
+                p_align: $alignment, // This matches the alignment guarantees of the kernel & task build
+            });
+        }
+    };
+}
+
+macro_rules! make_program_header {
+    ($abisize:literal,
+     $file_offset:expr,
+     $mem_address:expr,
+     $program_size:expr,
+     $alignment:literal,
+     $collection:ident) => {
+        paste! {
+            make_program_header_common!(
+                goblin::[<elf $abisize>]::program_header,
+                [<u $abisize>],
+                $file_offset,
+                $mem_address,
+                $program_size,
+                $alignment,
+                $collection
+            );
+        }
+    };
+}
+
+macro_rules! make_section_header_common {
+    ($section_header:ty, $abisize:ty, $section_type:expr, $section_flags:expr, $name_offset:expr, $file_offset:expr, $program_size:expr, $mem_address:expr, $alignment:literal, $collection:ident) => {
+        paste! {
+            use $section_header as [<sh_ $abisize>];
+            $collection.push([<sh_ $abisize>]::SectionHeader {
+                sh_type: $section_type,
+                sh_flags: $section_flags as $abisize,
+                sh_name: $name_offset as u32,
+                sh_offset: $file_offset as $abisize,
+                sh_size: $program_size as $abisize,
+                sh_addr: $mem_address as $abisize,
+                sh_addralign: $alignment,
+                sh_entsize: 0, // No fixed-size entries here
+                sh_link: 0,
+                sh_info: 0,
+            });
+        }
+    };
+}
+
+macro_rules! make_section_header {
+    ($abisize:literal,
+     $section_type:expr,
+     $section_flags:expr,
+     $name_offset:expr,
+     $file_offset:expr,
+     $program_size:expr,
+     $mem_address:expr,
+     $alignment:literal,
+     $collection:ident) => {
+        paste! {
+            make_section_header_common!(
+                goblin::elf::section_header::[<section_header $abisize>],
+                [<u $abisize>],
+                $section_type,
+                $section_flags,
+                $name_offset,
+                $file_offset,
+                $program_size,
+                $mem_address,
+                $alignment,
+                $collection
+            );
+        }
+    };
+}
+
+macro_rules! make_header_common {
+    ($var:ident, $header:ty, $elfclass:expr, $le_be:expr, $abisize:ty, $entry:expr, $section_offset:expr, $program_headers:ident, $section_headers:ident, $section_name_offset:expr, $ctx:ident) => {
+        paste! {
+            use $header as [<h_ $abisize>];
+            let mut $var = [<h_ $abisize>]::Header {
+                e_ident: [
+                    127,
+                    69,
+                    76,
+                    70,
+                    $elfclass,
+                    $le_be,
+                    [<h_ $abisize>]::EV_CURRENT,
+                    [<h_ $abisize>]::ELFOSABI_NONE,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ],
+                e_type: [<h_ $abisize>]::ET_EXEC,
+                e_machine: 0, // Overridden later
+                e_version: 1,
+                e_entry: $entry as $abisize,
+                e_phoff: goblin::elf::Header::size($ctx) as $abisize,
+                e_shoff: $section_offset as $abisize,
+                e_flags: 0,
+                e_ehsize: goblin::elf::Header::size($ctx) as u16,
+                e_phentsize: goblin::elf::ProgramHeader::size($ctx) as u16,
+                e_phnum: $program_headers.len() as u16,
+                e_shentsize: goblin::elf::SectionHeader::size($ctx) as u16,
+                e_shnum: $section_headers.len() as u16,
+                e_shstrndx: $section_name_offset as u16,
+            };
+        };
+    };
+}
+
+macro_rules! make_header {
+    ($abisize:literal,
+     le,
+     $var:ident,
+     $entry:expr,
+     $section_offset:expr,
+     $program_headers:ident,
+     $section_headers:ident,
+     $section_name_offset:expr,
+     $ctx:ident) => {
+        paste! {
+            make_header_common! {
+                $var,
+                goblin::[<elf $abisize>]::header,
+                goblin::[<elf $abisize>]::header::[<ELFCLASS $abisize>],
+                goblin::[<elf $abisize>]::header::ELFDATA2LSB,
+                [<u $abisize>],
+                $entry,
+                $section_offset,
+                $program_headers,
+                $section_headers,
+                $section_name_offset,
+                $ctx
+            };
+        }
+    };
+}
+
+fn write_elf(
     sections: &BTreeMap<AbiSize, LoadSegment>,
     kentry: AbiSize,
+    cfg: &PackageConfig,
     out: &Path,
 ) -> Result<()> {
-    let mut srec_out = vec![srec::Record::S0("hubris".to_string())];
-    for (&base, sec) in sections {
-        // SREC record size limit is 255 (0xFF). 32-bit addressed records
-        // additionally contain a four-byte address and one-byte checksum, for a
-        // payload limit of 255 - 5.
-        let mut addr = base.try_into()?;
-        for chunk in sec.data.chunks(255 - 5) {
-            srec_out.push(srec::Record::S3(srec::Data {
-                address: srec::Address32(addr),
-                data: chunk.to_vec(),
-            }));
-            addr += chunk.len() as u32;
+    use goblin::container::{Container, Ctx, Endian};
+    use scroll::Pwrite;
+
+    // 'Big' Containers are Goblin for ELF64. 'Little' are ELF32.
+    let ctx = Ctx::new(
+        if cfg.arch_consts.objcopy_target.starts_with("elf64") {
+            Container::Big
+        } else {
+            Container::Little
+        },
+        Endian::Little,
+    );
+
+    let mut sections_base_address: AbiSize = kentry;
+    let mut sections_length: AbiSize = 0;
+
+    for candidate_section in sections {
+        if candidate_section.1.data.len() > 0 {
+            if *candidate_section.0 < sections_base_address {
+                sections_base_address = *candidate_section.0;
+            }
+
+            let end: AbiSize = (*candidate_section.0) as AbiSize
+                + candidate_section.1.data.len() as AbiSize;
+
+            if end > sections_length {
+                sections_length = end;
+            }
         }
     }
-    let out_sec_count = srec_out.len() - 1; // header
-    if out_sec_count < 0x1_00_00 {
-        srec_out.push(srec::Record::S5(srec::Count16(out_sec_count as u16)));
-    } else if out_sec_count < 0x1_00_00_00 {
-        srec_out.push(srec::Record::S6(srec::Count24(out_sec_count as u32)));
-    } else {
-        panic!("SREC limit of 2^24 output sections exceeded");
+    sections_length -= sections_base_address;
+
+    // Create a Section Header String Table, to hold the actual section
+    // names.
+    let mut shstrtab = Vec::new();
+    shstrtab.push(0x00 as u8); // For the SHT_NULL section.
+
+    // Create both 32 and 64 bit header vectors. We'll select which one to use based
+    // on the container configuration, which we infer from the arch_constants
+    // to determine if we're building ELF64 or ELF32.
+    make_header_containers!(32, program_headers32, section_headers32);
+    make_header_containers!(64, program_headers64, section_headers64);
+
+    // Create a null section header, as required by ELF
+    make_section_header!(
+        64,
+        goblin::elf64::section_header::SHT_NULL,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        section_headers64
+    );
+    make_section_header!(
+        32,
+        goblin::elf32::section_header::SHT_NULL,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        section_headers32
+    );
+
+    // Preallocate a vector for section data, filled with 0xFF. This pattern is chosen
+    // to replicate the erase pattern we'd find in flash, and match the padding value
+    // previously chosen for the objcopy gap filler.
+    let mut sections_data = vec![0xFF; sections_length.try_into().unwrap()];
+
+    // Generate all the program headers and collect all the sections together.
+    for (base, sec) in sections {
+        if sec.data.is_empty() {
+            // Do not create a program header for an empty section. There's nothing to load.
+            continue;
+        }
+
+        let this_section_base_offset = base - sections_base_address;
+        let this_section_end_offset =
+            this_section_base_offset as usize + sec.data.len() as usize;
+
+        if ctx.container.is_big() {
+            make_program_header!(
+                64,
+                this_section_base_offset,
+                *base,
+                sec.data.len(),
+                0x20, // alignment
+                program_headers64
+            );
+        } else {
+            make_program_header!(
+                32,
+                this_section_base_offset,
+                *base,
+                sec.data.len(),
+                0x20, // alignment
+                program_headers32
+            );
+        }
+
+        sections_data.splice(
+            this_section_base_offset as usize..this_section_end_offset as usize,
+            sec.data.iter().cloned(),
+        );
     }
 
-    srec_out.push(srec::Record::S7(srec::Address32(kentry.try_into()?)));
+    // We can now compute these offsets
+    let sections_data_offset = goblin::elf::Header::size(ctx)
+        + if ctx.container.is_big() {
+            goblin::elf::ProgramHeader::size(ctx) * program_headers64.len()
+        } else {
+            goblin::elf::ProgramHeader::size(ctx) * program_headers32.len()
+        };
 
-    let srec_image = srec::writer::generate_srec_file(&srec_out);
-    std::fs::write(out, srec_image)?;
+    // Create the single section header to represent the entire 'image'
+    // Note that we do this because producing per-program sections causes ObjCopy to not
+    // treat the image as one atomic unit. It will introduce additional data during translation
+    // which will result in an inability to boot.
+
+    if ctx.container.is_big() {
+        make_section_header!(
+            64,
+            goblin::elf64::section_header::SHT_PROGBITS,
+            (goblin::elf64::section_header::SHF_ALLOC
+                | goblin::elf64::section_header::SHF_EXECINSTR),
+            shstrtab.len(),
+            sections_data_offset,
+            sections_length,
+            sections_base_address,
+            0x20,
+            section_headers64
+        );
+    } else {
+        make_section_header!(
+            32,
+            goblin::elf32::section_header::SHT_PROGBITS,
+            (goblin::elf32::section_header::SHF_ALLOC
+                | goblin::elf32::section_header::SHF_EXECINSTR),
+            shstrtab.len(),
+            sections_data_offset,
+            sections_length,
+            sections_base_address,
+            0x20,
+            section_headers32
+        );
+    }
+    shstrtab.extend_from_slice(".text".as_bytes()); // For the program data
+    shstrtab.push(0x00 as u8);
+
+    let shstrtab_offset = sections_data_offset + sections_data.len();
+
+    // Add the section header for the Section Header String Table
+    let shstrtab_name_offset = shstrtab.len();
+    shstrtab.extend_from_slice(".shstrtab".as_bytes());
+    shstrtab.push(0x00 as u8);
+    shstrtab.shrink_to_fit();
+
+    if ctx.container.is_big() {
+        make_section_header!(
+            64,
+            goblin::elf64::section_header::SHT_STRTAB,
+            0,
+            shstrtab_name_offset,
+            shstrtab_offset,
+            shstrtab.len(),
+            0,
+            0,
+            section_headers64
+        );
+    } else {
+        make_section_header!(
+            32,
+            goblin::elf32::section_header::SHT_STRTAB,
+            0,
+            shstrtab_name_offset,
+            shstrtab_offset,
+            shstrtab.len(),
+            0,
+            0,
+            section_headers32
+        );
+    }
+
+    let sh_data_offset = shstrtab_offset + shstrtab.len();
+
+    let shstrtab_name_offset32: usize = if section_headers32.len() > 0 {
+        section_headers32.len() - 1 as usize
+    } else {
+        0 as usize
+    };
+
+    let shstrtab_name_offset64: usize = if section_headers64.len() > 0 {
+        section_headers64.len() - 1 as usize
+    } else {
+        0 as usize
+    };
+
+    // Make both headers, but we'll only write out one.
+    make_header!(
+        32,
+        le,
+        header32,
+        kentry,
+        sh_data_offset,
+        program_headers32,
+        section_headers32,
+        shstrtab_name_offset32,
+        ctx
+    );
+    make_header!(
+        64,
+        le,
+        header64,
+        kentry,
+        sh_data_offset,
+        program_headers64,
+        section_headers64,
+        shstrtab_name_offset64,
+        ctx
+    );
+
+    match cfg.arch_target {
+        ArchTarget::ARM => {
+            header32.e_machine = goblin::elf::header::EM_ARM;
+            header64.e_machine = goblin::elf::header::EM_ARM;
+        }
+        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
+            // Unlike ARM/AARCH64, RISC-V uses a single idenifier.
+            header32.e_machine = goblin::elf::header::EM_RISCV;
+            header64.e_machine = goblin::elf::header::EM_RISCV;
+        }
+    }
+
+    // Assemble all components into the final ELF bitstream:
+    // - Header
+    // - Program Headers
+    // - Sections Bitstream
+    // - Section Header String Table
+    // - Section Headers
+    if ctx.container.is_big() {
+        let mut elf_out = vec![
+            0;
+            sh_data_offset
+                + goblin::elf::SectionHeader::size(ctx)
+                    * section_headers64.len()
+        ];
+        elf_out.pwrite(header64, 0)?;
+
+        let mut offset = goblin::elf::Header::size(ctx);
+        for program_header in program_headers64 {
+            elf_out.pwrite(program_header, offset)?;
+            offset += goblin::elf::ProgramHeader::size(ctx);
+        }
+
+        elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+        elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
+
+        let mut sh_offset = sh_data_offset;
+        for section_header in section_headers64 {
+            elf_out.pwrite(section_header, sh_offset)?;
+            sh_offset += goblin::elf::SectionHeader::size(ctx);
+        }
+
+        std::fs::write(out, elf_out)?;
+    } else {
+        let mut elf_out = vec![
+            0;
+            sh_data_offset
+                + goblin::elf::SectionHeader::size(ctx)
+                    * section_headers32.len()
+        ];
+        elf_out.pwrite(header32, 0)?;
+
+        let mut offset = goblin::elf::Header::size(ctx);
+        for program_header in program_headers32 {
+            elf_out.pwrite(program_header, offset)?;
+            offset += goblin::elf::ProgramHeader::size(ctx);
+        }
+
+        elf_out.pwrite(sections_data.as_slice(), sections_data_offset)?;
+        elf_out.pwrite(shstrtab.as_slice(), shstrtab_offset)?;
+
+        let mut sh_offset = sh_data_offset;
+        for section_header in section_headers32 {
+            elf_out.pwrite(section_header, sh_offset)?;
+            sh_offset += goblin::elf::SectionHeader::size(ctx);
+        }
+
+        std::fs::write(out, elf_out)?;
+    }
+
     Ok(())
 }
 
@@ -2476,6 +2936,8 @@ fn objcopy_translate_format(
         .arg(out_format)
         .arg("--gap-fill")
         .arg("0xFF")
+        .arg("--srec-forceS3") // Manually constructed Srecords use the S3 format
+        .arg("--srec-len=255") // Objcopy will select a shorter line length if allowed, this forces it to match the manual Srecord construction.
         .arg(src)
         .arg(dest);
 
