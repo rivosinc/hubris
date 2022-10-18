@@ -1,0 +1,62 @@
+name: clippy
+on: [push, pull_request]
+
+jobs:
+  skip_duplicate_jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
+  clippy:
+    needs: skip_duplicate_jobs
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
+    name: clippy
+    runs-on: '${{ matrix.os }}'
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        build: [hifive1-revb, hifive-inventor]
+        include:
+          - build: hifive1-revb
+            app_name: demo-hifive1-revb
+            app_toml: app/demo-hifive1-revb/app.toml
+            target: riscv32imc-unknown-none-elf
+            image: default
+          - build: hifive-inventor
+            app_name: demo-hifive-inventor
+            app_toml: app/demo-hifive-inventor/app.toml
+            target: riscv32imc-unkown-none-elf
+            image: default
+    steps:
+      # check out our code
+      - uses: actions/checkout@v2
+
+      # install rust toolchain
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Cache build output
+        uses: Swatinem/rust-cache@v1
+
+      - name: Cache vcpkg 
+        uses: actions/cache@v2
+        with:
+          path: C:\vcpkg\downloads
+          key: ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-download-${{ matrix.os }}-
+            ${{ runner.os }}-vcpkg-download-
+
+      # invoke our build
+      - uses: actions-rs/cargo@v1
+        env:
+          RUST_BACKTRACE: 1
+        with:
+          command: xtask
+          args: clippy ${{ matrix.app_toml}}
