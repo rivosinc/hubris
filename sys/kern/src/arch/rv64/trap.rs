@@ -222,7 +222,7 @@ fn trap_handler(task: &mut task::Task) {
     let cause = xcause::read().cause();
     match cause {
         //
-        // Interrupts.  Only our periodic MachineTimer interrupt via mtime is
+        // Interrupts.  Only our periodic [Supervisor|Machine]Timer interrupt via xtime is
         // supported at present.
         //
         xcauseTrap::Interrupt(xInterruptTimer) => {
