@@ -6,7 +6,7 @@ stacksize = 896
 
 [kernel]
 name = "demo-hifive-inventor"
-requires = { flash = 16800, ram = 3232 }
+requires = { flash = 16848, ram = 3232 }
 features = []
 
 [tasks.jefe]
@@ -30,6 +30,7 @@ interrupts = { "plic.irq" = 0x1 }
 ints = [52]
 tasks = ['"rtc"']
 notification = [1]
+source = ['"rtc"']
 pbits = 3
 
 [tasks.rtc]
@@ -54,6 +55,14 @@ max-sizes = { flash = 8192, ram = 1024 }
 stacksize = 512
 start = true
 task-slots = [{peer = "pong"}]
+
+[tasks.one_shot]
+name = "task-one-shot"
+priority = 1
+max-sizes = { flash = 8192, ram = 1024 }
+stacksize = 512
+start = true
+features = ["semihosting"]
 
 [tasks.idle]
 name = "task-idle"
