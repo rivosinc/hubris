@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot, hifive1-revb, hifive-inventor]
+        build: [stm32f3, stm32f4, lpc55, stm32h743, stm32h753, gemini, rot-carrier, gimlet-b, sidecar-a, psc-a, stm32g0, gimlet-rot, hifive1-revb, hifive-inventor, tests-hifive-inventor]
         include:
           - build: stm32g0
             app_name: demo-stm32g070-nucleo
@@ -92,6 +92,11 @@ jobs:
             app_name: demo-hifive-inventor
             app_toml: app/demo-hifive-inventor/app.toml
             target: riscv32imc-unkown-none-elf
+            image: default
+          - build: tests-hifive-inventor
+            app_name: tests-hifive-inventor
+            app_toml: test/tests-hifive-inventor/app.toml
+            target: riscv32imc-unknown-none-elf
             image: default
 
           - os: ubuntu-latest
