@@ -9,6 +9,11 @@ use indexmap::IndexMap;
 
 use crate::config::Config;
 
+enum ArchTarget {
+    ARM,
+    RISCV,
+}
+
 pub fn run(
     verbose: bool,
     cfg: PathBuf,
@@ -16,6 +21,14 @@ pub fn run(
     options: &[String],
 ) -> Result<()> {
     let toml = Config::from_file(&cfg)?;
+
+    let target: ArchTarget = if toml.target.starts_with("thumb") {
+        ArchTarget::ARM
+    } else if toml.target.starts_with("riscv") {
+        ArchTarget::RISCV
+    } else {
+        bail!("unsupported target");
+    };
 
     let mut tasks = tasks.to_vec();
 
@@ -93,16 +106,29 @@ pub fn run(
         let mut cmd = build_config.cmd("clippy");
 
         cmd.arg("--");
-        cmd.arg("-W");
-        cmd.arg("clippy::all");
-        cmd.arg("-A");
-        cmd.arg("clippy::missing_safety_doc");
+        match target {
+            ArchTarget::ARM => {
+                cmd.arg("-W");
+                cmd.arg("clippy::all");
+                cmd.arg("-A");
+                cmd.arg("clippy::missing_safety_doc");
+                cmd.arg("-W");
+                cmd.arg("elided_lifetimes_in_paths");
+            }
+            ArchTarget::RISCV => {
+                cmd.arg("-D");
+                cmd.arg("clippy::all");
+            }
+        };
+        // Idol occasionally generates identity operations.
         cmd.arg("-A");
         cmd.arg("clippy::identity_op");
+        // Syscalls use a lot of arguments
         cmd.arg("-A");
         cmd.arg("clippy::too_many_arguments");
-        cmd.arg("-W");
-        cmd.arg("elided_lifetimes_in_paths");
+        // Lint can't be fixed in no-std crates
+        cmd.arg("-A");
+        cmd.arg("clippy::result_unit_err");
 
         for opt in options {
             cmd.arg(opt);
