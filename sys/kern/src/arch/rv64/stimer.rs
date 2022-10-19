@@ -16,9 +16,9 @@
 //
 #[no_mangle]
 pub unsafe fn set_timer(tick_divisor: u32) {
-    todo!()
+    // TODO: SBI Call
 }
 
 pub fn reset_timer() {
-    todo!()
+    // TODO: SBI Call
 }
