@@ -22,8 +22,15 @@ pub use clock_freq::*;
 pub mod pmp;
 pub use pmp::*;
 
-pub mod mtimer;
-pub use mtimer::*;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "riscv-supervisor-mode")] {
+        pub mod stimer;
+        pub mod stimer::*;
+    } else {
+        pub mod mtimer;
+        pub use mtimer::*;
+    }
+}
 
 pub mod ticks;
 pub use ticks::*;
