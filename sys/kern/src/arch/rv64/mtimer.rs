@@ -29,28 +29,16 @@ const MTIME: u64 = 0x0200_BFF8;
 //
 #[no_mangle]
 pub unsafe fn set_timer(tick_divisor: u32) {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "riscv-supervisor-mode")] {
-            // No access to mtimer for supervisor mode
-        } else {
-            // Set high-order bits of mtime to zero.  We only call this function prior
-            // to enabling interrupts so it should be safe.
-            unsafe {
-                core::ptr::write_volatile(MTIME as *mut u64, 0);
-                core::ptr::write_volatile(MTIMECMP as *mut u64, tick_divisor.into());
-            }
-        }
+    // Set high-order bits of mtime to zero.  We only call this function prior
+    // to enabling interrupts so it should be safe.
+    unsafe {
+        core::ptr::write_volatile(MTIME as *mut u64, 0);
+        core::ptr::write_volatile(MTIMECMP as *mut u64, tick_divisor.into());
     }
 }
 
 pub fn reset_timer() {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "riscv-supervisor-mode")] {
-            // No access to mtimer for supervisor mode
-        } else {
-            unsafe {
-                core::ptr::write_volatile(MTIME as *mut u64, 0);
-            }
-        }
+    unsafe {
+        core::ptr::write_volatile(MTIME as *mut u64, 0);
     }
 }
