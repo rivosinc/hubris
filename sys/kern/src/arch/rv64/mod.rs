@@ -19,16 +19,21 @@ pub use saved_state::*;
 pub mod clock_freq;
 pub use clock_freq::*;
 
-pub mod pmp;
-pub use pmp::*;
+
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "riscv-supervisor-mode")] {
         pub mod stimer;
-        pub mod stimer::*;
+        pub use stimer::*;
+
+        pub mod mmu;
+        pub use mmu::*;
     } else {
         pub mod mtimer;
         pub use mtimer::*;
+
+        pub mod pmp;
+        pub use pmp::*;
     }
 }
 
