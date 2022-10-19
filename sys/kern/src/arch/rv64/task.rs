@@ -80,12 +80,23 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // of machine mode, launching the task.
     unsafe {
         crate::task::activate_next_task(task);
-        asm!("
-            ld sp, ({0})
-            mret",
-            in(reg) &task.save().sp(),
-            options(noreturn)
-        );
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "riscv-supervisor-mode")] {
+                asm!("
+                    ld sp, ({0})
+                    sret",
+                    in(reg) &task.save().sp(),
+                    options(noreturn)
+                );
+            } else {
+                asm!("
+                    ld sp, ({0})
+                    mret",
+                    in(reg) &task.save().sp(),
+                    options(noreturn)
+                );
+            }
+        }
     }
 }
 
