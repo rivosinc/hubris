@@ -166,7 +166,13 @@ macro_rules! start_trap_fn {
 #[link_section = ".trap.rust"]
 #[export_name = "_start_trap"]
 pub unsafe extern "C" fn _start_trap() {
-    start_trap_fn!(supervisor);
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "riscv-supervisor-mode")] {
+            start_trap_fn!(supervisor);
+        } else {
+            start_trap_fn!(machine);
+        }
+    }
 }
 
 #[no_mangle]
