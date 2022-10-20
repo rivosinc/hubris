@@ -54,6 +54,17 @@ pub unsafe fn get_current_task() -> &'static task::Task {
     unsafe { &*(task as *const task::Task) }
 }
 
+macro_rules! jump_to_task {
+    ($prefix:literal, $task:ident) => {
+        asm!("
+            ld sp, ({0})",
+            concat!($prefix, "ret"),
+            in(reg) &$task.save().sp(),
+            options(noreturn)
+        );
+    }
+}
+
 #[allow(unused_variables)]
 pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Configure MPP to switch us to User mode on exit from Machine
@@ -82,19 +93,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         crate::task::activate_next_task(task);
         cfg_if::cfg_if! {
             if #[cfg(feature = "riscv-supervisor-mode")] {
-                asm!("
-                    ld sp, ({0})
-                    sret",
-                    in(reg) &task.save().sp(),
-                    options(noreturn)
-                );
+                jump_to_task!("s", task)
             } else {
-                asm!("
-                    ld sp, ({0})
-                    mret",
-                    in(reg) &task.save().sp(),
-                    options(noreturn)
-                );
+                jump_to_task("m", task)
             }
         }
     }
