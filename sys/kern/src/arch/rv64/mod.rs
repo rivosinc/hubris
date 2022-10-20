@@ -26,6 +26,10 @@ cfg_if::cfg_if! {
 
         pub mod mmu;
         pub use mmu::*;
+
+        pub mod sbi;
+        pub use sbi::*;
+
     } else {
         pub mod mtimer;
         pub use mtimer::*;
