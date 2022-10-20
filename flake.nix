@@ -86,9 +86,10 @@
           app,
           toml,
           doCheck ? false,
+          sixtyfour ? false,
         }:
           pkgs.callPackage ./nix/hubris.nix {
-            inherit binutils64 app toml doCheck;
+            inherit binutils64 app toml doCheck sixtyfour;
             cargo = rust;
             rustc = rust;
             src = pkgs.lib.cleanSource ./.;
@@ -100,9 +101,10 @@
         {
           hubris,
           app,
+          sixtyfour ? false,
         }:
           pkgs.callPackage ./nix/qemu-test-suite.nix {
-            inherit hubris app;
+            inherit hubris app sixtyfour;
             humility = humilityflake.packages.${system}.humility;
           }
       );
