@@ -9,26 +9,17 @@ use crate::umem::USlice;
 
 use core::arch::asm;
 use riscv::register;
+
 #[cfg(feature = "riscv-supervisor-mode")]
 use riscv::register::{
-    scause as xcause, scause::Exception as xcauseException,
-    scause::Interrupt as xcauseInterrupt,
-    scause::Interrupt::SupervisorTimer as xInterruptTimer,
-    scause::Trap as xcauseTrap, sepc as xepc, sie as xie,
-    sie::set_stimer as set_xtimer, sscratch as xscratch, sstatus as xstatus,
-    sstatus::set_spp as set_xpp, sstatus::SPP as XPP, stval as xtval,
-    stvec as xtvec, stvec::TrapMode as xTrapMode,
+    sepc as xepc, sie::set_stimer as set_xtimer, sscratch as xscratch,
+    sstatus::set_spp as set_xpp, sstatus::SPP as XPP,
 };
 
 #[cfg(not(feature = "riscv-supervisor-mode"))]
 use riscv::register::{
-    mcause as xcause, mcause::Exception as xcauseException,
-    mcause::Interrupt as xcauseInterrupt,
-    mcause::Interrupt::SupervisorTimer as xInterruptTimer,
-    mcause::Trap as xcauseTrap, mepc as xepc, mie as xie,
-    mie::set_mtimer as set_xtimer, mscratch as xscratch, mstatus as xstatus,
-    mstatus::set_mpp as set_xpp, mstatus::MPP as XPP, mtval as xtval,
-    mtvec as xtvec, mtvec::TrapMode as xTrapMode,
+    mepc as xepc, mie::set_mtimer as set_xtimer, mscratch as xscratch,
+    mstatus::set_mpp as set_xpp, mstatus::MPP as XPP,
 };
 
 use unwrap_lite::UnwrapLite;
