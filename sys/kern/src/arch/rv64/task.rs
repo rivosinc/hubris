@@ -8,7 +8,6 @@ use crate::task;
 use crate::umem::USlice;
 
 use core::arch::asm;
-use riscv::register;
 
 #[cfg(feature = "riscv-supervisor-mode")]
 use riscv::register::{
