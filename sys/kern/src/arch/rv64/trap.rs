@@ -15,19 +15,15 @@ use abi::{FaultInfo, FaultSource};
 #[cfg(feature = "riscv-supervisor-mode")]
 use riscv::register::{
     scause as xcause, scause::Exception as xcauseException,
-    scause::Interrupt as xcauseInterrupt,
     scause::Interrupt::SupervisorTimer as xInterruptTimer,
-    scause::Trap as xcauseTrap, sepc as xepc, sscratch as xscratch,
-    stval as xtval, stvec as xtvec, stvec::TrapMode as xTrapMode,
+    scause::Trap as xcauseTrap, sepc as xepc, stval as xtval,
 };
 
 #[cfg(not(feature = "riscv-supervisor-mode"))]
 use riscv::register::{
     mcause as xcause, mcause::Exception as xcauseException,
-    mcause::Interrupt as xcauseInterrupt,
     mcause::Interrupt::SupervisorTimer as xInterruptTimer,
-    mcause::Trap as xcauseTrap, mepc as xepc, mscratch as xscratch,
-    mtval as xtval, mtvec as xtvec, mtvec::TrapMode as xTrapMode,
+    mcause::Trap as xcauseTrap, mepc as xepc, mtval as xtval,
 };
 
 use crate::arch::get_current_task;
