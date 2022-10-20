@@ -29,8 +29,8 @@ use riscv::register::{
 use crate::arch::get_current_task;
 use crate::arch::{incr_ticks, reset_timer};
 
-macro_rules! start_trap_fn_common {
-    ($scratch_reg:literal, $epc_reg:literal, $return_call:literal) => {
+macro_rules! start_trap_fn {
+    ($prefix:literal) => {
         unsafe {
             asm!(
                 "
@@ -43,7 +43,7 @@ macro_rules! start_trap_fn_common {
                 # just before jump to trap_handler.
                 #
                 ",
-                concat!("csrrw a0, ", $scratch_reg, ", a0"),
+                concat!("csrrw a0, ", $prefix, "scratch, a0"),
                 "
                 sd ra,   0*8(a0)
                 sd sp,   1*8(a0)
@@ -77,11 +77,11 @@ macro_rules! start_trap_fn_common {
                 sd t5,  29*8(a0)
                 sd t6,  30*8(a0)
                 ",
-                concat!("csrr a1, ", $scratch_reg),
+                concat!("csrr a1, ", $prefix, "scratch"),
                 "
                 sd a1,  31*8(a0)    # store xepc for resume
                 ",
-                concat!("csrrw a1, ", $scratch_reg, ", a0   # current task ptr restored in xscratch"),
+                concat!("csrrw a1, ", $prefix, "scratch, a0   # current task ptr restored in xscratch"),
                 "
                 sd a1, 9*8(a0)      # store a0 itself
 
@@ -95,11 +95,11 @@ macro_rules! start_trap_fn_common {
                 # everything in and resume (using t6 as it's resored last).
                 #
                 ",
-                concat!("csrr t6, ", $scratch_reg),
+                concat!("csrr t6, ", $prefix, "scratch"),
                 "
                 ld t5,  31*8(t6)     # restore xepc
                 ",
-                concat!("csrw ", $epc_reg, ", t5"),
+                concat!("csrw ", $prefix, "epc, t5"),
                 "
 
                 ld ra,   0*8(t6)
@@ -134,20 +134,11 @@ macro_rules! start_trap_fn_common {
                 ld t5,  29*8(t6)
                 ld t6,  30*8(t6)
                 ",
-                $return_call,
+                concat!($prefix, "ret"),
                 options(noreturn), // Mandatory for naked functions
             )
         }
     }
-}
-
-macro_rules! start_trap_fn {
-    (supervisor) => {
-        start_trap_fn_common!("sscratch", "sepc", "sret")
-    };
-    (machine) => {
-        start_trap_fn_common!("mscratch", "mepc", "mret")
-    };
 }
 
 // Provide our own interrupt vector to handle save/restore of the task on
@@ -164,9 +155,9 @@ macro_rules! start_trap_fn {
 pub unsafe extern "C" fn _start_trap() {
     cfg_if::cfg_if! {
         if #[cfg(feature = "riscv-supervisor-mode")] {
-            start_trap_fn!(supervisor);
+            start_trap_fn!("s");
         } else {
-            start_trap_fn!(machine);
+            start_trap_fn!("m");
         }
     }
 }
