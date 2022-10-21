@@ -85,7 +85,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
             if #[cfg(feature = "riscv-supervisor-mode")] {
                 jump_to_task!("s", task)
             } else {
-                jump_to_task("m", task)
+                jump_to_task!("m", task)
             }
         }
     }
