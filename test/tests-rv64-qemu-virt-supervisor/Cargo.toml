@@ -1,5 +1,5 @@
 [package]
-name = "tests-rv64-qemu-supervisor"
+name = "tests-rv64-qemu-virt-supervisor"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,7 +13,7 @@ default-features = false
 build-util = {path = "../../build/util"}
 
 [[bin]]
-name = "tests-rv64-qemu-supervisor"
-path = "../../app/demo-rv64-qemu-virt/src/main.rs"
+name = "tests-rv64-qemu-virt-supervisor"
+path = "../../app/demo-rv64-qemu-virt-supervisor/src/main.rs"
 test = false
 bench = false
