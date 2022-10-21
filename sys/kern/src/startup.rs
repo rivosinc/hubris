@@ -47,11 +47,7 @@ static TASK_TABLE_IN_USE: AtomicBool = AtomicBool::new(true);
 /// This function may not be called reentrantly or from multiple cores.
 pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
     // Set our clock frequency so debuggers can find it as needed
-    //
-    // Safety: TODO it is not clear that this operation needs to be unsafe.
-    unsafe {
-        crate::arch::set_clock_freq(tick_divisor);
-    }
+    crate::arch::set_clock_freq(tick_divisor);
 
     // Grab references to all our statics.
     let task_descs = &HUBRIS_TASK_DESCS;
