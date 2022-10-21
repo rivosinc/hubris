@@ -39,7 +39,7 @@ in
         "pmbus-0.1.0" = "sha256-rKEbuWUp88PJK+gP6dmaIeeBNXzjclNpwE5kibViYQQ";
         "riscv-0.8.1" = "sha256-icLG4b/jpn4thGoeXHHBAEqF6FLV8u/8N0KLOgeQcO0";
         "riscv-pseudo-atomics-0.1.0" = "sha256-QuChdKbw1TTy8W+mr3gF8yDfwWcUxmAzT3j5A5gamdk";
-        "riscv-semihosting-0.0.1" = "sha256-JzQyv2/4F1FBclFZUsIOJ1TREaBIKQp/TOZhBSHyQGY";
+        "riscv-semihosting-0.0.1" = "sha256-sGa++ywE9kYw9VnPKeYyzaRJsYOzF0mNE7C9c2TdUNQ=";
         "salty-0.2.0" = "sha256-8RnvQ+Ch4RijmOhWNQZh7PmFlZGUfyzbeRvSKWqsbJU";
         "spd-0.1.0" = "sha256-X6XUx+huQp77XF5EZDYYqRqaHsdDSbDMK8qcuSGob3E";
         "stm32g0-0.15.1" = "sha256-mWY3CU0bUdlBKZKAoyjGVSdT3KVLgPHb4Jjb/JvPXEA";
