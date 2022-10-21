@@ -1,11 +1,11 @@
-name = "tests-rv64-qemu-supervisor"
+name = "tests-rv64-qemu-virt-supervisor"
 target = "riscv64imac-unknown-none-elf"
 board = "rv64-qemu-virt"
 stacksize = 2048
 chip = "../../chips/rv64-qemu-virt"
 
 [kernel]
-name = "demo-rv64-qemu-supervisor"
+name = "demo-rv64-qemu-virt-supervisor"
 requires = {flash = 28672, ram = 65536}
 features = []
 
