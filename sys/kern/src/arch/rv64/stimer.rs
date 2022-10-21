@@ -4,7 +4,7 @@
 
 use crate::arch::sbi_set_timer;
 
-const HAS_SSTC: bool = true; // TODO: Runtime detection
+const HAS_SSTC: bool = false; // TODO: Runtime detection
 
 #[no_mangle]
 pub unsafe fn set_timer(tick_divisor: u32) {
