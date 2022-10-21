@@ -59,8 +59,8 @@ The repo is laid out as follows.
 
 # Developing
 
-We currently support Linux and Windows as first-tier platforms. macOS is also
-used on a daily basis by Oxide employees, but is not tested in CI.  The build
+We currently support Linux as first-tier platforms. macOS is also
+used on a daily basis by Oxide and Rivos employees.  The build
 probably also works on Illumos; if anyone would like to step up to maintain
 support and a continuous build for Illumos or macOS, we'd love the help.
 
@@ -69,7 +69,12 @@ request to merge that branch into `master`. For details, see
 [`CONTRIBUING.md`](CONTRIBUTING.md).
 
 ## Prereqs
-
+### Nix
+This repository contains a [`nix flake`](https://nixos.org/) environment to provide 
+consistent development and CI environments.  Enter this environment using 
+`nix develop` within the repository.
+ 
+### Manually
 You will need:
 
 - A `rustup`-based toolchain install. `rustup` will take care of automatically
@@ -296,6 +301,44 @@ before running tests.
 See the [documentation for `humility
 test`](https://github.com/oxidecomputer/humility#humility-test) for details
 on test results.
+## CI
+
+The github CI has the ability to perform build checks on any hubris app using
+the nix environment. This all happens within `flake.nix`, with the actual 
+build script in `nix/hubris.nix'. To add a new build check first add the app to
+the set of packages.
+```
+packages = flake-utils.lib.flattenTree {
+    demo-hifive-inventor = hubris {
+      app = "demo-hifive-inventor";
+      toml = "app/demo-hifive-inventor/app.toml";
+    };
+    tests-hifive-inventor = hubris {
+      app = "tests-hifive-inventor";
+      toml = "test/tests-hifive-inventor/app.toml";
+    }; 
+    demo-rv64-qemu-virt = hubris {
+      app = "demo-rv64-qemu-virt";
+      toml = "app/demo-rv64-qemu-virt/app.toml";
+      # specify this attribute for 64bit apps
+      sixtyfour = true;
+    };
+    ...
+};
+```
+Then add the package to `checks`, and override the `doCheck` parameter.  
+Overriding this parameter will run any build time test on the app. 
+Currently this includes `cargo fmt`, but plan to add `cargo clippy` as well.
+```
+checks = {
+  # build checks
+  demo-hifive1-revb = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
+  demo-hifive-inventor = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
+  tests-hifive-inventor = self.packages.${system}.tests-hifive-inventor.override {doCheck = true;};
+  ...
+};
+
+```
 
 ## Debugging tests
 
