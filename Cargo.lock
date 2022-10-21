@@ -623,7 +623,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "kern",
  "panic-halt",
- "riscv 0.9.0",
+ "riscv 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "riscv-rt 0.9.0 (git+https://github.com/rust-embedded/riscv-rt.git?rev=3b4ab6f3)",
 ]
 
@@ -2159,7 +2159,7 @@ dependencies = [
  "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
- "riscv 0.8.1",
+ "riscv 0.9.0 (git+https://github.com/rivosinc/riscv?branch=rivos/main)",
  "riscv-pseudo-atomics",
  "riscv-rt 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "riscv-semihosting",
@@ -2962,6 +2962,16 @@ name = "riscv"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73fc4bc7113424814738fe79755a5764e392b3d4d1bc757e6aa6f61cede32095"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+]
+
+[[package]]
+name = "riscv"
+version = "0.9.0"
+source = "git+https://github.com/rivosinc/riscv?branch=rivos/main#ae6adee121c92c3a83182feba3a065c60561a9eb"
 dependencies = [
  "bare-metal 1.0.0",
  "bit_field",
