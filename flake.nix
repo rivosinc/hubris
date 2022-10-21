@@ -124,6 +124,16 @@
           app = "tests-hifive-inventor";
           toml = "test/tests-hifive-inventor/app.toml";
         };
+        demo-rv64-qemu-virt = hubris {
+          app = "demo-rv64-qemu-virt";
+          toml = "app/demo-rv64-qemu-virt/app.toml";
+          sixtyfour = true;
+        };
+        tests-rv64-qemu-virt = hubris {
+          app = "tests-rv64-qemu-virt";
+          toml = "test/tests-rv64-qemu-virt/app.toml";
+          sixtyfour = true;
+        };
       };
 
       devShells.default = pkgs.mkShell {
@@ -146,6 +156,8 @@
         demo-hifive1-revb = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
         demo-hifive-inventor = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
         tests-hifive-inventor = self.packages.${system}.tests-hifive-inventor.override {doCheck = true;};
+        demo-rv64-qemu-virt = self.packages.${system}.demo-rv64-qemu-virt.override {doCheck = true;};
+        tests-rv64-qemu-virt = self.packages.${system}.tests-rv64-qemu-virt.override {doCheck = true;};
       };
 
       formatter = nixpkgs.legacyPackages.${system}.alejandra;
