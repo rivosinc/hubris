@@ -15,7 +15,7 @@ zerocopy = "0.6.1"
 [dependencies.stm32g0]
 optional = true
 git = "https://github.com/oxidecomputer/stm32-rs-nightlies"
-branch = "stm32g0b1-initial-support"
+branch = "stm32g0b1-update"
 default-features = false
 
 [features]

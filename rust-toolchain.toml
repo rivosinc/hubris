@@ -5,4 +5,4 @@ targets = [ "riscv32imc-unknown-none-elf", "riscv32imac-unknown-none-elf",
             "thumbv6m-none-eabi", "thumbv7em-none-eabihf", 
             "thumbv8m.main-none-eabihf" ]
 profile = "minimal"
-components = [ "rustfmt" ]
+components = [ "rustfmt", "clippy" ]

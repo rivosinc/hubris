@@ -219,12 +219,12 @@ fn generate_statics() -> Result<(), Box<dyn std::error::Error>> {
 
         write!(file, "
 use phash::SortedList;
-pub const HUBRIS_IRQ_TASK_LOOKUP: SortedList::<abi::InterruptNum, abi::InterruptOwner> = SortedList {{
+pub const HUBRIS_IRQ_TASK_LOOKUP: SortedList::<'_, abi::InterruptNum, abi::InterruptOwner> = SortedList {{
     values: &[
         {}
     ],
 }};
-pub const HUBRIS_TASK_IRQ_LOOKUP: SortedList::<abi::InterruptOwner, &'static [abi::InterruptNum]> = SortedList {{
+pub const HUBRIS_TASK_IRQ_LOOKUP: SortedList::<'_, abi::InterruptOwner, &'static [abi::InterruptNum]> = SortedList {{
     values: &[
         {}
     ],

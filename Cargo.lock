@@ -47,7 +47,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.15.1",
+ "stm32g0",
 ]
 
 [[package]]
@@ -653,7 +653,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]
@@ -741,7 +741,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "hkdf",
- "hubpack 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hubpack",
  "lpc55-pac",
  "salty",
  "serde",
@@ -1407,7 +1407,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "drv-stm32xx-sys-api",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "userlib",
  "zerocopy",
 ]
@@ -1537,7 +1537,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if 1.0.0",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -1553,7 +1553,7 @@ dependencies = [
  "drv-stm32xx-sys-api",
  "num-traits",
  "ringbuf",
- "stm32g0 0.15.1",
+ "stm32g0",
  "stm32h7",
  "userlib",
  "zerocopy",
@@ -1574,7 +1574,7 @@ dependencies = [
  "fixedmap",
  "num-traits",
  "ringbuf",
- "stm32g0 0.15.1",
+ "stm32g0",
  "stm32h7",
  "userlib",
 ]
@@ -1590,7 +1590,7 @@ dependencies = [
  "idol",
  "idol-runtime",
  "num-traits",
- "stm32g0 0.14.0",
+ "stm32g0",
  "stm32h7",
  "task-jefe-api",
  "userlib",
@@ -1780,7 +1780,7 @@ version = "0.1.0"
 source = "git+https://github.com/oxidecomputer/omicron?rev=7e5d68e0094bcf40f55e7640b2a8a56e4f743409#7e5d68e0094bcf40f55e7640b2a8a56e4f743409"
 dependencies = [
  "bitflags",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack",
  "serde",
  "serde-big-array",
  "serde_repr",
@@ -2002,7 +2002,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags",
  "fletcher",
- "hubpack 0.1.0 (git+https://github.com/cbiffle/hubpack)",
+ "hubpack",
  "serde",
  "serde_repr",
  "unwrap-lite",
@@ -2011,56 +2011,16 @@ dependencies = [
 [[package]]
 name = "hubpack"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70e0e5e2a94d97b34fa215ea1311937ab0880f86ee575ca4acd2ff66fa22b88c"
-dependencies = [
- "hubpack_derive 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde",
-]
-
-[[package]]
-name = "hubpack"
-version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
 dependencies = [
- "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25)",
+ "hubpack_derive",
  "serde",
-]
-
-[[package]]
-name = "hubpack"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
-dependencies = [
- "hubpack_derive 0.1.0 (git+https://github.com/cbiffle/hubpack)",
- "serde",
-]
-
-[[package]]
-name = "hubpack_derive"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35bd74819b334bf50982a40ec2a44cdf4e197ebbc74c02624897ecb66dbf828c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
 name = "hubpack_derive"
 version = "0.1.0"
 source = "git+https://github.com/cbiffle/hubpack?rev=df08cc3a6e1f97381cd0472ae348e310f0119e25#df08cc3a6e1f97381cd0472ae348e310f0119e25"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "hubpack_derive"
-version = "0.1.0"
-source = "git+https://github.com/cbiffle/hubpack#d98084b85cc45fe589a49dd95403d7b41533375c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3448,17 +3408,6 @@ dependencies = [
 
 [[package]]
 name = "stm32g0"
-version = "0.14.0"
-source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-initial-support#19280bfc90cce3020482abc1d0c57d7d2a3bf162"
-dependencies = [
- "bare-metal 1.0.0",
- "cortex-m",
- "cortex-m-rt",
- "vcell",
-]
-
-[[package]]
-name = "stm32g0"
 version = "0.15.1"
 source = "git+https://github.com/oxidecomputer/stm32-rs-nightlies?branch=stm32g0b1-update#9bb993b07a5906ac4503d702e7ff507f229d1b44"
 dependencies = [
@@ -4234,7 +4183,7 @@ dependencies = [
  "panic-halt",
  "panic-itm",
  "panic-semihosting",
- "stm32g0 0.14.0",
+ "stm32g0",
 ]
 
 [[package]]

@@ -1,0 +1,30 @@
+name: "Nix flake checks"
+on:
+  pull_request:
+  push:
+jobs:
+  skip_duplicate_jobs:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          concurrent_skipping: 'same_content'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
+  flake-checks:
+    needs: skip_duplicate_jobs
+    if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
+    strategy:
+      matrix: 
+        os: [ ubuntu-latest, macOS-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2.4.0
+    - uses: cachix/install-nix-action@v15
+      with:
+        extra_nix_config: |
+          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+    - run: nix flake check

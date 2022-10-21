@@ -99,7 +99,7 @@ pub fn task_peripherals_str() -> String {
         consts.push_str("#[allow(dead_code)]\n");
         consts.push_str(
             format!(
-                "const {}_BASE_ADDR: u32 = 0x{:X} as u32;\n",
+                "const {}_BASE_ADDR: u32 = 0x{:X}_u32;\n",
                 name.to_ascii_uppercase(),
                 periph.address
             )
@@ -108,7 +108,7 @@ pub fn task_peripherals_str() -> String {
         consts.push_str("#[allow(dead_code)]\n");
         consts.push_str(
             format!(
-                "const {}_SIZE: u32 = 0x{:X} as u32;\n",
+                "const {}_SIZE: u32 = 0x{:X}_u32;\n",
                 name.to_ascii_uppercase(),
                 periph.size
             )
@@ -118,7 +118,7 @@ pub fn task_peripherals_str() -> String {
 
     println!("Peripheral consts: {}", consts);
 
-    return consts;
+    consts
 }
 
 pub fn task_irq_consts() -> String {
