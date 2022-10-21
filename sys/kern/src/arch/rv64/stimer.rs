@@ -4,16 +4,23 @@
 
 use crate::arch::sbi_set_timer;
 
+const HAS_SSTC: bool = true; // TODO: Runtime detection
+
 #[no_mangle]
 pub unsafe fn set_timer(tick_divisor: u32) {
     // TODO: Feature detection for Sstc, SBI call for non-supporting, supporting get:
-    //       riscv::register::stime::write(0);
     //       riscv::register::stimecmp::write(tick_divisor.into());
-    sbi_set_timer(tick_divisor.into());
+    if HAS_SSTC {
+        riscv::register::stimecmp::write(tick_divisor as usize)
+    } else {
+        sbi_set_timer(tick_divisor.into());
+    }
 }
 
 pub fn reset_timer() {
-    // TODO: Feature detection for Sstc, SBI call for non-supporting, supporting get:
-    //       riscv::register::stime::write(0);
-    sbi_set_timer(0);
+    if HAS_SSTC {
+        riscv::register::stimecmp::write(0)
+    } else {
+        sbi_set_timer(0);
+    }
 }
