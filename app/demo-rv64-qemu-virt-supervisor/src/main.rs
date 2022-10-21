@@ -13,7 +13,7 @@ use riscv_rt::entry;
 #[no_mangle]
 #[entry]
 fn main() -> ! {
-    // TODO(furquan): This is copied over from hifive-inventor. Fix?
+    // TODO(tdewey): This is copied over from hifive-inventor. Fix?
     const CYCLES_PER_MS: u32 = 8_000;
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
