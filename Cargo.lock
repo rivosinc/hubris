@@ -2927,7 +2927,7 @@ dependencies = [
 [[package]]
 name = "riscv-semihosting"
 version = "0.0.1"
-source = "git+https://github.com/rivosinc/riscv-semihosting?branch=dev/fawaz/privilege-features#4e96e44f4518111678d6797b79d39c13d26d71d0"
+source = "git+https://github.com/rivosinc/riscv-semihosting?branch=dev/fawaz/privilege-features#ec93c72f47c08d2e852c5e080bbe2e790ec2222d"
 dependencies = [
  "cfg-if 1.0.0",
  "riscv 0.8.0",
