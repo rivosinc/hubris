@@ -77,6 +77,7 @@ in
     checkPhase = ''
       pushd ${src}
       ${cargo}/bin/cargo --offline --frozen fmt --check --all
+      ${cargo}/bin/cargo xtask clippy ${toml} 
       popd
     '';
 
