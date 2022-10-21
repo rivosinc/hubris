@@ -260,7 +260,7 @@ const INITIAL_FPSCR: u32 = 0;
 // scaler that enables ITM, and because ITM is particularly useful when
 // debugging boot failures, this should be set as early in boot as it can
 // be.
-pub unsafe fn set_clock_freq(tick_divisor: u32) {
+pub fn set_clock_freq(tick_divisor: u32) {
     CLOCK_FREQ_KHZ.store(tick_divisor, Ordering::Relaxed);
 }
 
