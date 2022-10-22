@@ -27,4 +27,5 @@ jobs:
       with:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-    - run: nix flake check
+          max-jobs = auto
+    - run: nix flake check --print-build-logs
