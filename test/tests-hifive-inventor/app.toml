@@ -6,7 +6,7 @@ chip = "../../chips/fe310-g003"
 
 [kernel]
 name = "demo-hifive-inventor"
-requires = {flash = 15872, ram = 3232}
+requires = {flash = 15874, ram = 3232}
 features = []
 
 [tasks.runner]
