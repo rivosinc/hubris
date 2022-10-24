@@ -32,6 +32,8 @@ fn main() -> ! {
         // RISC-V has wfi, but unfortunately it is an illegal instruction if
         // called from User mode.
         #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
-        unsafe { riscv::asm::nop(); } // Heed the warning above.
+        unsafe {
+            riscv::asm::nop();
+        } // Heed the warning above.
     }
 }
