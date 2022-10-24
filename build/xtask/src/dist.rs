@@ -709,11 +709,17 @@ fn build_archive(cfg: &PackageConfig, image_name: &str) -> Result<()> {
         - debug/ contains OpenOCD and GDB scripts, if available.\n",
     )?;
 
-    let (git_rev, git_dirty) = get_git_status()?;
-    archive.text(
-        "git-rev",
-        format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
-    )?;
+    match get_git_status() {
+        Ok((git_rev, git_dirty)) => {
+            archive.text(
+                "git-rev",
+                format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
+            )?;
+        }
+        Err(_) => {
+            println!("{} building outside a git repository, revision will not be avaliable in build", "warning".bold().yellow());
+        }
+    }
     archive.copy(&cfg.app_toml_file, "app.toml")?;
     let chip_dir = cfg.app_src_dir.join(cfg.toml.chip.clone());
     let chip_file = chip_dir.join("chip.toml");
