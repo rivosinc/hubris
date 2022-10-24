@@ -77,7 +77,7 @@ macro_rules! start_trap_fn {
                 sd t5,  29*8(a0)
                 sd t6,  30*8(a0)
                 ",
-                concat!("csrr a1, ", $prefix, "scratch"),
+                concat!("csrr a1, ", $prefix, "epc"),
                 "
                 sd a1,  31*8(a0)    # store xepc for resume
                 ",
