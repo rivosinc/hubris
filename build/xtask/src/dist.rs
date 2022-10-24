@@ -29,6 +29,8 @@ use crate::{
     task_slot,
 };
 
+use colored::Colorize;
+
 /// In practice, applications with active interrupt activity tend to use about
 /// 650 bytes of stack. Because kernel stack overflows are annoying, we've
 /// padded that a bit.
@@ -829,13 +831,23 @@ fn build_archive(
         - debug/ contains OpenOCD and GDB scripts, if available.\n",
     )?;
 
-    let (git_rev, git_dirty) = get_git_status()?;
-    archive
-        .text(
-            "git-rev",
-            format!("{}{}", git_rev, if git_dirty { "-dirty" } else { "" }),
-        )
-        .context("failed writing `git-rev`")?;
+    match get_git_status() {
+        Ok((git_rev, git_dirty)) => {
+            archive
+                .text(
+                    "git-rev",
+                    format!(
+                        "{}{}",
+                        git_rev,
+                        if git_dirty { "-dirty" } else { "" }
+                    ),
+                )
+                .context("failed writing `git-rev`")?;
+        }
+        Err(_) => {
+            println!("{} building outside a git repository, revision will not be avaliable in build", "warning".bold().yellow());
+        }
+    }
 
     archive
         .text("image-name", image_name)
