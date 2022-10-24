@@ -16,18 +16,40 @@ extern crate panic_itm; // breakpoint on `rust_begin_unwind` to catch panics
 #[cfg(feature = "panic-semihosting")]
 extern crate panic_semihosting; // requires a debugger
 
-use abi::ImageHeader;
-use core::mem::MaybeUninit;
 use cortex_m_rt::entry;
 use lpc55_pac as device;
 
-// This is updated by build scripts (which is why this is marked as no_mangle)
-// Although we don't access any fields of the header from hubris right now, it
-// is safer to treat this as MaybeUninit in case we need to do so in the future.
-#[used]
-#[no_mangle]
-#[link_section = ".image_header"]
-static HEADER: MaybeUninit<ImageHeader> = MaybeUninit::uninit();
+// When we're secure we don't have access to read the CMPA/NMPA where the
+// official setting is stored, emulate what the clock driver does instead
+fn get_clock_speed() -> (u32, u8) {
+    // We need to set the clock speed for flash programming to work
+    // properly. Reading it out of syscon is less error prone than
+    // trying to compile it in at build time
+
+    let syscon = unsafe { &*lpc55_pac::SYSCON::ptr() };
+
+    let a = syscon.mainclksela.read().bits();
+    let b = syscon.mainclkselb.read().bits();
+    let div = syscon.ahbclkdiv.read().bits();
+
+    // corresponds to FRO 96 MHz, see 4.5.34 in user manual
+    const EXPECTED_MAINCLKSELA: u32 = 3;
+    // corresponds to Main Clock A, see 4.5.45 in user manual
+    const EXPECTED_MAINCLKSELB: u32 = 0;
+
+    // We expect the 96MHz clock to be used based on the ROM.
+    // If it's not there are probably more (bad) surprises coming
+    // and panicking is reasonable
+    if a != EXPECTED_MAINCLKSELA || b != EXPECTED_MAINCLKSELB {
+        panic!();
+    }
+
+    if div == 0 {
+        (96, div as u8)
+    } else {
+        (48, div as u8)
+    }
+}
 
 #[entry]
 fn main() -> ! {
