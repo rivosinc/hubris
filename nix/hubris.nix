@@ -59,10 +59,6 @@ in
       binutils64
     ];
 
-    patchPhase = ''
-      substituteInPlace build/xtask/src/dist.rs --replace 'get_git_status()?' '("${rev}", false)'
-    '';
-
     buildPhase = ''
       ${cargo}/bin/cargo --offline --frozen ${xtask} dist ${toml}
     '';
