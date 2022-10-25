@@ -24,7 +24,7 @@ build-i2c = {path = "../../build/i2c", optional = true}
 [target.'cfg(target_arch = "arm")'.dependencies]
 cortex-m = {version = "0.7", features = ["inline-asm"]}
 
-[target.'cfg(target_arch = "riscv32")'.dependencies]
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
 riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
 riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", features = ["default", "user-mode"] }
 
@@ -33,6 +33,7 @@ itm = [ "userlib/log-itm" ]
 semihosting = [ "userlib/log-semihosting" ]
 i2c-devices = ["drv-i2c-api", "drv-i2c-devices", "build-i2c"]
 fru-id-eeprom = ["i2c-devices"]
+riscv-supervisor-mode = []
 
 [[bin]]
 name = "test-suite"
