@@ -21,7 +21,7 @@ name = "test-suite"
 priority = 2
 max-sizes = {flash = 65536, ram = 65536}
 start = true
-features = ["semihosting"]
+features = ["semihosting", "riscv-supervisor-mode"]
 task-slots = ["idol", "assist", "suite", "runner"]
 
 # This block is used to test the task_config macro
