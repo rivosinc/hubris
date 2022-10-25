@@ -14,7 +14,7 @@ use riscv_rt::entry;
 #[entry]
 fn main() -> ! {
     // TODO(tdewey): This is copied over from hifive-inventor. Fix?
-    const CYCLES_PER_MS: u32 = 8_000;
+    const CYCLES_PER_MS: u32 = 3_200_000;
 
     unsafe { kern::startup::start_kernel(CYCLES_PER_MS) }
 }

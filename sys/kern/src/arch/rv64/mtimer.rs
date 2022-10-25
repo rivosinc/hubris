@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use core::convert::TryInto;
+
 // Timer handling.
 //
 // We currently only support single HART systems.  From reading elsewhere,
@@ -28,12 +30,12 @@ const MTIME: u64 = 0x0200_BFF8;
 // back to 0 on each interrupt.
 //
 #[no_mangle]
-pub unsafe fn set_timer(tick_divisor: u32) {
+pub unsafe fn set_timer(tick_divisor: usize) {
     // Set high-order bits of mtime to zero.  We only call this function prior
     // to enabling interrupts so it should be safe.
     unsafe {
         core::ptr::write_volatile(MTIME as *mut u64, 0);
-        core::ptr::write_volatile(MTIMECMP as *mut u64, tick_divisor.into());
+        core::ptr::write_volatile(MTIMECMP as *mut u64, tick_divisor.try_into().unwrap());
     }
 }
 

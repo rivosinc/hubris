@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies.kern]
 path = "../../sys/kern"
 default-features = false
+features = [ "riscv-supervisor-mode" ]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

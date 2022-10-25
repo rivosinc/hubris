@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::arch::set_timer;
+use crate::arch::{reset_timer, set_clock_freq, set_timer};
 use crate::arch::SavedState;
 use crate::task;
 use crate::umem::USlice;
@@ -31,6 +31,7 @@ use unwrap_lite::UnwrapLite;
 /// pointer while you have access to `task`, and as long as the `task` being
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &task::Task) {
+    klog!("Setting current task!");
     // Safety: should be ok if the contract above is met
     // TODO: make me an atomic
     let task = task as *const task::Task as usize;
@@ -46,6 +47,7 @@ pub unsafe fn get_current_task() -> &'static task::Task {
 
 macro_rules! jump_to_task {
     ($prefix:literal, $task:ident) => {
+        klog!("Jumping from {} to task {}, sp {}", $prefix, xscratch::read(), $task.save().sp());
         asm!("
             ld sp, ({0})",
             concat!($prefix, "ret"),
@@ -57,26 +59,36 @@ macro_rules! jump_to_task {
 
 #[allow(unused_variables)]
 pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
-    // Configure MPP to switch us to User mode on exit from Machine
-    // mode (when we call "mret" below).
-    unsafe {
-        set_xpp(XPP::User);
-    }
-
-    // Write the initial task program counter.
-    xepc::write(task.save().pc() as *const usize as usize);
+    klog!("Starting first task!");
 
     //
     // Configure the timer
     //
     unsafe {
-        // Reset mtime back to 0, set mtimecmp to chosen timer
-        set_timer(tick_divisor - 1);
+        // Reset xtime back to 0, set xtimecmp to chosen timer
+        set_clock_freq(tick_divisor);
+        set_timer(riscv::register::time::read());
 
-        // Machine timer interrupt enable
+        // Reset xtimecmp for appropriate timer interrupts
+        reset_timer();
+
+        // Mode timer interrupt enable
         set_xtimer();
+
+        // Configure XPP to the mode we're coming from
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "riscv-supervisor-mode")] {
+                set_xpp(XPP::User);
+            } else {
+                set_xpp(XPP::User);
+            }
+        }
     }
 
+    // Write the initial task program counter.
+    xepc::write(task.save().pc() as *const usize as usize);
+
+    klog!("Starting first task! (now with timers and xepc!)");
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
     unsafe {

@@ -11,7 +11,6 @@ use crate::startup::with_task_table;
 use crate::task;
 use abi::{FaultInfo, FaultSource};
 
-//use riscv::register;
 #[cfg(feature = "riscv-supervisor-mode")]
 use riscv::register::{
     scause as xcause, scause::Exception as xcauseException,
@@ -22,7 +21,7 @@ use riscv::register::{
 #[cfg(not(feature = "riscv-supervisor-mode"))]
 use riscv::register::{
     mcause as xcause, mcause::Exception as xcauseException,
-    mcause::Interrupt::SupervisorTimer as xInterruptTimer,
+    mcause::Interrupt::MachineTimer as xInterruptTimer,
     mcause::Trap as xcauseTrap, mepc as xepc, mtval as xtval,
 };
 
@@ -212,6 +211,15 @@ fn timer_handler() {
 //
 #[no_mangle]
 fn trap_handler(task: &mut task::Task) {
+    klog!("TRAP HANDLER: spp: {:#?} cause {:#x} tval {:#x} epc {:#x}",
+            riscv::register::sstatus::read().spp(),
+            riscv::register::scause::read().bits(),
+            riscv::register::stval::read(),
+            riscv::register::sepc::read(),
+        );
+
+
+
     let cause = xcause::read().cause();
     match cause {
         //
@@ -219,12 +227,14 @@ fn trap_handler(task: &mut task::Task) {
         // supported at present.
         //
         xcauseTrap::Interrupt(xInterruptTimer) => {
+            klog!("We're doing it, trap handling A TIMER!!!!, woo!");
             timer_handler();
         }
         //
         // System Calls.
         //
         xcauseTrap::Exception(xcauseException::UserEnvCall) => {
+            klog!("We're doing it, trap handling A SYSCALL!!!!, woo!");
             unsafe {
                 // Advance program counter past ecall instruction.
                 // This path handles the ecall instruction only and
@@ -245,9 +255,11 @@ fn trap_handler(task: &mut task::Task) {
         // Exceptions.  Routed via the most appropriate FaultInfo.
         //
         xcauseTrap::Exception(xcauseException::IllegalInstruction) => unsafe {
+            klog!("We're doing it, trap handling AN ILLEGAL INSTRUCTION!!!!, woo!");
             handle_fault(task, FaultInfo::IllegalInstruction);
         },
         xcauseTrap::Exception(xcauseException::LoadFault) => unsafe {
+            klog!("We're doing it, trap handling A LOAD FAULT!!!!, woo!");
             handle_fault(
                 task,
                 FaultInfo::MemoryAccess {
@@ -257,6 +269,7 @@ fn trap_handler(task: &mut task::Task) {
             );
         },
         xcauseTrap::Exception(xcauseException::InstructionFault) => unsafe {
+            klog!("We're doing it, trap handling A BAD INSTRUCTION!!!!, woo!");
             handle_fault(task, FaultInfo::IllegalText);
         },
         _ => {

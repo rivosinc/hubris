@@ -3,24 +3,35 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::arch::sbi_set_timer;
+use crate::arch::CLOCK_FREQ_KHZ;
 
-const HAS_SSTC: bool = false; // TODO: Runtime detection
+use core::convert::TryInto;
+
+#[cfg(feature = "riscv-supervisor-mode")]
+const HAS_SSTC: bool = true;
+
+#[cfg(not(feature = "riscv-supervisor-mode"))]
+const HAS_SSTC: bool = false;
 
 #[no_mangle]
-pub unsafe fn set_timer(tick_divisor: u32) {
+pub unsafe fn set_timer(tick_divisor: usize) {
     // TODO: Feature detection for Sstc, SBI call for non-supporting, supporting get:
     //       riscv::register::stimecmp::write(tick_divisor.into());
     if HAS_SSTC {
         riscv::register::stimecmp::write(tick_divisor as usize)
     } else {
-        sbi_set_timer(tick_divisor.into());
+        sbi_set_timer(tick_divisor.try_into().unwrap());
     }
 }
 
 pub fn reset_timer() {
-    if HAS_SSTC {
-        riscv::register::stimecmp::write(0)
-    } else {
-        sbi_set_timer(0);
+    unsafe {
+        if HAS_SSTC {
+            let time = riscv::register::stimecmp::read() + CLOCK_FREQ_KHZ as usize;
+            riscv::register::stimecmp::write(time)
+        } else {
+            let time = riscv::register::time::read() + CLOCK_FREQ_KHZ as usize;
+            sbi_set_timer(time.try_into().unwrap());
+        }
     }
 }

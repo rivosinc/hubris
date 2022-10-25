@@ -154,6 +154,8 @@ fn send(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     // Verify the given callee ID, converting it into a table index on success.
     let callee = task::check_task_id_against_table(tasks, callee_id)?;
 
+    klog!("task @{} sent a message to @{}", caller, callee);
+
     // Check for ready peer.
     let mut next_task = NextTask::Same;
     let caller_id = current_id(tasks, caller);
@@ -211,6 +213,8 @@ fn recv(tasks: &mut [Task], caller: usize) -> Result<NextTask, UserError> {
     }
 
     let caller_id = current_id(tasks, caller);
+
+    klog!("task @{} receiving a message", caller);
 
     let specific_sender = tasks[caller].save().as_recv_args().specific_sender;
 
@@ -392,6 +396,7 @@ fn reply(tasks: &mut [Task], caller: usize) -> Result<NextTask, FaultInfo> {
 /// Implementation of the `SET_TIMER` syscall.
 fn set_timer(task: &mut Task, now: Timestamp) -> NextTask {
     let args = task.save().as_set_timer_args();
+    klog!("task asked to set the timer value");
     if let Some(deadline) = args.deadline {
         // timer is being enabled
         if deadline <= now {
@@ -409,7 +414,7 @@ fn set_timer(task: &mut Task, now: Timestamp) -> NextTask {
 /// Implementation of the `GET_TIMER` syscall.
 fn get_timer(task: &mut Task, now: Timestamp) -> NextTask {
     // This syscall takes no arguments.
-
+    klog!("task asked for the timer value");
     let (dl, n) = task.timer();
 
     task.save_mut().set_time_result(now, dl, n);
