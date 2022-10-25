@@ -11,7 +11,6 @@ use crate::startup::with_task_table;
 use crate::task;
 use abi::{FaultInfo, FaultSource};
 
-//use riscv::register;
 #[cfg(feature = "riscv-supervisor-mode")]
 use riscv::register::{
     scause as xcause, scause::Exception as xcauseException,
@@ -22,7 +21,7 @@ use riscv::register::{
 #[cfg(not(feature = "riscv-supervisor-mode"))]
 use riscv::register::{
     mcause as xcause, mcause::Exception as xcauseException,
-    mcause::Interrupt::SupervisorTimer as xInterruptTimer,
+    mcause::Interrupt::MachineTimer as xInterruptTimer,
     mcause::Trap as xcauseTrap, mepc as xepc, mtval as xtval,
 };
 
