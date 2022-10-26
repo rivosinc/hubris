@@ -173,7 +173,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        build: [rv64-qemu-virt, tests-rv64-qemu-virt]
+        build: [rv64-qemu-virt, tests-rv64-qemu-virt, rv64-qemu-virt-supervisor, tests-rv64-qemu-virt-supervisor]
         include:
           - build: rv64-qemu-virt
             app_name: demo-rv64-qemu-virt
@@ -183,6 +183,16 @@ jobs:
           - build: tests-rv64-qemu-virt
             app_name: tests-rv64-qemu-virt
             app_toml: test/tests-rv64-qemu-virt/app.toml
+            target: riscv64imac-unknown-none-elf
+            image: default
+          - build: rv64-qemu-virt-supervisor
+            app_name: demo-rv64-qemu-virt-supervisor
+            app_toml: app/demo-rv64-qemu-virt-supervisor/app.toml
+            target: riscv64imac-unknown-none-elf
+            image: default
+          - build: tests-rv64-qemu-virt-supervisor
+            app_name: tests-rv64-qemu-virt-supervisor
+            app_toml: test/tests-rv64-qemu-virt-supervisor/app.toml
             target: riscv64imac-unknown-none-elf
             image: default
 
