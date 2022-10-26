@@ -388,7 +388,6 @@ fn test_fault_illinst() {
     );
 }
 
-
 /// Verifies that one task cannot read from another's stack
 #[cfg(not(feature = "riscv-supervisor-mode"))]
 fn test_fault_illaccess() {
