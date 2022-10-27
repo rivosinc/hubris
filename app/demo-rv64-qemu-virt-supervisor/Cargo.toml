@@ -12,7 +12,7 @@ riscv-rt = { git = "https://github.com/rust-embedded/riscv-rt.git", rev = "3b4ab
 [dependencies.kern]
 path = "../../sys/kern"
 default-features = false
-features = ["vectored-interrupts", "riscv-supervisor-mode", "klog-semihosting"]
+features = ["vectored-interrupts", "riscv-supervisor-mode", "klog-semihosting", "riscv-support-sstc"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}
