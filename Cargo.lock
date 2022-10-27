@@ -2125,6 +2125,8 @@ dependencies = [
  "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
+ "proc-macro2",
+ "quote",
  "riscv 0.9.1",
  "riscv-pseudo-atomics",
  "riscv-rt",
@@ -2132,6 +2134,7 @@ dependencies = [
  "ron 0.7.0",
  "serde",
  "ssmarshal",
+ "syn",
  "unwrap-lite",
  "zerocopy",
 ]
