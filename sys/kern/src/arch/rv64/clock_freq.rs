@@ -5,7 +5,7 @@
 /// To allow our clock frequency to be easily determined from a debugger, we
 /// store it in memory.
 #[no_mangle]
-static mut CLOCK_FREQ_KHZ: u32 = 0;
+pub static mut CLOCK_FREQ_KHZ: u32 = 0;
 
 // Because debuggers need to know the clock frequency to set the SWO clock
 // scaler that enables ITM, and because ITM is particularly useful when
