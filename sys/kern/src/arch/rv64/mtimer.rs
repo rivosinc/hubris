@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::arch::CLOCK_FREQ_KHZ;
+
 // Timer handling.
 //
 // We currently only support single HART systems.  From reading elsewhere,
@@ -28,17 +30,19 @@ const MTIME: u64 = 0x0200_BFF8;
 // back to 0 on each interrupt.
 //
 #[no_mangle]
-pub unsafe fn set_timer(tick_divisor: u32) {
+pub unsafe fn set_timer() {
     // Set high-order bits of mtime to zero.  We only call this function prior
     // to enabling interrupts so it should be safe.
     unsafe {
-        core::ptr::write_volatile(MTIME as *mut u64, 0);
-        core::ptr::write_volatile(MTIMECMP as *mut u64, tick_divisor.into());
+        let time = core::ptr::read(MTIME as *const u64);
+        core::ptr::write_volatile(MTIMECMP as *mut u64, time);
     }
 }
 
 pub fn reset_timer() {
     unsafe {
-        core::ptr::write_volatile(MTIME as *mut u64, 0);
+        let time = core::ptr::read(MTIME as *const u64);
+        let destination = time as u64 + CLOCK_FREQ_KHZ as u64;
+        core::ptr::write_volatile(MTIMECMP as *mut u64, destination);
     }
 }

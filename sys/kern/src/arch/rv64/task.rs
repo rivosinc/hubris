@@ -71,7 +71,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     //
     unsafe {
         // Reset mtime back to 0, set mtimecmp to chosen timer
-        set_timer(tick_divisor - 1);
+        set_timer();
 
         // Machine timer interrupt enable
         set_xtimer();
