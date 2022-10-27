@@ -14,16 +14,20 @@ use abi::{FaultInfo, FaultSource};
 #[cfg(feature = "riscv-supervisor-mode")]
 use riscv::register::{
     scause as xcause, scause::Exception as xcauseException,
-    scause::Interrupt::SupervisorTimer as xInterruptTimer,
     scause::Trap as xcauseTrap, sepc as xepc, stval as xtval,
 };
 
 #[cfg(not(feature = "riscv-supervisor-mode"))]
 use riscv::register::{
     mcause as xcause, mcause::Exception as xcauseException,
-    mcause::Interrupt::MachineTimer as xInterruptTimer,
     mcause::Trap as xcauseTrap, mepc as xepc, mtval as xtval,
 };
+
+#[cfg(feature = "riscv-support-sstc")]
+use riscv::register::scause::Interrupt::SupervisorTimer as xInterruptTimer;
+
+#[cfg(not(feature = "riscv-support-sstc"))]
+use riscv::register::mcause::Interrupt::MachineTimer as xInterruptTimer;
 
 use crate::arch::get_current_task;
 use crate::arch::{incr_ticks, reset_timer};
@@ -195,10 +199,7 @@ fn timer_handler() {
                 crate::task::activate_next_task(next);
             }
 
-            // Reset mtime back to 0.  In theory we could save an instruction on
-            // RV32 here and only write the low-order bits, assuming that it has
-            // been less than 12 seconds or so since our last interrupt(!), but
-            // let's avoid any possibility of a nasty surprise.
+            // Set up the next timer interrupt.
             reset_timer();
         })
     }
