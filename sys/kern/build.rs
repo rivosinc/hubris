@@ -115,7 +115,7 @@ fn process_config() -> Result<Generated> {
         }
 
         if regions.len() > 8 {
-            bail!("too many regions ({}) for task {}", regions.len(), i);
+            bail!("too many regions ({}) for task {i}", regions.len());
         }
         regions.resize(8, 0u8);
 
@@ -280,7 +280,7 @@ fn process_config() -> Result<Generated> {
             #map2
         }
     } else {
-        panic!("Don't know the target {}", target);
+        panic!("Don't know the target {target}");
     };
 
     let timer_code = if build_util::target().starts_with("riscv") {
