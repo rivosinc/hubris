@@ -20,13 +20,6 @@ pub mod clock_freq;
 pub use clock_freq::*;
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "vectored-interrupts")] {
-        pub mod interrupts;
-        pub use interrupts::*;
-    }
-}
-
-cfg_if::cfg_if! {
     if #[cfg(feature = "riscv-supervisor-mode")] {
         pub mod stimer;
         pub use stimer::*;
