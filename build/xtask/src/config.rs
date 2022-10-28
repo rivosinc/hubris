@@ -774,7 +774,7 @@ impl BuildConfig<'_> {
 
         cmd.arg(
             "-Zallow-features=asm_sym,asm_const,naked_functions,\
-cmse_nonsecure_entry,array_methods,backtrace,proc_macro_span,const_trait_impl,\
+array_methods,backtrace,proc_macro_span,const_trait_impl,\
 const_default_impls,const_cell_into_inner,core_intrinsics,fn_align",
         );
 
