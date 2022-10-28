@@ -42,7 +42,7 @@ macro_rules! start_trap_fn {
                 # current task so that it's passed into our exception handler.
                 #
                 # xscratch temporarily doesn't point to current task since it is
-                # used to stash a0. mscratch is restored to current task pointer
+                # used to stash a0. xscratch is restored to current task pointer
                 # just before jump to trap_handler.
                 #
                 ",

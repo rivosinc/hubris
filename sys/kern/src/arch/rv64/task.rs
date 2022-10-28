@@ -32,7 +32,6 @@ use unwrap_lite::UnwrapLite;
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &task::Task) {
     // Safety: should be ok if the contract above is met
-    // TODO: make me an atomic
     let task = task as *const task::Task as usize;
 
     xscratch::write(task);
@@ -57,8 +56,8 @@ macro_rules! jump_to_task {
 
 #[allow(unused_variables)]
 pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
-    // Configure MPP to switch us to User mode on exit from Machine
-    // mode (when we call "mret" below).
+    // Configure MPP to switch us to User mode on exit from the current
+    // mode (when we call "xret" below).
     unsafe {
         set_xpp(XPP::User);
     }
@@ -70,15 +69,15 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     // Configure the timer
     //
     unsafe {
-        // Reset mtime back to 0, set mtimecmp to chosen timer
+        // Set xtimecmp to the current time
         set_timer();
 
-        // Machine timer interrupt enable
+        // Mode timer interrupt enable
         set_xtimer();
     }
 
     // Load first task pointer, set its initial stack pointer, and exit out
-    // of machine mode, launching the task.
+    // to a lower mode, launching the task.
     unsafe {
         crate::task::activate_next_task(task);
         cfg_if::cfg_if! {
