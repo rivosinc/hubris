@@ -692,7 +692,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.9.1",
- "riscv-rt 0.9.0",
+ "riscv-rt",
 ]
 
 [[package]]
@@ -704,7 +704,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.9.1",
- "riscv-rt 0.9.0",
+ "riscv-rt",
 ]
 
 [[package]]
@@ -716,7 +716,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.9.1",
- "riscv-rt 0.9.0",
+ "riscv-rt",
 ]
 
 [[package]]
@@ -728,7 +728,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.9.1",
- "riscv-rt 0.9.1",
+ "riscv-rt",
 ]
 
 [[package]]
@@ -2244,7 +2244,7 @@ dependencies = [
  "phash-gen",
  "riscv 0.9.1",
  "riscv-pseudo-atomics",
- "riscv-rt 0.9.1",
+ "riscv-rt",
  "riscv-semihosting",
  "ron 0.7.1",
  "serde",
@@ -3043,36 +3043,13 @@ dependencies = [
 
 [[package]]
 name = "riscv-rt"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "527ddfacbbfeed89256163c2655b0392c4aa76dd95c0189dc05044bf2c47c3f8"
-dependencies = [
- "r0 1.0.0",
- "riscv 0.8.0",
- "riscv-rt-macros 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "riscv-target",
-]
-
-[[package]]
-name = "riscv-rt"
 version = "0.9.1"
 source = "git+https://github.com/rivosinc/riscv-rt?branch=master#4ead7f8b9d7c560c8d5333d5d587965b202ef089"
 dependencies = [
  "r0 1.0.0",
  "riscv 0.9.1",
- "riscv-rt-macros 0.2.0 (git+https://github.com/rivosinc/riscv-rt?branch=master)",
+ "riscv-rt-macros",
  "riscv-target",
-]
-
-[[package]]
-name = "riscv-rt-macros"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f38509d7b17c2f604ceab3e5ff8ac97bb8cd2f544688c512be75c715edaf4daf"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

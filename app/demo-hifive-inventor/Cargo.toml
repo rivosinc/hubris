@@ -11,7 +11,7 @@ version = "0.1.0"
 cfg-if = "0.1.10"
 panic-halt = "0.2.0"
 riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
-riscv-rt = "0.9.0"
+riscv-rt = { git = "https://github.com/rivosinc/riscv-rt", branch = "master" }
 
 [dependencies.kern]
 path = "../../sys/kern"
