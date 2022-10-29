@@ -39,6 +39,7 @@
 pub mod arch;
 
 pub mod atomic;
+mod descs;
 pub mod err;
 pub mod header;
 pub mod kipc;
