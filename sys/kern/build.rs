@@ -130,12 +130,12 @@ fn make_task_table(
         let index = u16::try_from(i).expect("over 2**16 tasks??");
         let priority = task.priority;
         let flags = if task.start_at_boot {
-            quote::quote! { abi::TaskFlags::START_AT_BOOT }
+            quote::quote! { TaskFlags::START_AT_BOOT }
         } else {
-            quote::quote! { abi::TaskFlags::empty() }
+            quote::quote! { TaskFlags::empty() }
         };
         task_descs.push(quote::quote! {
-            abi::TaskDesc {
+            TaskDesc {
                 regions: [#(#regions),*],
                 entry_point: #entry_point,
                 initial_stack: #initial_stack,
@@ -377,22 +377,22 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
     }
 
     let atts = if atts.is_empty() {
-        quote::quote! { abi::RegionAttributes::empty() }
+        quote::quote! { RegionAttributes::empty() }
     } else {
         // We have to do the OR-ing on bits and then from_bits_unchecked it
         // because these operations are const, while OR-ing of the
         // RegionAttributes type itself is not (pending const impl stability)
         quote::quote! {
             unsafe {
-                abi::RegionAttributes::from_bits_unchecked(
-                    #(abi::RegionAttributes::#atts.bits())|*
+                RegionAttributes::from_bits_unchecked(
+                    #(RegionAttributes::#atts.bits())|*
                 )
             }
         }
     };
 
     quote::quote! {
-        abi::RegionDesc {
+        RegionDesc {
             base: #base,
             size: #size,
             attributes: #atts,
@@ -472,7 +472,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
 
             static mut HUBRIS_REGION_TABLE_SPACE:
                 core::mem::MaybeUninit<
-                    [[&'static abi::RegionDesc; abi::REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
+                    [[&'static RegionDesc; REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
                 > = core::mem::MaybeUninit::uninit();
         },
     )?;
@@ -485,7 +485,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
         file,
         "{}",
         quote::quote! {
-            static HUBRIS_TASK_DESCS: [abi::TaskDesc; HUBRIS_TASK_COUNT] = [
+            static HUBRIS_TASK_DESCS: [TaskDesc; HUBRIS_TASK_COUNT] = [
                 #(#task_descs,)*
             ];
 
@@ -501,7 +501,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
         file,
         "{}",
         quote::quote! {
-            static HUBRIS_REGION_DESCS: [abi::RegionDesc; #region_count] = [
+            static HUBRIS_REGION_DESCS: [RegionDesc; #region_count] = [
                 #(#regions,)*
             ];
         },
@@ -517,7 +517,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
         "{}",
         quote::quote! {
             #[allow(dead_code)]
-            static KERNEL_REGION_DESCS: [abi::RegionDesc; #region_count] = [
+            static KERNEL_REGION_DESCS: [RegionDesc; #region_count] = [
                 #(#regions,)*
             ];
         },
