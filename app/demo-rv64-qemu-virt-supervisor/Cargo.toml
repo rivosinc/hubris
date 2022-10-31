@@ -3,6 +3,9 @@ name = "demo-rv64-qemu-virt-supervisor"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+s-mode = ["riscv-rt/s-mode", "kern/riscv-supervisor-mode"]
+
 [dependencies]
 cfg-if = "1.0.0"
 panic-halt = "0.2.0"
@@ -12,7 +15,7 @@ riscv-rt = { git = "https://github.com/rust-embedded/riscv-rt.git", rev = "be9e6
 [dependencies.kern]
 path = "../../sys/kern"
 default-features = false
-features = ["vectored-interrupts", "riscv-supervisor-mode", "klog-semihosting", "riscv-support-sstc"]
+features = ["vectored-interrupts", "klog-semihosting", "riscv-support-sstc"]
 
 [build-dependencies]
 build-util = {path = "../../build/util"}

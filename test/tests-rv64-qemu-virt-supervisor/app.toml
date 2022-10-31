@@ -7,7 +7,7 @@ chip = "../../chips/rv64-qemu-virt"
 [kernel]
 name = "demo-rv64-qemu-virt-supervisor"
 requires = {flash = 28672, ram = 65536}
-features = []
+features = ["s-mode"]
 
 [tasks.runner]
 name = "test-runner"
