@@ -2,8 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::arch::set_timer;
 use crate::arch::SavedState;
+use crate::arch::{reset_timer, set_timer};
 use crate::task;
 use crate::umem::USlice;
 
@@ -71,6 +71,9 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     unsafe {
         // Set xtimecmp to the current time
         set_timer();
+
+        // increment xtimecmp for appropriate timer interrupt
+        reset_timer();
 
         // Mode timer interrupt enable
         set_xtimer();
