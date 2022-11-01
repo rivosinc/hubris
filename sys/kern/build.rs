@@ -96,14 +96,14 @@ fn make_task_table(
         // Work out the region indices for each of this task's regions.
         let mut regions = vec![
             // Always include the null region.
-            region_table.get_index_of(&RegionKey::Null).unwrap() as u8,
+            region_table.get_index_of(&RegionKey::Null).unwrap(),
         ];
 
         for name in task.owned_regions.keys() {
             regions.push(
                 region_table
                     .get_index_of(&RegionKey::Owned(i, name.clone()))
-                    .unwrap() as u8,
+                    .unwrap(),
             );
         }
 
@@ -111,14 +111,14 @@ fn make_task_table(
             regions.push(
                 region_table
                     .get_index_of(&RegionKey::Shared(name.clone()))
-                    .unwrap() as u8,
+                    .unwrap(),
             );
         }
 
         if regions.len() > 8 {
             bail!("too many regions ({}) for task {i}", regions.len());
         }
-        regions.resize(8, 0u8);
+        regions.resize(8, 0usize);
 
         // Translate abstract addresses in the task description into concrete
         // addresses.
@@ -136,7 +136,7 @@ fn make_task_table(
         };
         task_descs.push(quote::quote! {
             TaskDesc {
-                regions: [#(#regions),*],
+                regions: [#(&HUBRIS_REGION_DESCS[#regions]),*],
                 entry_point: #entry_point,
                 initial_stack: #initial_stack,
                 priority: #priority,
@@ -469,11 +469,6 @@ fn generate_statics(gen: &Generated) -> Result<()> {
             static mut HUBRIS_TASK_TABLE_SPACE:
                 core::mem::MaybeUninit<[crate::task::Task; HUBRIS_TASK_COUNT]> =
                 core::mem::MaybeUninit::uninit();
-
-            static mut HUBRIS_REGION_TABLE_SPACE:
-                core::mem::MaybeUninit<
-                    [[&'static RegionDesc; REGIONS_PER_TASK]; HUBRIS_TASK_COUNT],
-                > = core::mem::MaybeUninit::uninit();
         },
     )?;
 
