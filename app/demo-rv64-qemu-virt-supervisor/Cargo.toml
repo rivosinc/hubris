@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 cfg-if = "1.0.0"
 panic-halt = "0.2.0"
-riscv = { git = "https://github.com/rivosinc/riscv", rev = "2f1a9fd16ba2b40e2c709a285f6f37865d1b012d" }
-riscv-rt = { git = "https://github.com/rust-embedded/riscv-rt.git", rev = "3b4ab6f3", features = ["s-mode"] }
+riscv = { git = "https://github.com/rivosinc/riscv", rev = "247f8ff" }
+riscv-rt = { git = "https://github.com/rust-embedded/riscv-rt.git", rev = "be9e61b79b1ae16a1314134bfb44ae9119554072", features = ["s-mode"] }
 
 [dependencies.kern]
 path = "../../sys/kern"
