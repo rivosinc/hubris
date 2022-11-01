@@ -678,6 +678,10 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         // Configure MPP to switch us to User mode on exit from Machine
         // mode (when we call "mret" below).
         register::mstatus::set_mpp(MPP::User);
+
+        // Set Time Wait field in mstatus to 0, in order to make idle
+        // be able to loop on wfi without faults
+        register::mstatus::clear_tw();
     }
 
     // Write the initial task program counter.

@@ -34,6 +34,9 @@ fn main() -> ! {
         // RISC-V has wfi, but unfortunately it is an illegal instruction if
         // called from User mode, so instead we spin on a timer call.
         #[cfg(target_arch = "riscv32")]
-        while sys_get_timer().now > 0 {}
+        // while sys_get_timer().now > 0 {}
+        unsafe {
+            riscv::asm::wfi();
+        }
     }
 }
