@@ -135,6 +135,7 @@
         nativeBuildInputs = with pkgs; [
           rust
           qemu
+          openocd
           binutils32
           binutils64
           humilityflake.packages.${system}.humility
