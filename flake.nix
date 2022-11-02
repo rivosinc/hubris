@@ -138,6 +138,7 @@
           openocd
           binutils32
           binutils64
+          gdb
           humilityflake.packages.${system}.humility
         ];
       };
