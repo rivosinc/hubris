@@ -305,7 +305,10 @@ on test results.
 
 The github CI has the ability to perform build checks on any hubris app using
 the nix environment. This all happens within `flake.nix`, with the actual 
-build script in `nix/hubris.nix'. To add a new build check first add the app to
+build script in `nix/hubris.nix`. 
+
+### Adding a new app to CI
+To add a new build check first add the app to
 the set of packages.
 ```
 packages = flake-utils.lib.flattenTree {
@@ -339,6 +342,52 @@ checks = {
 };
 
 ```
+### Changing git dependencies
+When changing the revision of a git dependency, you will most likely find the following error: 
+```
+error: No hash was found while vendoring the git dependency riscv-0.9.1. You can add
+       a hash through the `outputHashes` argument of `importCargoLock`:
+
+       outputHashes = {
+         "riscv-0.9.1" = "<hash>";
+       };
+
+       If you use `buildRustPackage`, you can add this attribute to the `cargoLock`
+       attribute set.
+```
+This is informing us that the git crate `riscv-0.9.1` is not enumerated with the `importCargoLock` function.  This function is used `nix/hubris.nix` to pin the hashes of git dependencies.  The fix: 
+```
+--- a/nix/hubris.nix
++++ b/nix/hubris.nix
+@@ -37,7 +37,8 @@ in
+         "lpc55_sign-0.1.0" = "sha256-To4+Dn/BcvpBwQRNaI+wn68G4hqpCrmO/2CLqCcdWTE";
+         "ordered-toml-0.1.0" = "sha256-hJjyF9bXt5CfemV5/ogPViaNHZsINrQkZG45Ta65Qm4";
+         "pmbus-0.1.0" = "sha256-rKEbuWUp88PJK+gP6dmaIeeBNXzjclNpwE5kibViYQQ";
+-        "riscv-0.8.1" = "sha256-icLG4b/jpn4thGoeXHHBAEqF6FLV8u/8N0KLOgeQcO0";
++        "riscv-0.9.1" = "sha256-qlacVoP3QLEvFzhqtef2ZchlxQjv1qdBBK0NfndnmCY";
+         "riscv-pseudo-atomics-0.1.0" = "sha256-QuChdKbw1TTy8W+mr3gF8yDfwWcUxmAzT3j5A5gamdk";
+         "riscv-semihosting-0.0.1" = "sha256-sGa++ywE9kYw9VnPKeYyzaRJsYOzF0mNE7C9c2TdUNQ=";
+         "salty-0.2.0" = "sha256-8RnvQ+Ch4RijmOhWNQZh7PmFlZGUfyzbeRvSKWqsbJU";
+```
+Where did that sha hash come from?  The nix store will tell us.  First use `lib.fakeHash`: 
+```
+"riscv-0.9.1" = lib.fakeHash;
+```
+Now run `nix flake check`:
+```
+error: hash mismatch in fixed-output derivation '/nix/store/fzrgfyn7f93969rslj5gd6fln4zw4jqh-riscv-247f8ff.drv':
+         specified: sha256-icLG4b/jpn4thGoeXHHBAEqF6FLV8u/8N0KLOgeQcO0=
+            got:    sha256-qlacVoP3QLEvFzhqtef2ZchlxQjv1qdBBK0NfndnmCY=
+error: 1 dependencies of derivation '/nix/store/msznhqkb8li0lbaxr5vy533g6340cp58-riscv-0.9.1.drv' failed to build
+error: 1 dependencies of derivation '/nix/store/6i38p9ll004qzjydgc012al1k86cizmk-cargo-vendor-dir.drv' failed to build
+error: 1 dependencies of derivation '/nix/store/35ijxa57zygswd3a7f0c2035yphs0klx-hubris.drv' failed to build
+```
+Then substitute the provided hash back in: 
+```
++        "riscv-0.9.1" = "sha256-qlacVoP3QLEvFzhqtef2ZchlxQjv1qdBBK0NfndnmCY";
+```
+
+See the [Rust Docs](https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/rust.section.md#vendoring-of-dependencies-vendoring-of-dependencies) on nix for more info.
 
 ## Debugging tests
 
