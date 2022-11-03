@@ -217,7 +217,8 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::IllegalInstruction) => unsafe {
             handle_fault(task, FaultInfo::IllegalInstruction);
         },
-        Trap::Exception(Exception::LoadFault) => unsafe {
+        Trap::Exception(Exception::LoadFault)
+        | Trap::Exception(Exception::StoreFault) => unsafe {
             handle_fault(
                 task,
                 FaultInfo::MemoryAccess {
