@@ -1503,7 +1503,7 @@ fn build(
     );
 
     match cfg.arch_target {
-        ArchTarget::RISCV32 => {
+        ArchTarget::RISCV32 | ArchTarget::RISCV64 => {
             rustflags.push_str(" -C link-arg=--orphan-handling=error")
         }
         _ => {}
