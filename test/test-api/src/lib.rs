@@ -38,6 +38,7 @@ pub enum AssistOp {
     ReadNotifications = 23,
     IllegalAccess = 24,
     IllegalFunc = 25,
+    BadWrite = 26,
 }
 
 /// Operations that are performed by the test-suite

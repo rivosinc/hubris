@@ -20,6 +20,13 @@ fn badread(arg: u32) {
     }
 }
 
+#[inline(never)]
+fn badwrite(arg: u32) {
+    unsafe {
+        (arg as *mut u8).write_volatile(0);
+    }
+}
+
 fn panic(_arg: u32) {
     panic!("wow this blew up, here's my soundcloud");
 }
@@ -181,6 +188,7 @@ fn main() -> ! {
 
     let fatalops = [
         (AssistOp::BadMemory, badread as fn(u32)),
+        (AssistOp::BadWrite, badwrite as fn(u32)),
         (AssistOp::Panic, panic),
         #[cfg(any(armv7m, armv8m))]
         (AssistOp::DivZero, divzero),
