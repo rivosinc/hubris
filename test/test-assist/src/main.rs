@@ -187,7 +187,7 @@ fn main() -> ! {
     let mut posted_bits = 0;
 
     let fatalops = [
-        (AssistOp::BadMemory, badread as fn(u32)),
+        (AssistOp::BadRead, badread as fn(u32)),
         (AssistOp::BadWrite, badwrite as fn(u32)),
         (AssistOp::Panic, panic),
         #[cfg(any(armv7m, armv8m))]

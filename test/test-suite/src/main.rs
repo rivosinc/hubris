@@ -296,7 +296,7 @@ fn test_fault_badmem(test_type: BadmemTest) {
     let bad_address = BAD_ADDRESS;
     let fault = test_fault(
         match test_type {
-            BadmemTest::Read => AssistOp::BadMemory,
+            BadmemTest::Read => AssistOp::BadRead,
             BadmemTest::Write => AssistOp::BadWrite,
         },
         bad_address,
