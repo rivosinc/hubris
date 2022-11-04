@@ -144,6 +144,11 @@ enum Xtask {
         /// Path to task executable
         task_bin: PathBuf,
     },
+
+    Qemu {
+        #[clap(flatten)]
+        args: HumilityArgs,
+    },
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -268,6 +273,18 @@ fn run(xtask: Xtask) -> Result<()> {
                 args.extra_options.push("--load".to_string());
             }
             humility::run(&args, &[], Some("gdb"), true, image_name)?;
+        }
+        Xtask::Qemu { args } => {
+            let toml = Config::from_file(&args.cfg)?;
+            let image_name = if let Some(ref name) = args.image_name {
+                if !toml.check_image_name(name) {
+                    bail!("Image name {} not declared in TOML", name);
+                }
+                name
+            } else {
+                &toml.image_names[0]
+            };
+            humility::run(&args, &[], Some("qemu"), true, image_name)?;
         }
         Xtask::Test { args, noflash } => {
             let toml = Config::from_file(&args.cfg)?;
