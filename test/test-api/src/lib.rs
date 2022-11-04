@@ -12,7 +12,7 @@ pub enum AssistOp {
     JustReply = 0,
     SendBack = 1,
     LastReply = 2,
-    BadMemory = 3,
+    BadRead = 3,
     Panic = 4,
     Store = 5,
     SendBackWithLoans = 6,
@@ -38,6 +38,7 @@ pub enum AssistOp {
     ReadNotifications = 23,
     IllegalAccess = 24,
     IllegalFunc = 25,
+    BadWrite = 26,
 }
 
 /// Operations that are performed by the test-suite

@@ -59,7 +59,8 @@ test_cases! {
     test_floating_point_highregs,
     #[cfg(any(armv7m, armv8m))]
     test_floating_point_fault,
-    test_fault_badmem,
+    test_fault_badread,
+    test_fault_badwrite,
     test_fault_stackoverflow,
     // TODO(furquan): test_fault_execdata needs to be fixed for rv64 once the MPU handling is fixed
     #[cfg(not(target_arch = "riscv64"))]
@@ -276,11 +277,30 @@ cfg_if::cfg_if! {
     }
 }
 
+enum BadmemTest {
+    Read,
+    Write,
+}
+
+fn test_fault_badread() {
+    test_fault_badmem(BadmemTest::Read);
+}
+
+fn test_fault_badwrite() {
+    test_fault_badmem(BadmemTest::Write);
+}
+
 /// Tests a memory fault, which ensures that the address reporting is correct,
 /// and that the MPU is on.
-fn test_fault_badmem() {
+fn test_fault_badmem(test_type: BadmemTest) {
     let bad_address = BAD_ADDRESS;
-    let fault = test_fault(AssistOp::BadMemory, bad_address);
+    let fault = test_fault(
+        match test_type {
+            BadmemTest::Read => AssistOp::BadRead,
+            BadmemTest::Write => AssistOp::BadWrite,
+        },
+        bad_address,
+    );
 
     assert_fault_eq!(
         fault,
