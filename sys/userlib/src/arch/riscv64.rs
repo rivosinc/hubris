@@ -11,17 +11,12 @@ use crate::*;
 use core::arch::asm;
 
 /// This is the entry point for the kernel. Its job is to set up our memory
-/// before jumping to user-defined `main`.
+/// before jumping to the `userlib_main` stub.
 #[doc(hidden)]
 #[no_mangle]
 #[link_section = ".text.start"]
 #[naked]
 pub unsafe extern "C" fn _start() -> ! {
-    // Provided by the user program:
-    extern "Rust" {
-        fn main() -> !;
-    }
-
     asm!("
         # Copy data initialization image into data section.
         la t0, __edata       # upper bound in t0
@@ -45,9 +40,9 @@ pub unsafe extern "C" fn _start() -> ! {
         add t1, t1, 8
 
     1:  bne t1, t0, 2b
-        j {main}
+        j {userlib_main}
         ",
-        main = sym main,
+        userlib_main = sym userlib_main,
         options(noreturn),
     )
 }

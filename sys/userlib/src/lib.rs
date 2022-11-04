@@ -644,3 +644,22 @@ pub fn sys_reply_fault(task_id: TaskId, reason: ReplyFaultReason) {
         crate::arch::sys_reply_fault_stub(task_id.0 as u32, reason as u32)
     }
 }
+
+// Provided by the user program:
+extern "Rust" {
+    fn main();
+}
+
+/// Stub to call the user program's main() function and then exit
+/// cleanly should it return.
+pub fn userlib_main() -> ! {
+    // SAFETY: Functions declared within extern blocks are always
+    // treated as unsafe to call. The expectation is that this library
+    // will be used solely by Rust code. The assumption is that
+    // 'main()' is implemented in Rust and, therefore, upholds the
+    // safety guarantees.
+    unsafe {
+        main();
+    }
+    kipc::exit_current_task();
+}
