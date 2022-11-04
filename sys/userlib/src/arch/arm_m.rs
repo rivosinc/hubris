@@ -10,17 +10,12 @@
 use crate::*;
 
 /// This is the entry point for the task, invoked by the kernel. Its job is to
-/// set up our memory before jumping to user-defined `main`.
+/// set up our memory before jumping to the `userlib_main` stub.
 #[doc(hidden)]
 #[no_mangle]
 #[link_section = ".text.start"]
 #[naked]
 pub unsafe extern "C" fn _start() -> ! {
-    // Provided by the user program:
-    extern "Rust" {
-        fn main() -> !;
-    }
-
     cfg_if::cfg_if! {
         if #[cfg(armv6m)] {
             core::arch::asm!("
@@ -60,16 +55,16 @@ pub unsafe extern "C" fn _start() -> ! {
                 dsb         @ complete all writes
                 isb         @ and flush the pipeline
 
-                @ Now, to the user entry point. We call it in case it
+                @ Now, to the user entry stub. We call it in case it
                 @ returns. (It's not supposed to.) We reference it through
                 @ a sym operand because it's a Rust func and may be mangled.
-                bl {main}
+                bl {userlib_main}
 
                 @ The noreturn option below will automatically generate an
-                @ undefined instruction trap past this point, should main
-                @ return.
+                @ undefined instruction trap past this point, should
+                @ userlib_main return.
                 ",
-                main = sym main,
+                userlib_main = sym userlib_main,
                 options(noreturn),
             )
         } else if #[cfg(any(armv7m, armv8m))] {
@@ -118,16 +113,16 @@ pub unsafe extern "C" fn _start() -> ! {
                 dsb         @ complete all writes
                 isb         @ and flush the pipeline
 
-                @ Now, to the user entry point. We call it in case it
+                @ Now, to the user entry stub. We call it in case it
                 @ returns. (It's not supposed to.) We reference it through
                 @ a sym operand because it's a Rust func and may be mangled.
-                bl {main}
+                bl {userlib_main}
 
                 @ The noreturn option below will automatically generate an
-                @ undefined instruction trap past this point, should main
-                @ return.
+                @ undefined instruction trap past this point, should
+                @ userlib_main return.
                 ",
-                main = sym main,
+                userlib_main = sym userlib_main,
                 options(noreturn),
             )
         } else {

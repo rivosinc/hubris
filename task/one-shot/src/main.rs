@@ -8,10 +8,7 @@
 use userlib::*;
 
 #[export_name = "main"]
-fn main() -> ! {
+fn main() {
     sys_log!("Hello world from one-shot task!");
     sys_log!("Exiting now!");
-    kipc::exit_current_task();
-
-    unreachable!();
 }
