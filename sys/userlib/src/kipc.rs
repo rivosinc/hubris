@@ -34,6 +34,10 @@ pub fn exit_current_task() {
     );
 }
 
+pub fn enter_wfi() {
+    sys_send(TaskId::KERNEL, Kipcnum::EnterWfi as u16, &[], &mut [], &[]);
+}
+
 pub fn restart_task(task: usize, start: bool) {
     // Coerce `task` to a known size (Rust doesn't assume that usize == u32)
     let msg = (task as u32, start);
