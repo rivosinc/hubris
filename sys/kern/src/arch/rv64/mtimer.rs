@@ -30,8 +30,8 @@ const MTIME: u64 = 0x0200_BFF8;
 // back to 0 on each interrupt.
 //
 #[no_mangle]
-pub unsafe fn set_timer() {
-    // Set high-order bits of mtime to zero.  We only call this function prior
+pub fn set_timer() {
+    // Set mtimecmp to the value of mtime.  We only call this function prior
     // to enabling interrupts so it should be safe.
     unsafe {
         let time = core::ptr::read(MTIME as *const u64);
