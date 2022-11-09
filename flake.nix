@@ -52,6 +52,7 @@
           isMusl = false;
           isPower = false;
           isVc4 = false;
+          isAvr = false;
         };
       };
       riscv32-unknown-none-elf-stdenv = pkgs.stdenv.override {
@@ -73,6 +74,7 @@
           isMusl = false;
           isPower = false;
           isVc4 = false;
+          isAvr = false;
         };
       };
 
