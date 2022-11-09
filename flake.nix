@@ -13,12 +13,17 @@
   inputs.humilityflake.inputs.nixpkgs.follows = "nixpkgs";
   inputs.humilityflake.inputs.flake-utils.follows = "flake-utils";
 
+  inputs.pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+  inputs.pre-commit-hooks.inputs.flake-utils.follows = "flake-utils";
+  inputs.pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
+
   outputs = {
     self,
     nixpkgs,
     flake-utils,
     rust-overlay,
     humilityflake,
+    pre-commit-hooks,
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       overlays = [(import rust-overlay)];
@@ -110,6 +115,19 @@
       );
 
       target = "demo-hifive-inventor";
+
+      pre-commit-checks = pre-commit-hooks.lib.${system}.run {
+        src = pkgs.lib.cleanSource ./.;
+        hooks = {
+          cargofmt = {
+            enable = true;
+            name = "cargo fmt";
+            entry = "${rust}/bin/cargo fmt --check --all";
+            files = "\\.rs$";
+            pass_filenames = false;
+          };
+        };
+      };
     in {
       packages = flake-utils.lib.flattenTree {
         demo-hifive1-revb = hubris {
@@ -130,6 +148,7 @@
         shellHook = ''
           export HUMILITY_ARCHIVE=$(pwd)/target/${target}/dist/default/build-${target}.zip
           export CARGO_HOME=$HOME/.cargo
+          ${pre-commit-checks.shellHook}
         '';
 
         nativeBuildInputs = with pkgs; [
