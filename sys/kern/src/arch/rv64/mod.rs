@@ -10,20 +10,33 @@ pub use macros::*;
 pub mod trap;
 pub use trap::*;
 
+pub mod task;
+pub use task::*;
+
 pub mod saved_state;
 pub use saved_state::*;
 
 pub mod clock_freq;
 pub use clock_freq::*;
 
-pub mod pmp;
-pub use pmp::*;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "riscv-supervisor-mode")] {
+        pub mod stimer;
+        pub use stimer::*;
 
-pub mod task;
-pub use task::*;
+        pub mod mmu;
+        pub use mmu::*;
 
-pub mod mtimer;
-pub use mtimer::*;
+        pub mod sbi;
+        pub use sbi::*;
+    } else {
+        pub mod mtimer;
+        pub use mtimer::*;
+
+        pub mod pmp;
+        pub use pmp::*;
+    }
+}
 
 pub mod ticks;
 pub use ticks::*;

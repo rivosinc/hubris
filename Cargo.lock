@@ -63,7 +63,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c041a8d9751a520ee19656232a18971f18946a7900f1520ee4400002244dd89"
 dependencies = [
- "critical-section",
+ "critical-section 0.2.7",
 ]
 
 [[package]]
@@ -483,6 +483,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "critical-section"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6548a0ad5d2549e111e1f6a11a6c2e2d00ce6a3dafe22948d67c2b443f775e52"
+
+[[package]]
 name = "crypto-bigint"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -600,7 +606,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.8.1",
- "riscv-rt",
+ "riscv-rt 0.9.0",
 ]
 
 [[package]]
@@ -612,7 +618,7 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.8.1",
- "riscv-rt",
+ "riscv-rt 0.9.0",
 ]
 
 [[package]]
@@ -624,7 +630,19 @@ dependencies = [
  "kern",
  "panic-halt",
  "riscv 0.8.1",
- "riscv-rt",
+ "riscv-rt 0.9.0",
+]
+
+[[package]]
+name = "demo-rv64-qemu-virt-supervisor"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 1.0.0",
+ "kern",
+ "panic-halt",
+ "riscv 0.9.1",
+ "riscv-rt 0.9.1",
 ]
 
 [[package]]
@@ -2107,9 +2125,9 @@ dependencies = [
  "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-pseudo-atomics",
- "riscv-rt",
+ "riscv-rt 0.9.0",
  "riscv-semihosting",
  "ron 0.7.0",
  "serde",
@@ -2906,6 +2924,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "riscv"
+version = "0.9.1"
+source = "git+https://github.com/rivosinc/riscv?rev=247f8ff#247f8ff7f8c25713b280e769d808dd7f96fc43d9"
+dependencies = [
+ "bit_field",
+ "critical-section 1.1.1",
+ "embedded-hal",
+ "volatile-register",
+]
+
+[[package]]
 name = "riscv-pseudo-atomics"
 version = "0.1.0"
 source = "git+https://github.com/rivosinc/riscv-psuedo-atomics?branch=rivos/main#4a652974468bafbafe8b95603423e88904c98458"
@@ -2922,6 +2951,17 @@ checksum = "527ddfacbbfeed89256163c2655b0392c4aa76dd95c0189dc05044bf2c47c3f8"
 dependencies = [
  "r0 1.0.0",
  "riscv 0.8.0",
+ "riscv-rt-macros",
+ "riscv-target",
+]
+
+[[package]]
+name = "riscv-rt"
+version = "0.9.1"
+source = "git+https://github.com/rust-embedded/riscv-rt.git?rev=be9e61b79b1ae16a1314134bfb44ae9119554072#be9e61b79b1ae16a1314134bfb44ae9119554072"
+dependencies = [
+ "r0 1.0.0",
+ "riscv 0.8.1",
  "riscv-rt-macros",
  "riscv-target",
 ]
@@ -4151,6 +4191,14 @@ dependencies = [
 
 [[package]]
 name = "tests-rv64-qemu-virt"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "kern",
+]
+
+[[package]]
+name = "tests-rv64-qemu-virt-supervisor"
 version = "0.1.0"
 dependencies = [
  "build-util",

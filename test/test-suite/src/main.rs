@@ -72,7 +72,11 @@ test_cases! {
     test_fault_stackoob,
     test_fault_buserror,
     test_fault_illinst,
+    // TODO(tdewey): Supervisor mode does not currently support memory protection.
+    #[cfg(not(feature = "riscv-supervisor-mode"))]
     test_fault_illaccess,
+    // TODO(tdewey): Supervisor mode does not currently support memory protection.
+    #[cfg(not(feature = "riscv-supervisor-mode"))]
     test_fault_illfunc,
     #[cfg(any(armv7m, armv8m))]
     test_fault_divzero,
@@ -399,6 +403,7 @@ fn test_fault_illinst() {
 }
 
 /// Verifies that one task cannot read from another's stack
+#[cfg(not(feature = "riscv-supervisor-mode"))]
 fn test_fault_illaccess() {
     let x: i32 = 0x1337;
     let x_ptr: *const i32 = &x;
@@ -416,6 +421,7 @@ fn test_fault_illaccess() {
     }
 }
 
+#[cfg(not(feature = "riscv-supervisor-mode"))]
 fn test_fault_illfunc() {
     let fault = test_fault(AssistOp::IllegalFunc, test_fault_illfunc as usize);
     match fault {

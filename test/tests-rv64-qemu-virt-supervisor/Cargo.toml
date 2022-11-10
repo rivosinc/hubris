@@ -1,0 +1,20 @@
+[package]
+name = "tests-rv64-qemu-virt-supervisor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+features = [ "riscv-supervisor-mode" ]
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+[[bin]]
+name = "tests-rv64-qemu-virt-supervisor"
+path = "../../app/demo-rv64-qemu-virt-supervisor/src/main.rs"
+test = false
+bench = false

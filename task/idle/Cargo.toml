@@ -15,7 +15,7 @@ userlib = {path = "../../sys/userlib"}
 [target.'cfg(target_arch = "arm")'.dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }
 
-[target.'cfg(target_arch = "riscv32")'.dependencies]
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
 riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
 
 # This section is here to discourage RLS/rust-analyzer from doing test builds,

@@ -2,12 +2,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::arch::set_timer;
 use crate::arch::SavedState;
+use crate::arch::{reset_timer, set_timer};
 use crate::task;
 use crate::umem::USlice;
+
 use core::arch::asm;
-use riscv::register;
+
+#[cfg(feature = "riscv-supervisor-mode")]
+use riscv::register::{
+    sepc as xepc, sie::set_stimer as set_xtimer, sscratch as xscratch,
+    sstatus::set_spp as set_xpp, sstatus::SPP as XPP,
+};
+
+#[cfg(not(feature = "riscv-supervisor-mode"))]
+use riscv::register::{
+    mepc as xepc, mie::set_mtimer as set_xtimer, mscratch as xscratch,
+    mstatus::set_mpp as set_xpp, mstatus::MPP as XPP,
+};
+
 use unwrap_lite::UnwrapLite;
 
 /// Records the address of `task` as the current user task in mscratch.
@@ -19,54 +32,64 @@ use unwrap_lite::UnwrapLite;
 /// stored is actually in the task table, you'll be okay.
 pub unsafe fn set_current_task(task: &task::Task) {
     // Safety: should be ok if the contract above is met
-    // TODO: make me an atomic
-    unsafe {
-        let task = task as *const task::Task as usize;
-        register::mscratch::write(task);
-    }
+    let task = task as *const task::Task as usize;
+
+    xscratch::write(task);
 }
 
 pub unsafe fn get_current_task() -> &'static task::Task {
-    unsafe {
-        let task = register::mscratch::read();
-        uassert!(task != 0);
-        &*(task as *const task::Task)
+    let task = xscratch::read();
+    uassert!(task != 0);
+    unsafe { &*(task as *const task::Task) }
+}
+
+macro_rules! jump_to_task {
+    ($prefix:literal, $task:ident) => {
+        asm!("
+            ld sp, ({0})",
+            concat!($prefix, "ret"),
+            in(reg) &$task.save().sp(),
+            options(noreturn)
+        );
     }
 }
 
 #[allow(unused_variables)]
 pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
-    // Configure MPP to switch us to User mode on exit from Machine
-    // mode (when we call "mret" below).
+    // Configure MPP to switch us to User mode on exit from the current
+    // mode (when we call "xret" below).
     unsafe {
-        use riscv::register::mstatus::{set_mpp, MPP};
-        set_mpp(MPP::User);
+        set_xpp(XPP::User);
     }
 
     // Write the initial task program counter.
-    register::mepc::write(task.save().pc() as *const usize as usize);
+    xepc::write(task.save().pc() as *const usize as usize);
 
     //
     // Configure the timer
     //
     unsafe {
-        // Reset mtime back to 0, set mtimecmp to chosen timer
-        set_timer(tick_divisor - 1);
+        // Set xtimecmp to the current time
+        set_timer();
 
-        // Machine timer interrupt enable
-        register::mie::set_mtimer();
+        // increment xtimecmp for appropriate timer interrupt
+        reset_timer();
+
+        // Mode timer interrupt enable
+        set_xtimer();
     }
 
     // Load first task pointer, set its initial stack pointer, and exit out
-    // of machine mode, launching the task.
+    // to a lower mode, launching the task.
     unsafe {
         crate::task::activate_next_task(task);
-        asm!("
-            ld sp, ({0})
-            mret",
-            in(reg) &task.save().sp(),
-            options(noreturn)
-        );
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "riscv-supervisor-mode")] {
+                jump_to_task!("s", task)
+            } else {
+                jump_to_task!("m", task)
+            }
+        }
     }
 }
 

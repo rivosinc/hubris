@@ -9,9 +9,6 @@
 // - we need it for our _start routine.
 extern crate userlib;
 
-#[cfg(target_arch = "riscv32")]
-use userlib::*;
-
 #[export_name = "main"]
 fn main() -> ! {
     loop {
@@ -31,9 +28,12 @@ fn main() -> ! {
             // which could wake some higher-priority task.
             cortex_m::asm::wfi();
         }
+
         // RISC-V has wfi, but unfortunately it is an illegal instruction if
-        // called from User mode, so instead we spin on a timer call.
-        #[cfg(target_arch = "riscv32")]
-        while sys_get_timer().now > 0 {}
+        // called from User mode.
+        #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+        unsafe {
+            riscv::asm::nop();
+        } // Heed the warning above.
     }
 }
