@@ -3,6 +3,9 @@ name = "demo-rv64-qemu-virt"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+riscv-sifive_test-device = ["kern/riscv-sifive_test-device"]
+
 [dependencies]
 cfg-if = "0.1.10"
 panic-halt = "0.2.0"

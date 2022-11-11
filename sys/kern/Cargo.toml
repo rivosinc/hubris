@@ -33,6 +33,7 @@ phash-gen = {path = "../../build/phash-gen"}
 
 [features]
 vectored-interrupts = []
+riscv-sifive_test-device = []
 riscv-supervisor-mode = []
 riscv-support-sstc = []
 default = ["klog-semihosting"]

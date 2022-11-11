@@ -7,7 +7,7 @@ stacksize = 2048
 [kernel]
 name = "demo-rv64-qemu-virt"
 requires = { flash = 20480, ram = 32768 }
-features = []
+features = ["riscv-sifive_test-device"]
 
 [tasks.jefe]
 name = "task-jefe"
