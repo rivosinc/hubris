@@ -30,9 +30,8 @@
 //! See: https://github.com/rust-lang/rust/issues/73450#issuecomment-650463347
 
 #![no_std]
-#![feature(naked_functions)]
 #![feature(asm_const)]
-#![feature(asm_sym)]
+#![feature(naked_functions)]
 
 #[macro_use]
 pub mod arch;
