@@ -80,12 +80,36 @@
         "type": "github"
       }
     },
+    "qemuflake": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1668634473,
+        "narHash": "sha256-PklCMPkKN5AVy5Rv/2aid+L3Rh2qVi5zJNvKiEnNuDo=",
+        "ref": "dev/drew/nix",
+        "rev": "89f887f6bb1090c522934635ddab2a2018193411",
+        "revCount": 99669,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/rivosinc/qemu"
+      },
+      "original": {
+        "ref": "dev/drew/nix",
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/rivosinc/qemu"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
         "humilityflake": "humilityflake",
         "nixpkgs": "nixpkgs",
         "pre-commit-hooks": "pre-commit-hooks",
+        "qemuflake": "qemuflake",
         "rust-overlay": "rust-overlay"
       }
     },
