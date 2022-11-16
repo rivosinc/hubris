@@ -1047,6 +1047,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-kipc-reset"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-reset-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
 name = "drv-lpc55-gpio"
 version = "0.1.0"
 dependencies = [
@@ -1369,6 +1383,20 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "drv-sifive_test-reset"
+version = "0.1.0"
+dependencies = [
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "serde",
+ "ssmarshal",
+ "task-reset-api",
  "userlib",
  "zerocopy",
 ]
@@ -3778,6 +3806,29 @@ dependencies = [
  "paste",
  "ringbuf",
  "task-sensor-api",
+ "userlib",
+ "zerocopy",
+]
+
+[[package]]
+name = "task-reboot"
+version = "0.1.0"
+dependencies = [
+ "cortex-m-semihosting 0.5.0",
+ "riscv-semihosting",
+ "task-reset-api",
+ "userlib",
+]
+
+[[package]]
+name = "task-reset-api"
+version = "0.1.0"
+dependencies = [
+ "derive-idol-err",
+ "idol",
+ "num-traits",
+ "serde",
+ "ssmarshal",
  "userlib",
  "zerocopy",
 ]

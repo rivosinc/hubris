@@ -1,0 +1,24 @@
+[package]
+name = "task-reboot"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+userlib = {path = "../../sys/userlib", features = ["panic-messages"]}
+task-reset-api = {path = "../reset-api"}
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m-semihosting = { version = "0.5.0", optional = true }
+
+[target.'cfg(any(target_arch = "riscv32", target_arch = "riscv64"))'.dependencies]
+riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features", features = ["default", "user-mode"], optional = true }
+
+[features]
+semihosting = ["userlib/log-semihosting", "riscv-semihosting", "cortex-m-semihosting"]
+
+# This section is here to discourage RLS/rust-analyzer from doing test builds,
+# since test builds don't work for cross compilation.
+[[bin]]
+name = "task-reboot"
+test = false
+bench = false

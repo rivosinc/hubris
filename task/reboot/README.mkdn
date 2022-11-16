@@ -1,0 +1,3 @@
+# Task Reboot
+
+This is a sample task that demonstrates rebooting the system via the reset api.

@@ -1,0 +1,19 @@
+// Reset IPC API
+
+Interface(
+    name: "Reset",
+    ops: {
+        "reset": (
+            encoding: Ssmarshal,
+            args: {
+	        "reset_type": "ResetType",
+                "reset_reason": "ResetReason",
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("ResetError")
+            ),
+            idempotent: true,
+        ),
+    },
+)

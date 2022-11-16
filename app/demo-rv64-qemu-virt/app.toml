@@ -16,6 +16,12 @@ max-sizes = { flash = 16384, ram = 16384 }
 start = true
 features = ["semihosting-riscv"]
 
+[tasks.reset_driver]
+name = "drv-sifive_test-reset"
+priority = 1
+uses = ["sifive_test"]
+start = true
+
 [tasks.pong]
 name = "task-pong"
 priority = 3
@@ -35,6 +41,12 @@ priority = 1
 stacksize = 512
 start = true
 features = ["semihosting"]
+
+[tasks.reboot]
+name = "task-reboot"
+priority = 2
+start = false
+task-slots = ["reset_driver"]
 
 [tasks.idle]
 name = "task-idle"
