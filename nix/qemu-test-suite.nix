@@ -3,27 +3,19 @@
   hubris,
   humility,
   qemu,
-  app,
 }:
-runCommand "hubris-qemu-tests" {}
+runCommand ("hubris-qemu-tests-" + hubris.app) {}
 ''
-    echo "running hubris test suite for: " ${app}
+  echo "running hubris test suite for: " ${hubris.app}
 
-    # prepare environment
-    mkdir -p $out
-    export PATH=${qemu}/bin/:$PATH
-    export HUMILITY_ARCHIVE=${hubris}/${app}/dist/default/build-${app}.zip
+  # prepare environment
+  mkdir -p $out
+  export PATH=${qemu}/bin/:$PATH
+  export HUMILITY_ARCHIVE=${hubris}/build-${hubris.app}.zip
 
-    ${humility}/bin/humility qemu
-  # &> $out/qemu.log &
+  # we expect this to timeout, so ensure it always gives a good return value
+  timeout -k 1s 10s ${humility}/bin/humility qemu | tee $out/qemu.log || true
 
-    # in reality this happend < 1 sec, but giving some buffer room
-    sleep 10
-    kill $(jobs -p)
-
-    grep "done pass" $out/qemu.log
-
-    cat $out/qemu.log
-
-    echo "test suite passed"
+  grep "done pass" $out/qemu.log
+  echo "test suite passed"
 ''

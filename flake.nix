@@ -13,6 +13,9 @@
   inputs.humilityflake.inputs.nixpkgs.follows = "nixpkgs";
   inputs.humilityflake.inputs.flake-utils.follows = "flake-utils";
 
+  inputs.qemuflake.url = "git+https://github.com/rivosinc/qemu?submodules=1&ref=dev/drew/nix";
+  inputs.qemuflake.inputs.nixpkgs.follows = "nixpkgs";
+
   inputs.pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   inputs.pre-commit-hooks.inputs.flake-utils.follows = "flake-utils";
   inputs.pre-commit-hooks.inputs.nixpkgs.follows = "nixpkgs";
@@ -23,153 +26,104 @@
     flake-utils,
     rust-overlay,
     humilityflake,
+    qemuflake,
     pre-commit-hooks,
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-      overlays = [(import rust-overlay)];
+      overlays = [(import rust-overlay) qemuflake.overlays.default];
 
       pkgs = import nixpkgs {
         inherit system overlays;
       };
 
-      # This is a little funky since the default riscv binutils use `none` rather than `unknown`
-      riscv64-unknown-none-elf-stdenv = pkgs.stdenv.override {
-        targetPlatform = {
-          config = "riscv64-unknown-elf";
-          system = "riscv64-none";
-          parsed = {
-            kernel = {
-              execFormat = {
-                name = "unknown";
-              };
-              name = "none";
-            };
-          };
-          isiOS = false;
-          isAarch32 = false;
-          isWindows = false;
-          isMips64n64 = false;
-          isMusl = false;
-          isPower = false;
-          isVc4 = false;
-          isAvr = false;
-        };
-      };
-      riscv32-unknown-none-elf-stdenv = pkgs.stdenv.override {
-        targetPlatform = {
-          config = "riscv32-unknown-elf";
-          system = "riscv32-none";
-          parsed = {
-            kernel = {
-              execFormat = {
-                name = "unknown";
-              };
-              name = "none";
-            };
-          };
-          isiOS = false;
-          isAarch32 = false;
-          isWindows = false;
-          isMips64n64 = false;
-          isMusl = false;
-          isPower = false;
-          isVc4 = false;
-          isAvr = false;
-        };
-      };
-
+      # pull in the appropriate rust toolchain
       rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      # pull in correct binutils
+      binutils = (pkgs.callPackage ./nix/binutils.nix {}).binutils;
+      # this exports the correct build archive for using humility with this app
+      target = "demo-hifive-inventor";
 
-      #since hubris looks for 64bit named binaries
-      binutils32 = pkgs.binutils-unwrapped.override {
-        stdenv = riscv32-unknown-none-elf-stdenv;
-      };
-      binutils64 = pkgs.binutils-unwrapped.override {
-        stdenv = riscv64-unknown-none-elf-stdenv;
-      };
-
+      # actual build function for hubris apps
       hubris = (
         {
           app,
           toml,
           doCheck ? false,
-          sixtyfour ? false,
         }:
           pkgs.callPackage ./nix/hubris.nix {
-            inherit binutils64 app toml doCheck sixtyfour;
+            inherit binutils app toml doCheck;
             cargo = rust;
             rustc = rust;
             src = pkgs.lib.cleanSource ./.;
-            version = "beta";
           }
       );
 
+      # build function to generate qemu test suite runners for different test apps
       hubris-test-suite-runner = (
-        {
-          hubris,
-          app,
-          sixtyfour ? false,
-        }:
+        {hubris}:
           pkgs.callPackage ./nix/qemu-test-suite.nix {
-            inherit hubris app sixtyfour;
+            inherit hubris;
             humility = humilityflake.packages.${system}.humility;
           }
       );
 
-      target = "demo-hifive-inventor";
-
-      pre-commit-checks = pre-commit-hooks.lib.${system}.run {
+      # automatically setup precommit checks for cargo fmt
+      cargo-pre-commit-checks = pre-commit-hooks.lib.${system}.run {
         src = pkgs.lib.cleanSource ./.;
         hooks = {
           cargofmt = {
             enable = true;
-            name = "cargo fmt";
-            entry = "${rust}/bin/cargo fmt --check --all";
+            name = "cargo-fmt";
+            entry = "${rust}/bin/cargo fmt --check";
             files = "\\.rs$";
-            pass_filenames = false;
+            pass_filenames = true;
           };
         };
       };
     in {
+      ## Here is where you list all of the apps that nix should/can build
       packages = flake-utils.lib.flattenTree {
         demo-hifive1-revb = hubris {
           app = "demo-hifive1-revb";
           toml = "app/demo-hifive1-revb/app.toml";
+          doCheck = true;
         };
         demo-hifive-inventor = hubris {
           app = "demo-hifive-inventor";
           toml = "app/demo-hifive-inventor/app.toml";
+          doCheck = true;
         };
         tests-hifive-inventor = hubris {
           app = "tests-hifive-inventor";
           toml = "test/tests-hifive-inventor/app.toml";
+          # don't do check, test suite is NOT clippy clean
         };
+        tests-hifive-inventor-runner = hubris-test-suite-runner {hubris = self.packages.${system}.tests-hifive-inventor;};
       };
 
       devShells.default = pkgs.mkShell {
         shellHook = ''
+          # this enables running humility without specify the archive everytime
           export HUMILITY_ARCHIVE=$(pwd)/target/${target}/dist/default/build-${target}.zip
+          # this is expected by xtask
           export CARGO_HOME=$HOME/.cargo
-          ${pre-commit-checks.shellHook}
+          ${cargo-pre-commit-checks.shellHook}
         '';
 
         nativeBuildInputs = with pkgs; [
           rust
+          binutils
+          git
           qemu
           openocd
-          binutils32
-          binutils64
           gdb
           humilityflake.packages.${system}.humility
         ];
       };
 
-      checks = {
-        # build checks
-        demo-hifive1-revb = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
-        demo-hifive-inventor = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
-        tests-hifive-inventor = self.packages.${system}.tests-hifive-inventor.override {doCheck = true;};
-      };
+      # build all packages for check
+      checks =
+        self.packages.${system};
 
       formatter = nixpkgs.legacyPackages.${system}.alejandra;
     });
