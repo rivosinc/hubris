@@ -48,7 +48,12 @@
         inherit binutils;
         cargo = rust;
         rustc = rust;
-        src = pkgs.lib.cleanSource ./.;
+        src =
+          pkgs.nix-gitignore.gitignoreSource [
+            "nix/hubris.nix"
+            "flake.nix"
+          ]
+          ./.;
       };
 
       # actual build function for hubris apps
@@ -62,7 +67,12 @@
             inherit xtask app toml doCheck;
             cargo = rust;
             rustc = rust;
-            src = pkgs.lib.cleanSource ./.;
+            src =
+              pkgs.nix-gitignore.gitignoreSource [
+                "nix/xtask.nix"
+                "flake.nix"
+              ]
+              ./.;
           }
       );
 
