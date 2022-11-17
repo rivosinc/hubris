@@ -43,6 +43,14 @@
       # this exports the correct build archive for using humility with this app
       target = "demo-hifive-inventor";
 
+      # build xtask seperatly to save time when building multiple apps
+      xtask = pkgs.callPackage ./nix/xtask.nix {
+        inherit binutils;
+        cargo = rust;
+        rustc = rust;
+        src = pkgs.lib.cleanSource ./.;
+      };
+
       # actual build function for hubris apps
       hubris = (
         {
@@ -51,7 +59,7 @@
           doCheck ? false,
         }:
           pkgs.callPackage ./nix/hubris.nix {
-            inherit binutils app toml doCheck;
+            inherit xtask app toml doCheck;
             cargo = rust;
             rustc = rust;
             src = pkgs.lib.cleanSource ./.;

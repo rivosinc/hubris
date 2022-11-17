@@ -2,20 +2,18 @@
   lib,
   stdenv,
   rustPlatform,
-  xtask,
+  binutils,
   cargo,
   rustc,
-  toml ? null,
-  app ? null,
   src,
-  doCheck ? false,
 }:
 # host and build platform are linux
 # target platform should be riscv32
 stdenv.mkDerivation rec {
-  inherit src app toml doCheck;
-  name = "hubris";
+  inherit src;
+  name = "xtask";
 
+  CARGO_HOME = src;
   cargoDeps = rustPlatform.importCargoLock {
     lockFile = src + /Cargo.lock;
     outputHashes = {
@@ -41,29 +39,24 @@ stdenv.mkDerivation rec {
     rustPlatform.cargoSetupHook
     cargo
     rustc
-    xtask
+  ];
+
+  propagatedBuildInputs = [
+    binutils
   ];
 
   buildPhase = ''
-    export CARGO_HOME=$(pwd)
-
-    # xtask uses this variable to find the hubris root, expecting to be run as `cargo xtask dist ...`.  Since we are invoking directly we need to manually set this path.
-    export CARGO_MANIFEST_DIR=$(pwd)/build/xtask
-
-    # format first so we don't go through the lengthy build only to fail for formatting
     ${cargo}/bin/cargo --offline --frozen fmt --check --all
-    ${xtask}/bin/xtask dist ${toml}
+    ${cargo}/bin/cargo --offline --frozen build -p xtask
   '';
 
   installPhase = ''
-    mkdir -p $out
-    cp target/${app}/dist/default/build-${app}.zip $out/ -a
+    mkdir -p $out/bin
+    cp target/debug/xtask $out/bin/ -a
   '';
 
-  dontFixup = true;
-
   meta = with lib; {
-    description = "kernel";
+    description = "builder for hubris";
     platforms = platforms.all;
   };
 }
