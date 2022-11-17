@@ -22,6 +22,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let task_count = task_enum.len();
 
+    println!("cargo:rerun-if-env-changes=HUBRIS_TASKS_EXITS");
+    let mut task_exits = vec![];
+    if let Ok(tasks) = env::var("HUBRIS_TASKS_EXITS") {
+        println!("HUBRIS_TASKS_EXITS = {}", tasks);
+        for does_exit in tasks.split(',') {
+            task_exits.push(format!("    {},", does_exit));
+        }
+    } else {
+        panic!("can't build this crate outside of the build system.");
+    }
+
     let mut task_file = File::create(out.join("tasks.rs")).unwrap();
 
     if env::var_os("CARGO_FEATURE_TASK_ENUM").is_some() {
@@ -31,6 +42,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             writeln!(task_file, "{}", line).unwrap();
         }
         writeln!(task_file, "}}").unwrap();
+
+        writeln!(
+            task_file,
+            "pub const TASK_EXITS: [bool; {}] = [",
+            task_count
+        )
+        .unwrap();
+        for line in task_exits {
+            writeln!(task_file, "{}", line).unwrap();
+        }
+        writeln!(task_file, "];").unwrap();
     }
     writeln!(task_file, "pub const NUM_TASKS: usize = {};", task_count)
         .unwrap();
