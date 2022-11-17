@@ -94,7 +94,7 @@
             name = "cargo-fmt";
             entry = "${rust}/bin/cargo fmt --check";
             files = "\\.rs$";
-            pass_filenames = true;
+            pass_filenames = false;
           };
         };
       };
