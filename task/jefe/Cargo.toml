@@ -29,6 +29,7 @@ semihosting-riscv = [ "riscv-semihosting", "userlib/log-semihosting" ]
 log-stringbuf = ["userlib/log-stringbuf"]
 log-null = ["userlib/log-null"]
 panic-messages = ["userlib/panic-messages"]
+system-restart-when-done = []
 
 [target.'cfg(target_arch = "arm")'.dependencies]
 cortex-m = { version = "0.7", features = ["inline-asm"] }

@@ -35,6 +35,7 @@ priority = 1
 stacksize = 512
 start = true
 features = ["semihosting"]
+exits = true
 
 [tasks.idle]
 name = "task-idle"

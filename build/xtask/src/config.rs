@@ -204,6 +204,14 @@ impl Config {
         let task_names =
             self.tasks.keys().cloned().collect::<Vec<_>>().join(",");
         env.insert("HUBRIS_TASKS".to_string(), task_names);
+        let task_exits = self
+            .tasks
+            .values()
+            .cloned()
+            .map(|t| t.exits.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        env.insert("HUBRIS_TASKS_EXITS".to_string(), task_exits);
         env.insert("HUBRIS_BOARD".to_string(), self.board.to_string());
         env.insert(
             "HUBRIS_APP_TOML".to_string(),
@@ -667,6 +675,8 @@ pub struct Task {
     pub uses: Vec<String>,
     #[serde(default)]
     pub start: bool,
+    #[serde(default)]
+    pub exits: bool,
     #[serde(default)]
     pub features: Vec<String>,
     #[serde(default)]

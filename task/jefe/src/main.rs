@@ -31,6 +31,7 @@ mod external;
 use core::convert::Infallible;
 
 use hubris_num_tasks::NUM_TASKS;
+use hubris_num_tasks::TASK_EXITS;
 use task_jefe_api::ResetReason;
 use userlib::*;
 
@@ -219,11 +220,16 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
             sys_set_timer(Some(self.deadline), TIMER_MASK);
         }
 
+        // Assume we are 'done' unless we find an 'exits' that has not
+        // 'Exited' yet
+        let mut done: bool = true;
+
         // If our disposition has changed or if we have been notified of
         // a faulting task, we need to iterate over all of our tasks.
         if changed || (bits & TASK_STATE_CHANGE_MASK) != 0 {
-            for i in 0..NUM_TASKS {
-                match kipc::read_task_status(i) {
+            for (i, exits) in TASK_EXITS.iter().enumerate() {
+                let status = kipc::read_task_status(i);
+                match status {
                     abi::TaskState::Faulted { fault, .. } => {
                         if !self.logged[i] {
                             log_fault(i, &fault);
@@ -237,9 +243,16 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         }
                     }
 
-                    abi::TaskState::Healthy(abi::SchedState::Stopped)
-                    | abi::TaskState::Healthy(abi::SchedState::Exited) => {
+                    abi::TaskState::Healthy(abi::SchedState::Stopped) => {
                         if self.disposition[i] == Disposition::Start {
+                            kipc::restart_task(i, true);
+                        }
+                    }
+
+                    abi::TaskState::Healthy(abi::SchedState::Exited) => {
+                        if !exits {
+                            kipc::fault_task(i);
+                        } else if self.disposition[i] == Disposition::Start {
                             kipc::restart_task(i, true);
                         }
                     }
@@ -250,7 +263,17 @@ impl idol_runtime::NotificationHandler for ServerImpl<'_> {
                         }
                     }
                 }
+                if *exits
+                    && (status
+                        != abi::TaskState::Healthy(abi::SchedState::Exited))
+                {
+                    done = false;
+                }
             }
+        }
+
+        if done && cfg!(feature = "system-restart-when-done") {
+            kipc::system_restart();
         }
     }
 }
