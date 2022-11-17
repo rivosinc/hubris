@@ -30,7 +30,7 @@
     pre-commit-hooks,
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-      overlays = [(import rust-overlay) qemuflake.overlays.default];
+      overlays = [(import rust-overlay)] ++ nixpkgs.lib.optional (system != "aarch64-darwin") qemuflake.overlays.default;
 
       pkgs = import nixpkgs {
         inherit system overlays;
