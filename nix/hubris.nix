@@ -17,7 +17,7 @@ stdenv.mkDerivation rec {
   name = "hubris";
 
   cargoDeps = rustPlatform.importCargoLock {
-    lockFile = src + /Cargo.lock;
+    lockFile = ../Cargo.lock;
     outputHashes = {
       "gateway-messages-0.1.0" = "sha256-7vQTj/j5iQTqqQjgXSM7G2VnWLhXGR/AuCpo2LU1/uw";
       "hif-0.3.1" = "sha256-o3r1akaSARfqIzuP86SJc6/s0b2PIkaZENjYO3DPAUo";
