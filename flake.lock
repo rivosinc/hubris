@@ -28,11 +28,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1668012069,
-        "narHash": "sha256-tAz/WQaiJhhzZUh8Z2wuhR/kNrTZezm3zfsq+Oel57c=",
+        "lastModified": 1668475090,
+        "narHash": "sha256-5f0Mc+9kQvIqm/Os1WijfekqKHgO/f/DNhJ/uPzOFa8=",
         "owner": "rivosinc",
         "repo": "humility",
-        "rev": "7a580ae325824774489414c04173211266b9fe6b",
+        "rev": "6948376a5f94ba0fbffd7703a8839a1b59a75884",
         "type": "github"
       },
       "original": {
