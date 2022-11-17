@@ -19,7 +19,7 @@ jobs:
     if: ${{ needs.skip_duplicate_jobs.outputs.should_skip != 'true' }}
     strategy:
       matrix: 
-        os: [ ubuntu-latest, macOS-latest ]
+        os: [ ubuntu-latest ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
