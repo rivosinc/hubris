@@ -37,8 +37,7 @@ in
         "lpc55_sign-0.1.0" = "sha256-To4+Dn/BcvpBwQRNaI+wn68G4hqpCrmO/2CLqCcdWTE";
         "ordered-toml-0.1.0" = "sha256-hJjyF9bXt5CfemV5/ogPViaNHZsINrQkZG45Ta65Qm4";
         "pmbus-0.1.0" = "sha256-rKEbuWUp88PJK+gP6dmaIeeBNXzjclNpwE5kibViYQQ";
-        "riscv-0.8.1" = "sha256-icLG4b/jpn4thGoeXHHBAEqF6FLV8u/8N0KLOgeQcO0";
-        "riscv-0.9.1" = "sha256-qlacVoP3QLEvFzhqtef2ZchlxQjv1qdBBK0NfndnmCY=";
+        "riscv-0.9.1" = "sha256-3vgERj0GY2pMRVo6sjXlch/ySeq+gdhCIlS2IWEd/+c";
         "riscv-rt-0.9.1" = "sha256-mlzGj+rFlG0IQcoX8QiSazmA0BoidSqoAADZmeyJZwE=";
         "riscv-pseudo-atomics-0.1.0" = "sha256-QuChdKbw1TTy8W+mr3gF8yDfwWcUxmAzT3j5A5gamdk";
         "riscv-semihosting-0.0.1" = "sha256-sGa++ywE9kYw9VnPKeYyzaRJsYOzF0mNE7C9c2TdUNQ=";
