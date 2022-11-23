@@ -33,13 +33,13 @@ pub fn apply_memory_protection(task: &task::Task) {
         unsafe {
             // Configure the base address entry
             register::set_cfg_entry(i * 2, null_cfg);
-            register::write_tor_indexed(i * 2, region.base as usize);
+            register::write_tor_indexed(i * 2, region.base as u64);
 
             // Configure the end address entry
             register::set_cfg_entry(i * 2 + 1, pmpcfg);
             register::write_tor_indexed(
                 i * 2 + 1,
-                (region.base + region.size) as usize,
+                (region.base + region.size) as u64,
             );
         }
     }

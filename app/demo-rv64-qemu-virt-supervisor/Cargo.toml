@@ -9,7 +9,7 @@ s-mode = ["riscv-rt/s-mode", "kern/riscv-supervisor-mode"]
 [dependencies]
 cfg-if = "1.0.0"
 panic-halt = "0.2.0"
-riscv = { git = "https://github.com/rivosinc/riscv", rev = "247f8ff" }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
 riscv-rt = { git = "https://github.com/rust-embedded/riscv-rt.git", rev = "be9e61b79b1ae16a1314134bfb44ae9119554072", features = ["s-mode"] }
 
 [dependencies.kern]
