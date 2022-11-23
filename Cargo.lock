@@ -2374,6 +2374,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-timer-api"
+version = "0.1.0"
+
+[[package]]
 name = "drv-transceivers-api"
 version = "0.1.0"
 dependencies = [
