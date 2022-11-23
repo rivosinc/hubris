@@ -62,7 +62,7 @@ version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c041a8d9751a520ee19656232a18971f18946a7900f1520ee4400002244dd89"
 dependencies = [
- "critical-section",
+ "critical-section 0.2.7",
 ]
 
 [[package]]
@@ -482,6 +482,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "critical-section"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6548a0ad5d2549e111e1f6a11a6c2e2d00ce6a3dafe22948d67c2b443f775e52"
+
+[[package]]
 name = "crypto-bigint"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -598,7 +604,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "kern",
  "panic-halt",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-rt",
 ]
 
@@ -610,7 +616,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "kern",
  "panic-halt",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-rt",
 ]
 
@@ -826,7 +832,7 @@ dependencies = [
  "build-util",
  "drv-ext-int-ctrl-api",
  "ringbuf",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "userlib",
@@ -1242,7 +1248,7 @@ dependencies = [
  "phash",
  "phash-gen",
  "ringbuf",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "task-config",
@@ -2094,7 +2100,7 @@ dependencies = [
  "cortex-m-semihosting 0.3.7",
  "phash",
  "phash-gen",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-pseudo-atomics",
  "riscv-rt",
  "riscv-semihosting",
@@ -2883,11 +2889,11 @@ dependencies = [
 
 [[package]]
 name = "riscv"
-version = "0.8.1"
-source = "git+https://github.com/rivosinc/riscv?branch=rivos/dev#b13cb4c7cc7c450d2f6ea03c21520d80bb760cdf"
+version = "0.9.1"
+source = "git+https://github.com/rivosinc/riscv?branch=rivos/dev#d9917932f66cec0fe77dac40a6362afd35ebce2f"
 dependencies = [
- "bare-metal 1.0.0",
  "bit_field",
+ "critical-section 1.1.1",
  "embedded-hal",
  "volatile-register",
 ]
@@ -3534,7 +3540,7 @@ name = "task-idle"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "userlib",
 ]
 
@@ -3554,7 +3560,7 @@ dependencies = [
  "idol-runtime",
  "num-traits",
  "ringbuf",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "serde",
@@ -3989,7 +3995,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "num-traits",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-semihosting",
  "test-api",
  "userlib",
@@ -4034,7 +4040,7 @@ dependencies = [
  "cortex-m-semihosting 0.5.0",
  "hubris-num-tasks",
  "num-traits",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-pseudo-atomics",
  "riscv-semihosting",
  "test-api",
@@ -4054,7 +4060,7 @@ dependencies = [
  "drv-i2c-devices",
  "hubris-num-tasks",
  "num-traits",
- "riscv 0.8.1",
+ "riscv 0.9.1",
  "riscv-semihosting",
  "task-config",
  "test-api",
