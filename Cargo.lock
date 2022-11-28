@@ -3739,6 +3739,7 @@ name = "task-one-shot"
 version = "0.1.0"
 dependencies = [
  "cortex-m-semihosting 0.5.0",
+ "ringbuf",
  "riscv-semihosting",
  "userlib",
 ]
