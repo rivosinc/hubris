@@ -338,15 +338,20 @@ before running tests.
 See the [documentation for `humility
 test`](https://github.com/oxidecomputer/humility#humility-test) for details
 on test results.
+
 ## CI
 
-The github CI has the ability to perform build checks on any hubris app using
-the nix environment. This all happens within `flake.nix`, with the actual 
-build script in `nix/hubris.nix`. 
-
 ### Adding a new app to CI
+
+Please add new apps to both Nix and Github
+
+#### Nix (gitlab & github)
+
+The nix CI can perform build checks and can run the test suite apps.  This all happens within `flake.nix`, with the actual 
+build script for hubris living in `nix/hubris.nix`. 
+
 To add a new build check first add the app to
-the set of packages.
+the set of packages within `flake.nix`.
 ```
 packages = flake-utils.lib.flattenTree {
     demo-hifive-inventor = hubris {
@@ -366,20 +371,28 @@ packages = flake-utils.lib.flattenTree {
     ...
 };
 ```
-Then add the package to `checks`, and override the `doCheck` parameter.  
-Overriding this parameter will run any build time test on the app. 
-Currently this includes `cargo fmt`, but plan to add `cargo clippy` as well.
+For any test suite apps, please also add the corresponding runner as well.
 ```
-checks = {
-  # build checks
-  demo-hifive1-revb = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
-  demo-hifive-inventor = self.packages.${system}.demo-hifive-inventor.override {doCheck = true;};
-  tests-hifive-inventor = self.packages.${system}.tests-hifive-inventor.override {doCheck = true;};
-  ...
-};
+tests-hifive-inventor-runner = hubris-test-suite-runner {hubris = self.packages.${system}.tests-hifive-inventor;};
+ 
+```
+#### Ubuntu (github only)
+
+The Ubuntu CI can perform build checks.
+
+Within `.github/workflows/dist.yml` add the following entry to the matrix `include` section: 
+```
+- build: tests-hifive-inventor
+            app_name: tests-hifive-inventor
+            app_toml: test/tests-hifive-inventor/app.toml
+            target: riscv32imc-unknown-none-elf
+            image: default
 
 ```
+Also add the same entry to `.github/workflows/clippy.yml`.
+
 ### Changing git dependencies
+
 When changing the revision of a git dependency, you will most likely find the following error: 
 ```
 error: No hash was found while vendoring the git dependency riscv-0.9.1. You can add
