@@ -3,6 +3,7 @@
   stdenv,
   rustPlatform,
   binutils,
+  srecord,
   cargo,
   rustc,
   src,
@@ -43,6 +44,7 @@ stdenv.mkDerivation rec {
 
   propagatedBuildInputs = [
     binutils
+    srecord
   ];
 
   buildPhase = ''

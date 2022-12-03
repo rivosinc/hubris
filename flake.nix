@@ -137,6 +137,7 @@
         nativeBuildInputs = with pkgs; [
           rust
           binutils
+          srecord
           git
           qemu
           openocd

@@ -477,7 +477,7 @@ pub fn package(
         } else {
             // If there's no bootloader, the "combined" and "final" images are
             // identical, so we copy from one to the other
-            for ext in ["srec", "elf", "ihex", "bin"] {
+            for ext in ["srec", "elf", "ihex", "bin", "64.vmem"] {
                 let src = format!("combined.{}", ext);
                 let dst = format!("final.{}", ext);
                 std::fs::copy(
@@ -618,6 +618,13 @@ fn translate_srec_to_other_formats(
             &cfg.img_dir(image_name).join(format!("{}.{}", name, ext)),
         )?;
     }
+    // also generate a vmem, it is useful for running in RTL sims
+    // it is translated using `srec_cat` from the `.bin`
+    srec_cat_translate_vmem(
+        &cfg.img_dir(image_name).join(format!("{}.bin", name)),
+        &cfg.img_dir(image_name)
+            .join(format!("{}.64.{}", name, "vmem")),
+    )?;
     Ok(())
 }
 
@@ -2470,6 +2477,36 @@ fn write_srec(
 
     let srec_image = srec::writer::generate_srec_file(&srec_out);
     std::fs::write(out, srec_image)?;
+    Ok(())
+}
+
+fn srec_cat_translate_vmem(src: &Path, dest: &Path) -> Result<()> {
+    let mut cmd = Command::new("srec_cat");
+    cmd.arg(src)
+        .arg("--binary")
+        .arg("--offset")
+        .arg("0")
+        .arg("--byte-swap")
+        .arg("8")
+        .arg("--fill")
+        .arg("0xFF")
+        .arg("--within")
+        .arg(src)
+        .arg("-binary")
+        .arg("-range-pad")
+        .arg("8")
+        .arg("--output")
+        .arg(dest)
+        .arg("--vmem")
+        .arg("64");
+
+    let status = cmd
+        .status()
+        .context(format!("failed to srec_cat ({:?})", cmd))?;
+
+    if !status.success() {
+        bail!("srec_cat failed, see output for details");
+    }
     Ok(())
 }
 
