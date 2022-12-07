@@ -54,6 +54,9 @@ macro_rules! uassert {
     };
 }
 
+mod pmp;
+pub use pmp::*;
+
 /// On RISC-V we use a global to record the current task pointer.  It may be
 /// possible to use the mscratch register instead.
 #[no_mangle]
@@ -204,48 +207,6 @@ pub fn reinitialize(task: &mut task::Task) {
     }
     // Set the initial program counter
     task.save_mut().pc = task.descriptor().entry_point;
-}
-
-#[allow(unused_variables)]
-pub fn apply_memory_protection(task: &task::Task) {
-    use riscv::register::{Mode, Permission, PmpCfg};
-
-    let null_cfg: PmpCfg = PmpCfg::new(Mode::OFF, Permission::NONE, false);
-
-    for (i, region) in task.region_table().iter().enumerate() {
-        let pmpcfg =
-            // Check if this is a filler region
-            if (region.base == 0x0) && (region.size == 0x20) {
-                null_cfg
-            } else {
-                let pmp_perm: Permission = match region.attributes.bits() & 0b111 {
-                    0b000 => Permission::NONE,
-                    0b001 => Permission::R,
-                    0b010 => panic!(),
-                    0b011 => Permission::RW,
-                    0b100 => Permission::X,
-                    0b101 => Permission::RX,
-                    0b110 => panic!(),
-                    0b111 => Permission::RWX,
-                    _ => unreachable!(),
-                };
-
-                PmpCfg::new(Mode::TOR, pmp_perm, false)
-            };
-
-        unsafe {
-            // Configure the base address entry
-            register::set_cfg_entry(i * 2, null_cfg);
-            register::write_tor_indexed(i * 2, region.base as u64);
-
-            // Configure the end address entry
-            register::set_cfg_entry(i * 2 + 1, pmpcfg);
-            register::write_tor_indexed(
-                i * 2 + 1,
-                region.base as u64 + region.size as u64,
-            );
-        }
-    }
 }
 
 cfg_if::cfg_if! {
