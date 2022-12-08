@@ -9,6 +9,8 @@ use crate::time::Timestamp;
 
 use abi::{FaultInfo, FaultSource};
 use core::arch::asm;
+#[cfg(feature = "custom-interrupts")]
+use core::convert::TryInto;
 
 use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
