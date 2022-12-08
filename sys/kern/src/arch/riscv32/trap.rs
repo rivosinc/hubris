@@ -277,7 +277,7 @@ fn trap_handler(task: &mut task::Task) {
         Trap::Exception(Exception::UserEnvCall) => {
             unsafe {
                 // Advance program counter past ecall instruction.
-                task.save_mut().pc = register::mepc::read() as u32 + 4;
+                task.save_mut().set_pc(register::mepc::read() as u32 + 4);
                 asm!(
                     "
                     la a1, CURRENT_TASK_PTR

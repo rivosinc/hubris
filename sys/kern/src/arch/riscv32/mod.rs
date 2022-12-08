@@ -30,8 +30,6 @@ cfg_if::cfg_if! {
     }
 }
 
-use zerocopy::FromBytes;
-
 use crate::task;
 use crate::time::Timestamp;
 use crate::umem::USlice;
@@ -60,6 +58,9 @@ pub use mtimer::*;
 mod trap;
 pub use trap::*;
 
+mod saved_state;
+pub use saved_state::*;
+
 /// On RISC-V we use a global to record the current task pointer.  It may be
 /// possible to use the mscratch register instead.
 #[no_mangle]
@@ -69,102 +70,6 @@ pub static mut CURRENT_TASK_PTR: Option<NonNull<task::Task>> = None;
 /// store it in memory.
 #[no_mangle]
 pub static mut CLOCK_FREQ_KHZ: u32 = 0;
-
-/// RISC-V volatile registers that must be saved across context switches.
-#[repr(C)]
-#[derive(Clone, Debug, Default, FromBytes)]
-pub struct SavedState {
-    // NOTE: the following fields must be kept contiguous!
-    ra: u32,
-    sp: u32,
-    gp: u32,
-    tp: u32,
-    t0: u32,
-    t1: u32,
-    t2: u32,
-    s0: u32,
-    s1: u32,
-    a0: u32,
-    a1: u32,
-    a2: u32,
-    a3: u32,
-    a4: u32,
-    a5: u32,
-    a6: u32,
-    a7: u32,
-    s2: u32,
-    s3: u32,
-    s4: u32,
-    s5: u32,
-    s6: u32,
-    s7: u32,
-    s8: u32,
-    s9: u32,
-    s10: u32,
-    s11: u32,
-    t3: u32,
-    t4: u32,
-    t5: u32,
-    t6: u32,
-    // Additional save value for task program counter
-    pc: u32,
-    // NOTE: the above fields must be kept contiguous!
-}
-
-/// Map the volatile registers to (architecture-independent) syscall argument
-/// and return slots.
-impl task::ArchState for SavedState {
-    fn stack_pointer(&self) -> u32 {
-        self.sp
-    }
-
-    /// Reads syscall argument register 0.
-    fn arg0(&self) -> u32 {
-        self.a0
-    }
-    fn arg1(&self) -> u32 {
-        self.a1
-    }
-    fn arg2(&self) -> u32 {
-        self.a2
-    }
-    fn arg3(&self) -> u32 {
-        self.a3
-    }
-    fn arg4(&self) -> u32 {
-        self.a4
-    }
-    fn arg5(&self) -> u32 {
-        self.a5
-    }
-    fn arg6(&self) -> u32 {
-        self.a6
-    }
-
-    fn syscall_descriptor(&self) -> u32 {
-        self.a7
-    }
-
-    /// Writes syscall return argument 0.
-    fn ret0(&mut self, x: u32) {
-        self.a0 = x
-    }
-    fn ret1(&mut self, x: u32) {
-        self.a1 = x
-    }
-    fn ret2(&mut self, x: u32) {
-        self.a2 = x
-    }
-    fn ret3(&mut self, x: u32) {
-        self.a3 = x
-    }
-    fn ret4(&mut self, x: u32) {
-        self.a4 = x
-    }
-    fn ret5(&mut self, x: u32) {
-        self.a5 = x
-    }
-}
 
 // Because debuggers need to know the clock frequency to set the SWO clock
 // scaler that enables ITM, and because ITM is particularly useful when
@@ -186,8 +91,8 @@ pub fn reinitialize(task: &mut task::Task) {
     // Set the initial stack pointer, ensuring 16-byte stack alignment as per
     // the RISC-V calling convention.
     let initial_stack = task.descriptor().initial_stack;
-    task.save_mut().sp = initial_stack;
-    uassert!(task.save().sp & 0xF == 0);
+    task.save_mut().set_sp(initial_stack);
+    uassert!(task.save().sp() & 0xF == 0);
 
     // zap the stack with a distinct pattern
     for region in task.region_table().iter() {
@@ -209,7 +114,8 @@ pub fn reinitialize(task: &mut task::Task) {
         }
     }
     // Set the initial program counter
-    task.save_mut().pc = task.descriptor().entry_point;
+    let pc = task.descriptor().entry_point;
+    task.save_mut().set_pc(pc);
 }
 
 cfg_if::cfg_if! {
@@ -278,7 +184,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
     }
 
     // Write the initial task program counter.
-    register::mepc::write(task.save().pc as *const usize as usize);
+    register::mepc::write(task.save().pc() as *const usize as usize);
 
     // Load first task pointer, set its initial stack pointer, and exit out
     // of machine mode, launching the task.
@@ -287,7 +193,7 @@ pub fn start_first_task(tick_divisor: u32, task: &mut task::Task) -> ! {
         asm!("
             lw sp, ({sp})
             mret",
-            sp = in(reg) &task.save().sp,
+            sp = in(reg) &task.save().sp(),
             options(noreturn)
         );
     }
