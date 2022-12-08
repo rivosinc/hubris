@@ -13,6 +13,48 @@ use core::arch::asm;
 use riscv::register;
 use riscv::register::mcause::{Exception, Interrupt, Trap};
 
+cfg_if::cfg_if! {
+    if #[cfg(feature = "vectored-interrupts")] {
+        use riscv::register::mtvec::{self, TrapMode};
+
+        // Setup interrupt vector `mtvec` with vectored mode to the trap table.
+        #[export_name = "_setup_interrupts"]
+        extern "C" fn _setup_interrputs() {
+            // SAFETY:
+            // If `_trap_table` does not have the neccasary alignment, the
+            // address could become corrupt and traps will not jump to the
+            // expected address. As long as the linker works correctly, this
+            // write is safe.
+            unsafe { mtvec::write(_trap_table as usize, TrapMode::Vectored); };
+        }
+
+        // Create a trap table to vector interrupts to the correct handler.
+        // NOTE: This MUST be aligned to at least a 4-byte boundary. Some
+        //       targets have larger requirements, so we've gone with the
+        //       highest so far: 256.
+        // TODO: Currently all pass through common function, but can be vectored
+        //       directly
+        #[naked]
+        #[no_mangle]
+        #[repr(align(0x100))]
+        #[link_section = ".trap.rust"]
+        #[export_name = "_trap_table"]
+        /// # Safety
+        /// All of the entries jump to the same trap routine, so as long as they
+        /// don't get corrupted this should always go to `_start_trap`.
+        /// This table being corrupted will lead to undefined behavior.
+        unsafe extern "C" fn _trap_table() {
+            unsafe { asm!( "
+                .rept 256 # TODO: This may need to be changed
+                j _start_trap
+                .endr
+                ",
+                options(noreturn),
+            );}
+        }
+    }
+}
+
 // Provide our own interrupt vector to handle save/restore of the task on
 // entry, overwriting the symbol set up by riscv-rt.  The repr(align(4)) is
 // necessary as the bottom bits are used to determine direct or vectored traps.
@@ -186,28 +228,6 @@ fn timer_handler() {
     crate::profiling::event_timer_isr_exit();
 }
 
-pub fn disable_irq(n: u32) {
-    let cur_mie = register::mie::read();
-    let new_mie = cur_mie.bits() & !(0x1 << n);
-    unsafe {
-        asm!("
-            csrw mie, {x}",
-            x = in(reg) new_mie,
-        );
-    }
-}
-
-pub fn enable_irq(n: u32) {
-    let cur_mie = register::mie::read();
-    let new_mie = cur_mie.bits() | (0x1 << n);
-    unsafe {
-        asm!("
-            csrw mie, {x}",
-            x = in(reg) new_mie,
-        );
-    }
-}
-
 // Handler for interrupts related to the platform
 #[no_mangle]
 fn platform_interrupt_handler(irq: u32) {
@@ -247,6 +267,31 @@ fn platform_interrupt_handler(irq: u32) {
     }
 
     disable_irq(irq);
+}
+
+#[no_mangle]
+unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
+    // Safety: we're dereferencing the current taask pointer, which we're
+    // trusting the restof this module to maintain correctly.
+    let idx = usize::from(unsafe { (*task).descriptor().index });
+    unsafe {
+        with_task_table(|tasks| {
+            let next = match task::force_fault(tasks, idx, fault) {
+                task::NextTask::Specific(i) => i,
+                task::NextTask::Other => task::select(idx, tasks),
+                task::NextTask::Same => idx,
+            };
+
+            if next == idx {
+                panic!("attempt to return to Task #{} after fault", idx);
+            }
+
+            let next = &mut tasks[next];
+            // Safety: next comes from the task table and we don't use it again
+            // until next kernel entry, so we meet the function requirements.
+            crate::task::activate_next_task(next);
+        });
+    }
 }
 
 //
@@ -329,27 +374,24 @@ fn trap_handler(task: &mut task::Task) {
     }
 }
 
-#[no_mangle]
-unsafe fn handle_fault(task: *mut task::Task, fault: FaultInfo) {
-    // Safety: we're dereferencing the current taask pointer, which we're
-    // trusting the restof this module to maintain correctly.
-    let idx = usize::from(unsafe { (*task).descriptor().index });
+pub fn disable_irq(n: u32) {
+    let cur_mie = register::mie::read();
+    let new_mie = cur_mie.bits() & !(0x1 << n);
     unsafe {
-        with_task_table(|tasks| {
-            let next = match task::force_fault(tasks, idx, fault) {
-                task::NextTask::Specific(i) => i,
-                task::NextTask::Other => task::select(idx, tasks),
-                task::NextTask::Same => idx,
-            };
+        asm!("
+            csrw mie, {x}",
+            x = in(reg) new_mie,
+        );
+    }
+}
 
-            if next == idx {
-                panic!("attempt to return to Task #{} after fault", idx);
-            }
-
-            let next = &mut tasks[next];
-            // Safety: next comes from the task table and we don't use it again
-            // until next kernel entry, so we meet the function requirements.
-            crate::task::activate_next_task(next);
-        });
+pub fn enable_irq(n: u32) {
+    let cur_mie = register::mie::read();
+    let new_mie = cur_mie.bits() | (0x1 << n);
+    unsafe {
+        asm!("
+            csrw mie, {x}",
+            x = in(reg) new_mie,
+        );
     }
 }
