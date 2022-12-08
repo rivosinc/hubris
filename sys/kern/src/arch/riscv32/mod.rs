@@ -13,17 +13,6 @@
 //! interrupts on the lines reserved for custom extensions. To fix this,
 //! the external interrupt controller will need to be treated like an external
 //! device, and have a driver task.
-use core::sync::atomic::Ordering;
-
-cfg_if::cfg_if! {
-    if #[cfg(riscv_no_atomics)] {
-        use riscv_pseudo_atomics::atomic::AtomicBool;
-    }
-    else {
-        use core::sync::atomic::AtomicBool;
-    }
-}
-
 extern crate riscv_rt;
 
 #[allow(unused)]
@@ -53,18 +42,8 @@ pub use task::*;
 mod clock_freq;
 pub use clock_freq::*;
 
-impl crate::atomic::AtomicExt for AtomicBool {
-    type Primitive = bool;
-
-    #[inline(always)]
-    fn swap_polyfill(
-        &self,
-        value: Self::Primitive,
-        ordering: Ordering,
-    ) -> Self::Primitive {
-        self.swap(value, ordering)
-    }
-}
+mod atomics;
+pub use atomics::*;
 
 pub fn reset() -> ! {
     unimplemented!();
