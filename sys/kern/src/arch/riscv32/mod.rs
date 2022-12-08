@@ -45,9 +45,8 @@ pub use clock_freq::*;
 mod atomics;
 pub use atomics::*;
 
-pub fn reset() -> ! {
-    unimplemented!();
-}
+mod power;
+pub use power::*;
 
 // Constants that may change depending on configuration
 include!(concat!(env!("OUT_DIR"), "/consts.rs"));
