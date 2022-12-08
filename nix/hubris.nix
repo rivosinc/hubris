@@ -25,6 +25,11 @@ stdenv.mkDerivation rec {
     rustc
     xtask
   ];
+  
+  # moves check phase before build phase.  We do not want to wait for a full build only to fail formatting...
+  phases = ''
+    unpackPhase checkPhase buildPhase installPhase
+  '';
 
   buildPhase = ''
     export CARGO_HOME=$(pwd)
@@ -32,14 +37,18 @@ stdenv.mkDerivation rec {
     # xtask uses this variable to find the hubris root, expecting to be run as `cargo xtask dist ...`.  Since we are invoking directly we need to manually set this path.
     export CARGO_MANIFEST_DIR=$(pwd)/build/xtask
 
-    # format first so we don't go through the lengthy build only to fail for formatting
-    ${cargo}/bin/cargo --offline --frozen fmt --check --all
     ${xtask}/bin/xtask dist ${toml}
   '';
 
   installPhase = ''
     mkdir -p $out
     cp target/${app}/dist/default/build-${app}.zip $out/ -a
+  '';
+
+  checkPhase = ''
+    ${cargo}/bin/cargo --offline --frozen fmt --check --all
+    # clippy includes `--frozen` so no need to specify
+    ${xtask}/bin/xtask clippy ${toml}
   '';
 
   dontFixup = true;
