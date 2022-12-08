@@ -105,6 +105,8 @@ pub fn run(
         };
         let mut cmd = build_config.cmd("clippy");
 
+        // clippy should not attempt to update dependencies from lock file
+        cmd.arg("--locked");
         cmd.arg("--");
         match target {
             ArchTarget::ARM => {
