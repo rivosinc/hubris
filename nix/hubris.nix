@@ -32,14 +32,17 @@ stdenv.mkDerivation rec {
     # xtask uses this variable to find the hubris root, expecting to be run as `cargo xtask dist ...`.  Since we are invoking directly we need to manually set this path.
     export CARGO_MANIFEST_DIR=$(pwd)/build/xtask
 
-    # format first so we don't go through the lengthy build only to fail for formatting
-    ${cargo}/bin/cargo --offline --frozen fmt --check --all
     ${xtask}/bin/xtask dist ${toml}
   '';
 
   installPhase = ''
     mkdir -p $out
     cp target/${app}/dist/default/build-${app}.zip $out/ -a
+  '';
+
+  checkPhase = ''
+    ${cargo}/bin/cargo --offline --frozen fmt --check --all
+    ${xtask}/bin/xtask clippy ${toml}
   '';
 
   dontFixup = true;
