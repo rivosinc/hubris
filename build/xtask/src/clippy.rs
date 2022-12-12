@@ -85,7 +85,7 @@ pub fn run(
 
             let kconfig = crate::dist::make_kconfig(
                 &toml,
-                &allocs.tasks,
+                &allocs,
                 &entry_points,
                 &toml.image_names[0],
                 &None,
