@@ -27,7 +27,8 @@ fn main() -> Result<()> {
 
 struct Generated {
     tasks: Vec<TokenStream>,
-    regions: Vec<TokenStream>,
+    task_regions: Vec<TokenStream>,
+    k_regions: Vec<TokenStream>,
     irq_code: TokenStream,
     timer_code: TokenStream,
 }
@@ -39,22 +40,21 @@ enum RegionKey {
     Owned(usize, String),
 }
 
-fn process_config() -> Result<Generated> {
-    let kconfig: KernelConfig =
-        ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)
-            .context("parsing kconfig from HUBRIS_KCONFIG")?;
+fn make_k_regions(
+    _kconfig: &KernelConfig,
+    _region_table: &mut IndexMap<RegionKey, RegionConfig>,
+) {
+    // TODO
+}
 
-    // The kconfig data structure keeps things somewhat abstract to give us, the
-    // kernel, more freedom about our internal implementation choices. However,
-    // this means we have to do some preprocessing before it's useful.
-
-    // The kernel currently uses a flat region descriptor table, and tasks get
-    // pointers into that table. Let's assemble that flat table. By putting the
-    // regions into an IndexMap, we make their locations findable (using a
-    // RegionKey) while also creating a predictable ordering.
-
-    let mut region_table = IndexMap::new();
-
+/// The kernel currently uses a flat region descriptor table, and tasks get
+/// pointers into that table. Let's assemble that flat table. By putting the
+/// regions into an IndexMap, we make their locations findable (using a
+/// RegionKey) while also creating a predictable ordering.
+fn make_task_regions(
+    kconfig: &KernelConfig,
+    region_table: &mut IndexMap<RegionKey, RegionConfig>,
+) {
     // We reserve the first entry (index 0) for the "null" region. This gives no
     // access, and plays the important role of intercepting null pointer
     // dereferences _in the kernel._
@@ -83,14 +83,13 @@ fn process_config() -> Result<Generated> {
             region_table.insert(RegionKey::Owned(i, name.clone()), *region);
         }
     }
+}
 
-    // We are done mutating this.
-    let region_table = region_table;
-
-    // Now, generate the TaskDesc literals. These rely on the region table
-    // because they address it by index at the moment.
-    let mut task_descs = vec![];
-
+fn make_task_table(
+    kconfig: &KernelConfig,
+    region_table: &IndexMap<RegionKey, RegionConfig>,
+    task_descs: &mut Vec<TokenStream>,
+) -> Result<()> {
     for (i, task) in kconfig.tasks.iter().enumerate() {
         // Work out the region indices for each of this task's regions.
         let mut regions = vec![
@@ -122,9 +121,9 @@ fn process_config() -> Result<Generated> {
         // Translate abstract addresses in the task description into concrete
         // addresses.
         let entry_point =
-            translate_address(&region_table, i, task.entry_point.clone());
+            translate_address(region_table, i, task.entry_point.clone());
         let initial_stack =
-            translate_address(&region_table, i, task.initial_stack.clone());
+            translate_address(region_table, i, task.initial_stack.clone());
 
         let index = u16::try_from(i).expect("over 2**16 tasks??");
         let priority = task.priority;
@@ -144,25 +143,23 @@ fn process_config() -> Result<Generated> {
             }
         });
     }
+    Ok(())
+}
 
-    let region_descs = region_table
-        .into_iter()
-        .map(|(_k, region)| fmt_region(&region))
-        .collect();
-
-    // Now, we generate two mappings:
-    //  irq num => abi::Interrupt
-    //  (task, notifications) => abi::InterruptSet
-    //
-    // The first table allows for efficient implementation of the default
-    // interrupt handler, which needs to look up the task corresponding with a
-    // given interrupt.
-    //
-    // The second table allows for efficient implementation of `irq_control`,
-    // where a task enables or disables one or more IRQS based on notification
-    // masks.
-    //
-    // The form of the mapping will depend on the target architecture, below.
+/// This function generates two mappings:
+///  irq num => abi::Interrupt
+///  (task, notifications) => abi::InterruptSet
+///
+/// The first table allows for efficient implementation of the default
+/// interrupt handler, which needs to look up the task corresponding with a
+/// given interrupt.
+///
+/// The second table allows for efficient implementation of `irq_control`,
+/// where a task enables or disables one or more IRQS based on notification
+/// masks.
+///
+/// The form of the mapping will depend on the target architecture, below.
+fn generate_irq_maps(kconfig: &KernelConfig) -> Result<TokenStream> {
     let irq_task_map = kconfig
         .irqs
         .iter()
@@ -180,108 +177,147 @@ fn process_config() -> Result<Generated> {
     let task_irq_map = per_task_irqs.into_iter().collect::<Vec<_>>();
 
     let target = build_util::target();
-    let irq_code = if target.starts_with("thumbv6m")
-        || target.starts_with("riscv")
-    {
-        // On ARMv6-M we have no hardware division, which the perfect hash table
-        // relies on (to get efficient integer remainder). Fall back to a good
-        // old sorted list with binary search instead.
-        //
-        // This means our dispatch time for interrupts on ARMv6-M is O(log N)
-        // instead of O(1), but these parts also tend to have few interrupts,
-        // so, not the end of the world.
+    Ok(
+        if target.starts_with("thumbv6m") || target.starts_with("riscv") {
+            // On ARMv6-M we have no hardware division, which the perfect hash table
+            // relies on (to get efficient integer remainder). Fall back to a good
+            // old sorted list with binary search instead.
+            //
+            // This means our dispatch time for interrupts on ARMv6-M is O(log N)
+            // instead of O(1), but these parts also tend to have few interrupts,
+            // so, not the end of the world.
 
-        let task_irq_map = phash_gen::OwnedSortedList::build(task_irq_map)
-            .context("building task-to-IRQ map")?;
-        let irq_task_map = phash_gen::OwnedSortedList::build(irq_task_map)
-            .context("building IRQ-to-task map")?;
+            let task_irq_map = phash_gen::OwnedSortedList::build(task_irq_map)
+                .context("building task-to-IRQ map")?;
+            let irq_task_map = phash_gen::OwnedSortedList::build(irq_task_map)
+                .context("building IRQ-to-task map")?;
 
-        // Generate text for the Interrupt and InterruptSet tables stored in the
-        // sorted lists
-        let irq_task_literal = fmt_sorted_list(&irq_task_map, fmt_irq_task);
-        let task_irq_literal = fmt_sorted_list(&task_irq_map, fmt_task_irq);
+            // Generate text for the Interrupt and InterruptSet tables stored in the
+            // sorted lists
+            let irq_task_literal = fmt_sorted_list(&irq_task_map, fmt_irq_task);
+            let task_irq_literal = fmt_sorted_list(&task_irq_map, fmt_task_irq);
 
-        quote::quote! {
-            pub const HUBRIS_IRQ_TASK_LOOKUP:
-                phash::SortedList<abi::InterruptNum, abi::InterruptOwner>
-                = #irq_task_literal;
-            pub const HUBRIS_TASK_IRQ_LOOKUP:
-                phash::SortedList<
-                abi::InterruptOwner,
-                &'static [abi::InterruptNum],
-                > = #task_irq_literal;
-        }
-    } else if target.starts_with("thumbv7m")
-        || target.starts_with("thumbv7em")
-        || target.starts_with("thumbv8m")
-    {
-        // First, try to build it as a single-level perfect hash map, which is
-        // cheaper but won't always succeed.
-        let map1 = if let Ok(task_irq_map) =
-            phash_gen::OwnedPerfectHashMap::build(task_irq_map.clone())
-        {
-            let map_literal =
-                fmt_perfect_hash_map(&task_irq_map, fmt_opt_task_irq);
             quote::quote! {
+                pub const HUBRIS_IRQ_TASK_LOOKUP:
+                    phash::SortedList<abi::InterruptNum, abi::InterruptOwner>
+                    = #irq_task_literal;
                 pub const HUBRIS_TASK_IRQ_LOOKUP:
-                    phash::PerfectHashMap<
-                    '_,
-                    abi::InterruptOwner,
-                    &'static [abi::InterruptNum],
-                    > = #map_literal;
-            }
-        } else {
-            // Single-level perfect hash failed, make it work with a nested map.
-            let task_irq_map =
-                phash_gen::OwnedNestedPerfectHashMap::build(task_irq_map)
-                    .context("building task-to-IRQ perfect hash")?;
-            let task_irq_literal =
-                fmt_nested_perfect_hash_map(&task_irq_map, fmt_opt_task_irq);
-            quote::quote! {
-                pub const HUBRIS_TASK_IRQ_LOOKUP:
-                    phash::NestedPerfectHashMap<
+                    phash::SortedList<
                     abi::InterruptOwner,
                     &'static [abi::InterruptNum],
                     > = #task_irq_literal;
             }
-        };
-
-        // And now repeat the process for the IRQ-to-task direction.
-        let map2 = if let Ok(irq_task_map) =
-            phash_gen::OwnedPerfectHashMap::build(irq_task_map.clone())
+        } else if target.starts_with("thumbv7m")
+            || target.starts_with("thumbv7em")
+            || target.starts_with("thumbv8m")
         {
-            let map_literal =
-                fmt_perfect_hash_map(&irq_task_map, fmt_opt_irq_task);
+            // First, try to build it as a single-level perfect hash map, which is
+            // cheaper but won't always succeed.
+            let map1 = if let Ok(task_irq_map) =
+                phash_gen::OwnedPerfectHashMap::build(task_irq_map.clone())
+            {
+                let map_literal =
+                    fmt_perfect_hash_map(&task_irq_map, fmt_opt_task_irq);
+                quote::quote! {
+                    pub const HUBRIS_TASK_IRQ_LOOKUP:
+                        phash::PerfectHashMap<
+                        '_,
+                        abi::InterruptOwner,
+                        &'static [abi::InterruptNum],
+                        > = #map_literal;
+                }
+            } else {
+                // Single-level perfect hash failed, make it work with a nested map.
+                let task_irq_map =
+                    phash_gen::OwnedNestedPerfectHashMap::build(task_irq_map)
+                        .context("building task-to-IRQ perfect hash")?;
+                let task_irq_literal = fmt_nested_perfect_hash_map(
+                    &task_irq_map,
+                    fmt_opt_task_irq,
+                );
+                quote::quote! {
+                    pub const HUBRIS_TASK_IRQ_LOOKUP:
+                        phash::NestedPerfectHashMap<
+                        abi::InterruptOwner,
+                        &'static [abi::InterruptNum],
+                        > = #task_irq_literal;
+                }
+            };
+
+            // And now repeat the process for the IRQ-to-task direction.
+            let map2 = if let Ok(irq_task_map) =
+                phash_gen::OwnedPerfectHashMap::build(irq_task_map.clone())
+            {
+                let map_literal =
+                    fmt_perfect_hash_map(&irq_task_map, fmt_opt_irq_task);
+                quote::quote! {
+                    pub const HUBRIS_IRQ_TASK_LOOKUP:
+                        phash::PerfectHashMap<
+                        '_,
+                        abi::InterruptNum,
+                        abi::InterruptOwner,
+                        > = #map_literal;
+                }
+            } else {
+                let irq_task_map =
+                    phash_gen::OwnedNestedPerfectHashMap::build(irq_task_map)
+                        .context("building IRQ-to-task perfect hash")?;
+                let map_literal = fmt_nested_perfect_hash_map(
+                    &irq_task_map,
+                    fmt_opt_irq_task,
+                );
+                quote::quote! {
+                    pub const HUBRIS_IRQ_TASK_LOOKUP:
+                        phash::NestedPerfectHashMap<
+                        abi::InterruptNum,
+                        abi::InterruptOwner,
+                        > = #map_literal;
+                }
+            };
+
             quote::quote! {
-                pub const HUBRIS_IRQ_TASK_LOOKUP:
-                    phash::PerfectHashMap<
-                    '_,
-                    abi::InterruptNum,
-                    abi::InterruptOwner,
-                    > = #map_literal;
+                #map1
+                #map2
             }
         } else {
-            let irq_task_map =
-                phash_gen::OwnedNestedPerfectHashMap::build(irq_task_map)
-                    .context("building IRQ-to-task perfect hash")?;
-            let map_literal =
-                fmt_nested_perfect_hash_map(&irq_task_map, fmt_opt_irq_task);
-            quote::quote! {
-                pub const HUBRIS_IRQ_TASK_LOOKUP:
-                    phash::NestedPerfectHashMap<
-                    abi::InterruptNum,
-                    abi::InterruptOwner,
-                    > = #map_literal;
-            }
-        };
+            panic!("Don't know the target {target}");
+        },
+    )
+}
 
-        quote::quote! {
-            #map1
-            #map2
-        }
-    } else {
-        panic!("Don't know the target {target}");
-    };
+fn process_config() -> Result<Generated> {
+    let kconfig: KernelConfig =
+        ron::de::from_str(&build_util::env_var("HUBRIS_KCONFIG")?)
+            .context("parsing kconfig from HUBRIS_KCONFIG")?;
+
+    // The kconfig data structure keeps things somewhat abstract to give us, the
+    // kernel, more freedom about our internal implementation choices. However,
+    // this means we have to do some preprocessing before it's useful.
+
+    let mut task_region_table = IndexMap::new();
+    make_task_regions(&kconfig, &mut task_region_table);
+    // we are done mutating
+    let task_region_table = task_region_table;
+
+    let mut k_region_table = IndexMap::new();
+    make_k_regions(&kconfig, &mut k_region_table);
+    let k_region_table = k_region_table;
+
+    // Now, generate the TaskDesc literals. These rely on the region table
+    // because they address it by index at the moment.
+    let mut task_descs = vec![];
+    make_task_table(&kconfig, &task_region_table, &mut task_descs)?;
+
+    let task_region_descs = task_region_table
+        .into_iter()
+        .map(|(_k, region)| fmt_region(&region))
+        .collect();
+    let k_region_descs = k_region_table
+        .into_iter()
+        .map(|(_k, region)| fmt_region(&region))
+        .collect();
+
+    let irq_code = generate_irq_maps(&kconfig)?;
 
     let timer_code = if build_util::target().starts_with("riscv") {
         // TODO: This will eventually need to be changed so that the timer info
@@ -298,7 +334,8 @@ fn process_config() -> Result<Generated> {
 
     Ok(Generated {
         tasks: task_descs,
-        regions: region_descs,
+        task_regions: task_region_descs,
+        k_regions: k_region_descs,
         irq_code,
         timer_code,
     })
@@ -454,15 +491,30 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     )?;
 
     /////////////////////////////////////////////////////////
-    // Region descriptors
+    // Task Region descriptors
 
-    let regions = &gen.regions;
+    let regions = &gen.task_regions;
     let region_count = regions.len();
     writeln!(
         file,
         "{}",
         quote::quote! {
             static HUBRIS_REGION_DESCS: [abi::RegionDesc; #region_count] = [
+                #(#regions,)*
+            ];
+        },
+    )?;
+
+    /////////////////////////////////////////////////////////
+    // Kernel Region descriptors
+
+    let regions = &gen.k_regions;
+    let region_count = regions.len();
+    writeln!(
+        file,
+        "{}",
+        quote::quote! {
+            static KERNEL_REGION_DESCS: [abi::RegionDesc; #region_count] = [
                 #(#regions,)*
             ];
         },
