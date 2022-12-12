@@ -987,13 +987,8 @@ fn build_kernel(
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig = make_kconfig(
-        &cfg.toml,
-        &allocs.tasks,
-        entry_points,
-        image_name,
-        secure,
-    )?;
+    let kconfig =
+        make_kconfig(&cfg.toml, &allocs, entry_points, image_name, secure)?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -1860,7 +1855,7 @@ fn allocate_one(
 /// system.
 pub fn make_kconfig(
     toml: &Config,
-    task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>>,
+    all_allocations: &Allocations,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
     secure: &Option<SecureData>,
@@ -1948,6 +1943,8 @@ pub fn make_kconfig(
     }
 
     let mut used_shared_regions = BTreeSet::new();
+    let task_allocations: &BTreeMap<String, BTreeMap<String, Range<u32>>> =
+        &all_allocations.tasks;
 
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
@@ -2110,6 +2107,38 @@ pub fn make_kconfig(
     // Pare down the list of shared regions.
     flat_shared.retain(|name, _v| used_shared_regions.contains(name));
 
+    //
+    // Generate kernel regions
+    //
+    let kernel_regions = all_allocations
+        .kernel
+        .iter()
+        .map(|(name, range)| {
+            let size = range.end - range.start;
+            let mut regions =
+                toml.outputs[name].iter().filter(|o| &o.name == image_name);
+            let out = regions.next().expect(&format!("no region for name"));
+            if regions.next().is_some() {
+                bail!("multiple regions for name {}", name);
+            }
+            let attributes = build_kconfig::RegionAttributes {
+                read: out.read,
+                write: out.write,
+                execute: out.execute,
+                special_role: None,
+            };
+
+            Ok((
+                name.to_owned(),
+                build_kconfig::RegionConfig {
+                    base: range.start,
+                    size,
+                    attributes,
+                },
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+
     if toml.target.as_str().contains("riscv")
         && ((timer.0 == 0x0) || (timer.1 == 0x0))
     {
@@ -2120,6 +2149,7 @@ pub fn make_kconfig(
         irqs,
         tasks,
         shared_regions: flat_shared,
+        kernel_regions,
         timer,
     })
 }
