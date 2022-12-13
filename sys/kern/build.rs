@@ -41,10 +41,12 @@ enum RegionKey {
 }
 
 fn make_k_regions(
-    _kconfig: &KernelConfig,
-    _region_table: &mut IndexMap<RegionKey, RegionConfig>,
+    kconfig: &KernelConfig,
+    region_table: &mut IndexMap<RegionKey, RegionConfig>,
 ) {
-    // TODO
+    for (name, region) in &kconfig.kernel_regions {
+        region_table.insert(RegionKey::Owned(0, name.clone()), *region);
+    }
 }
 
 /// The kernel currently uses a flat region descriptor table, and tasks get
@@ -514,6 +516,7 @@ fn generate_statics(gen: &Generated) -> Result<()> {
         file,
         "{}",
         quote::quote! {
+            #[allow(dead_code)]
             static KERNEL_REGION_DESCS: [abi::RegionDesc; #region_count] = [
                 #(#regions,)*
             ];
