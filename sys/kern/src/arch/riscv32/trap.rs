@@ -21,7 +21,7 @@ cfg_if::cfg_if! {
 
         // Setup interrupt vector `mtvec` with vectored mode to the trap table.
         #[export_name = "_setup_interrupts"]
-        extern "C" fn _setup_interrputs() {
+        extern "C" fn _setup_interrupts() {
             // SAFETY:
             // If `_trap_table` does not have the neccasary alignment, the
             // address could become corrupt and traps will not jump to the
@@ -133,7 +133,7 @@ unsafe extern "C" fn _start_trap() {
 
         #
         # On the way out we may have switched to a different task, load
-        # everything in and resume (using t6 as it's resored last).
+        # everything in and resume (using t6 as it's restored last).
         #
         la t6, CURRENT_TASK_PTR
         lw t6, (t6)
