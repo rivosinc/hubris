@@ -78,9 +78,12 @@
 
       # build function to generate qemu test suite runners for different test apps
       hubris-test-suite-runner = (
-        {hubris}:
+        {
+          hubris,
+          port ? null,
+        }:
           pkgs.callPackage ./nix/qemu-test-suite.nix {
-            inherit hubris;
+            inherit hubris port;
             humility = humilityflake.packages.${system}.humility;
           }
       );
@@ -116,7 +119,10 @@
           toml = "test/tests-hifive-inventor/app.toml";
           # don't do check, test suite is NOT clippy clean
         };
-        tests-hifive-inventor-runner = hubris-test-suite-runner {hubris = self.packages.${system}.tests-hifive-inventor;};
+        tests-hifive-inventor-runner = hubris-test-suite-runner {
+          hubris = self.packages.${system}.tests-hifive-inventor;
+          port = "1234";
+        };
       };
 
       devShells.default = pkgs.mkShell {
