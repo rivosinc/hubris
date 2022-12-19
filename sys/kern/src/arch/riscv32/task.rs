@@ -82,14 +82,11 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save_mut().set_sp(initial_stack);
     uassert!(task.save().sp() & 0xF == 0);
 
-    // zap the stack with a distinct pattern
-    for region in task.region_table().iter() {
-        if initial_stack < region.base {
-            continue;
-        }
-        if initial_stack > region.base + region.size {
-            continue;
-        }
+    if let Some(region) = task
+        .region_table()
+        .iter()
+        .find(|region| region.contains(initial_stack as usize))
+    {
         let mut uslice: USlice<u32> = USlice::from_raw(
             region.base as usize,
             (initial_stack as usize - region.base as usize) >> 2,
@@ -102,6 +99,6 @@ pub fn reinitialize(task: &mut task::Task) {
         }
     }
     // Set the initial program counter
-    let pc = task.descriptor().entry_point;
-    task.save_mut().set_pc(pc);
+    let entry_point = task.descriptor().entry_point;
+    task.save_mut().set_pc(entry_point);
 }
