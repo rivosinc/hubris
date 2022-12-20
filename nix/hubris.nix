@@ -25,7 +25,7 @@ stdenv.mkDerivation rec {
     rustc
     xtask
   ];
-  
+
   # moves check phase before build phase.  We do not want to wait for a full build only to fail formatting...
   phases = ''
     unpackPhase checkPhase buildPhase installPhase

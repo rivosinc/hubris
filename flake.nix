@@ -30,7 +30,7 @@
     pre-commit-hooks,
   }:
     flake-utils.lib.eachDefaultSystem (system: let
-      overlays = [(import rust-overlay)] ++ nixpkgs.lib.optional (system != "aarch64-darwin") qemuflake.overlays.default;
+      overlays = [(import rust-overlay)];
 
       pkgs = import nixpkgs {
         inherit system overlays;
@@ -84,6 +84,7 @@
         }:
           pkgs.callPackage ./nix/qemu-test-suite.nix {
             inherit hubris port;
+            qemu = if (system == "aarch64-darwin" || system == "x86_64-darwin") then pkgs.qemu else qemuflake.packages.${system}.qemu;
             humility = humilityflake.packages.${system}.humility;
           }
       );
@@ -134,15 +135,17 @@
           ${cargo-pre-commit-checks.shellHook}
         '';
 
-        nativeBuildInputs = with pkgs; [
-          rust
-          binutils
-          git
-          qemu
-          openocd
-          gdb
-          humilityflake.packages.${system}.humility
-        ];
+        nativeBuildInputs = with pkgs;
+          [
+            rust
+            binutils
+            git
+            qemu
+            openocd
+            gdb
+            humilityflake.packages.${system}.humility
+          ]
+          ++ nixpkgs.lib.optional (system != "aarch64-darwin" && system != "x86_64-darwin") qemuflake.packages.${system}.qemu;
       };
 
       # build all packages for check
