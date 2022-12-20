@@ -238,11 +238,11 @@ fn timer_handler() {
 #[no_mangle]
 fn platform_interrupt_handler(irq: u32) {
     let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
-        .get(abi::InterruptNum(irq as u32))
+        .get(abi::InterruptNum(irq))
         .unwrap_or_else(|| panic!("unhandled IRQ {}", irq));
 
     let switch: bool = with_task_table(|tasks| {
-        disable_irq(irq as u32);
+        disable_irq(irq);
 
         // Now, post the notification and return the
         // scheduling hint.
