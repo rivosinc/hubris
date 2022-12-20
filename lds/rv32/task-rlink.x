@@ -56,13 +56,6 @@ SECTIONS
     __sheap = .;
   }
 
-  /* ## .got */
-  /* Dynamic relocations are unsupported. This section is only used to detect relocatable code in
-     the input files and raise an error if relocatable code is found */
-  .got (NOLOAD) : {
-    KEEP(*(.got .got.*));
-  }
-
   .eh_frame (INFO) : { KEEP(*(.eh_frame)) }
   .eh_frame_hdr (INFO) : { *(.eh_frame_hdr) }
 
@@ -102,5 +95,11 @@ SECTIONS
   .idolatry (INFO) : {
     . = .;
     KEEP(*(.idolatry));
+  }
+
+  /* ## Discarded sections */
+  /DISCARD/ :
+  {
+    *(.got .got.*);
   }
 }
