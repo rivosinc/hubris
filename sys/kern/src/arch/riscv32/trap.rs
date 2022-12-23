@@ -126,6 +126,10 @@ unsafe extern "C" fn _start_trap() {
         csrr a1, mscratch
         sw a1, 9*4(a0)      # store a0 itself
 
+        # now that everything is saved, we can clobber sp with the kernel
+        # stack pointer
+        la sp, _stack_start
+
         #
         # Jump to our main rust handler
         #
