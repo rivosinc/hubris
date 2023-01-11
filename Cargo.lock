@@ -632,6 +632,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "demo-ibex-super-system"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if 0.1.10",
+ "kern",
+ "panic-halt",
+ "riscv 0.8.1",
+ "riscv-rt",
+]
+
+[[package]]
 name = "demo-stm32f4-discovery"
 version = "0.1.0"
 dependencies = [
