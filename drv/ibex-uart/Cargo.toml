@@ -1,0 +1,9 @@
+[package]
+name = "drv-ibex-uart"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tock-registers = { workspace = true }
+num-traits = { workspace = true }
+zerocopy = { workspace = true }

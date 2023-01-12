@@ -1428,6 +1428,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ibex-uart"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "tock-registers",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-ice40-spi-program"
 version = "0.1.0"
 dependencies = [
