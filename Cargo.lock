@@ -1027,6 +1027,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-chip-api"
+version = "0.1.0"
+dependencies = [
+ "drv-int-chip-api",
+ "drv-timer-api",
+]
+
+[[package]]
 name = "drv-cosmo-hf"
 version = "0.1.0"
 dependencies = [

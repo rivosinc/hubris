@@ -1,0 +1,8 @@
+[package]
+name = "drv-chip-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-timer-api = { path = "../timer-api" }
+drv-int-chip-api = { path = "../int-chip-api" }
