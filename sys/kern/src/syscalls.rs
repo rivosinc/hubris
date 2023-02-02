@@ -616,44 +616,47 @@ fn borrow_lease(
         }
     };
 
-    // Can the lender actually read the lease table, or are they being sneaky?
-    let leases = match tasks[lender].try_read(&leases) {
-        Ok(slice) => Ok(slice),
-        Err(fault) => {
-            let wake_hint = task::force_fault(tasks, lender, fault);
-            Err(UserError::Recoverable(abi::DEFECT, wake_hint))
-        }
-    }?;
+    crate::arch::with_uslice(&leases, false, |leases| {
+        // Can the lender actually read the lease table, or are they being sneaky?
+        let leases = match tasks[lender].try_read(leases) {
+            Ok(slice) => Ok(slice),
+            Err(fault) => {
+                let wake_hint = task::force_fault(tasks, lender, fault);
+                Err(UserError::Recoverable(abi::DEFECT, wake_hint))
+            }
+        }?;
 
-    // Try reading the lease. This is unsafe in the general case, but since
-    // we've just convinced ourselves that the lease table is in task memory,
-    // we can do this safely.
-    let lease = leases.get(lease_number).cloned();
-    // Is the lease number provided by the borrower legitimate?
-    if let Some(mut lease) = lease {
-        // Attempt to offset the lease. Handle cases where the offset is bogus.
-        // First, we must convert to u32, which _should be_ a no-op but we'll do
-        // it the careful way:
-        let offset = u32::try_from(offset).unwrap_lite();
-        // Now, proceed only if both neither the length nor address computation
-        // wrap.
-        if let (Some(off_len), Some(off_addr)) = (
-            lease.length.checked_sub(offset),
-            lease.base_address.checked_add(offset),
-        ) {
-            lease.base_address = off_addr;
-            lease.length = off_len;
-            Ok(lease)
+        // Try reading the lease. This is unsafe in the general case, but since
+        // we've just convinced ourselves that the lease table is in task memory,
+        // we can do this safely.
+        let lease = leases.get(lease_number).cloned();
+        // Is the lease number provided by the borrower legitimate?
+        if let Some(mut lease) = lease {
+            // Attempt to offset the lease. Handle cases where the offset is bogus.
+            // First, we must convert to u32, which _should be_ a no-op but we'll do
+            // it the careful way:
+            let offset = u32::try_from(offset).unwrap_lite();
+            // Now, proceed only if both neither the length nor address computation
+            // wrap.
+            if let (Some(off_len), Some(off_addr)) = (
+                lease.length.checked_sub(offset),
+                lease.base_address.checked_add(offset),
+            ) {
+                lease.base_address = off_addr;
+                lease.length = off_len;
+                Ok(lease)
+            } else {
+                Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange)
+                    .into())
+            }
         } else {
-            Err(FaultInfo::SyscallUsage(UsageError::OffsetOutOfRange).into())
+            // Borrower provided an invalid lease number. Borrower was told the
+            // number of leases on successful RECV and should respect that. (Note:
+            // if the lender's lease table changed shape, this will fault the
+            // borrower, which might be bad.)
+            Err(FaultInfo::SyscallUsage(UsageError::LeaseOutOfRange).into())
         }
-    } else {
-        // Borrower provided an invalid lease number. Borrower was told the
-        // number of leases on successful RECV and should respect that. (Note:
-        // if the lender's lease table changed shape, this will fault the
-        // borrower, which might be bad.)
-        Err(FaultInfo::SyscallUsage(UsageError::LeaseOutOfRange).into())
-    }
+    })
 }
 
 /// Performs the architecture-specific bookkeeping to activate `task` on next

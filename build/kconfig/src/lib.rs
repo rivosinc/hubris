@@ -18,6 +18,9 @@ pub struct KernelConfig {
     /// memory mapped peripherals.
     pub shared_regions: BTreeMap<String, RegionConfig>,
 
+    /// Regions only the kernel will have access to
+    pub kernel_regions: BTreeMap<String, RegionConfig>,
+
     /// ID of the interrupt controllers
     pub external_interrupt_controllers: BTreeMap<String, u32>,
 

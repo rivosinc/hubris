@@ -296,6 +296,19 @@ impl Config {
         }
     }
 
+    /// list peripherals available to the kernel
+    pub fn kernel_peripherals(&self) -> BTreeMap<String, Peripheral> {
+        let mut kernel_peripherals: BTreeMap<String, Peripheral> =
+            BTreeMap::new();
+        for (name, peripheral) in self.peripherals.iter() {
+            if peripheral.kernel_reserved {
+                kernel_peripherals.insert(name.to_string(), peripheral.clone());
+            }
+        }
+
+        kernel_peripherals
+    }
+
     pub fn kernel_build_config<'a>(
         &self,
         verbose: bool,

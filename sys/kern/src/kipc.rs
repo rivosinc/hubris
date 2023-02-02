@@ -63,10 +63,12 @@ fn deserialize_message<T>(
 where
     T: for<'de> serde::Deserialize<'de>,
 {
-    let (msg, _) = ssmarshal::deserialize(task.try_read(&message)?)
-        .map_err(|_| UsageError::BadKernelMessage)?;
+    crate::arch::with_uslice(&message, false, |message| {
+        let (msg, _) = ssmarshal::deserialize(task.try_read(message)?)
+            .map_err(|_| UsageError::BadKernelMessage)?;
 
-    Ok(msg)
+        Ok(msg)
+    })
 }
 
 fn serialize_response<T>(
@@ -77,16 +79,18 @@ fn serialize_response<T>(
 where
     T: serde::Serialize,
 {
-    match ssmarshal::serialize(task.try_write(&mut buf)?, val) {
-        Ok(size) => Ok(size),
-        Err(ssmarshal::Error::EndOfStream) => {
-            // The client provided a response buffer that is too small. We
-            // actually tolerate this, and report back the size of a buffer that
-            // *would have* worked. It's up to the caller to notice.
-            Ok(size_of::<T>())
+    crate::arch::with_uslice_mut(&mut buf, false, |buf| {
+        match ssmarshal::serialize(task.try_write(buf)?, val) {
+            Ok(size) => Ok(size),
+            Err(ssmarshal::Error::EndOfStream) => {
+                // The client provided a response buffer that is too small. We
+                // actually tolerate this, and report back the size of a buffer that
+                // *would have* worked. It's up to the caller to notice.
+                Ok(size_of::<T>())
+            }
+            Err(_) => Err(UsageError::BadKernelMessage.into()),
         }
-        Err(_) => Err(UsageError::BadKernelMessage.into()),
-    }
+    })
 }
 
 fn read_task_status(

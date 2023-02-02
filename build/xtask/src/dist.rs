@@ -1587,8 +1587,7 @@ fn build_kernel(
     all_output_sections.hash(&mut image_id);
 
     // Format the descriptors for the kernel build.
-    let kconfig =
-        make_kconfig(&cfg.toml, &allocs.tasks, entry_points, image_name)?;
+    let kconfig = make_kconfig(&cfg.toml, allocs, entry_points, image_name)?;
     let kconfig = ron::ser::to_string(&kconfig)?;
 
     kconfig.hash(&mut image_id);
@@ -2744,7 +2743,7 @@ fn allocate_one(
 /// system.
 pub fn make_kconfig(
     toml: &Config,
-    task_allocations: &BTreeMap<String, BTreeMap<String, ContiguousRanges>>,
+    all_allocations: &Allocations,
     entry_points: &HashMap<String, u32>,
     image_name: &str,
 ) -> Result<build_kconfig::KernelConfig> {
@@ -2839,6 +2838,8 @@ pub fn make_kconfig(
     }
 
     let mut used_shared_regions = BTreeSet::new();
+
+    let task_allocations = &all_allocations.tasks;
 
     for (i, (name, task)) in toml.tasks.iter().enumerate() {
         let stacksize = task.stacksize.or(toml.stacksize).unwrap();
@@ -3020,11 +3021,65 @@ pub fn make_kconfig(
     // Pare down the list of shared regions.
     flat_shared.retain(|name, _v| used_shared_regions.contains(name.as_str()));
 
+    //
+    // Generate kernel code/data regions.
+    //
+    let mut kernel_regions = all_allocations
+        .kernel
+        .iter()
+        .map(|(name, range)| {
+            let size = range.end - range.start;
+            let mut regions =
+                toml.outputs[name].iter().filter(|o| o.name == image_name);
+            let out = regions.next().expect("no region for name");
+            if regions.next().is_some() {
+                bail!("multiple regions for name {}", name);
+            }
+            let attributes = build_kconfig::RegionAttributes {
+                read: out.read,
+                write: out.write,
+                execute: out.execute,
+                special_role: None,
+            };
+
+            Ok((
+                name.to_owned(),
+                build_kconfig::RegionConfig {
+                    base: range.start,
+                    size,
+                    attributes,
+                },
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+
+    // Also add peripherals that have a real size
+    for (peripheral_name, peri) in toml.kernel_peripherals() {
+        if peri.size != 0 {
+            let attributes = build_kconfig::RegionAttributes {
+                read: true,
+                write: true,
+                execute: false,
+                special_role: Some(build_kconfig::SpecialRole::Device),
+            };
+
+            kernel_regions.insert(
+                peripheral_name.to_owned(),
+                build_kconfig::RegionConfig {
+                    base: peri.address,
+                    size: peri.size,
+                    attributes,
+                },
+            );
+        }
+    }
+
     Ok(build_kconfig::KernelConfig {
         external_interrupt_controllers: ext_int_ctrls,
         irqs,
         tasks,
         shared_regions: flat_shared,
+        kernel_regions,
     })
 }
 

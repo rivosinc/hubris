@@ -76,7 +76,7 @@ use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
 use zerocopy::FromBytes;
 
 use crate::atomic::AtomicExt;
-use crate::descs::RegionAttributes;
+use crate::descs::{RegionAttributes, RegionDesc};
 use crate::startup::with_task_table;
 use crate::task;
 use crate::time::Timestamp;
@@ -354,6 +354,8 @@ pub fn reinitialize(task: &mut task::Task) {
     task.save_mut().exc_return = EXC_RETURN_CONST;
 }
 
+pub fn init_memory_protection(_: &[RegionDesc], _: &[task::Task]) {}
+
 /// PMSAv6/7-style precomputed region data.
 ///
 /// This struct is `repr(C)` to preserve the order of its fields, which happens
@@ -372,6 +374,7 @@ pub const fn compute_region_extension_data(
     base: u32,
     size: u32,
     attributes: RegionAttributes,
+    _is_kern_region: bool,
 ) -> RegionDescExt {
     // This platform requires 32-byte alignment of all regions.
     if base & 0x1F != 0 {
@@ -522,6 +525,7 @@ pub const fn compute_region_extension_data(
     base: u32,
     size: u32,
     ratts: RegionAttributes,
+    _is_kern_region: bool,
 ) -> RegionDescExt {
     // This MPU requires that all regions are 32-byte aligned...in part
     // because it stuffs extra stuff into the bottom five bits.
@@ -625,6 +629,21 @@ pub fn apply_memory_protection(task: &task::Task) {
         mpu.mair[1].write(u32::from_le_bytes(mairs[4..].try_into().unwrap()));
         enable_mpu(mpu, true);
     }
+}
+
+pub fn with_uslice<T, R>(
+    slice: &USlice<T>,
+    _nested: bool,
+    body: impl FnOnce(&USlice<T>) -> R,
+) -> R {
+    body(slice)
+}
+pub fn with_uslice_mut<T, R>(
+    slice: &mut USlice<T>,
+    _nested: bool,
+    body: impl FnOnce(&mut USlice<T>) -> R,
+) -> R {
+    body(slice)
 }
 
 pub fn start_first_task(tick_divisor: u32, task: &task::Task) -> ! {

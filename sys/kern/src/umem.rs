@@ -353,31 +353,35 @@ pub fn safe_copy(
 
     let (from, to) = index2_distinct(tasks, from_index, to_index);
 
-    let src = from.try_read(&from_slice);
-    // We're going to blame any aliasing on the recipient, who shouldn't have
-    // designated a receive buffer in shared memory. This decision is somewhat
-    // arbitrary.
-    let dst = if from_slice.aliases(&to_slice) {
-        Err(FaultInfo::MemoryAccess {
-            address: Some(to_slice.base_address as u32),
-            source: FaultSource::Kernel,
-        })
-    } else {
-        to.try_write(&mut to_slice)
-    };
+    crate::arch::with_uslice(&from_slice, false, |from_slice| {
+        crate::arch::with_uslice_mut(&mut to_slice, true, |to_slice| {
+            let src = from.try_read(from_slice);
+            // We're going to blame any aliasing on the recipient, who shouldn't have
+            // designated a receive buffer in shared memory. This decision is somewhat
+            // arbitrary.
+            let dst = if from_slice.aliases(to_slice) {
+                Err(FaultInfo::MemoryAccess {
+                    address: Some(to_slice.base_address as u32),
+                    source: FaultSource::Kernel,
+                })
+            } else {
+                to.try_write(to_slice)
+            };
 
-    match (src, dst) {
-        (Ok(from), Ok(to)) => {
-            // We are now convinced, after querying the tasks, that these RAM
-            // areas are legit.
-            to.copy_from_slice(from);
-            Ok(copy_len)
-        }
-        (src, dst) => Err(InteractFault {
-            src: src.err(),
-            dst: dst.err(),
-        }),
-    }
+            match (src, dst) {
+                (Ok(from), Ok(to)) => {
+                    // We are now convinced, after querying the tasks, that these RAM
+                    // areas are legit.
+                    to.copy_from_slice(from);
+                    Ok(copy_len)
+                }
+                (src, dst) => Err(InteractFault {
+                    src: src.err(),
+                    dst: dst.err(),
+                }),
+            }
+        })
+    })
 }
 
 /// Variation on `safe_copy` that is willing to read (but not write) DMA memory.

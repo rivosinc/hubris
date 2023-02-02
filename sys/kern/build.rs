@@ -33,7 +33,8 @@ fn main() -> Result<()> {
 
 struct Generated {
     tasks: Vec<TokenStream>,
-    regions: Vec<TokenStream>,
+    task_regions: Vec<TokenStream>,
+    kernel_regions: Vec<TokenStream>,
     irq_code: TokenStream,
 }
 
@@ -71,12 +72,33 @@ fn process_config() -> Result<Generated> {
     // regions into an IndexMap, we make their locations findable (using a
     // RegionKey) while also creating a predictable ordering.
 
-    let mut region_table = IndexMap::new();
+    let mut kernel_region_table: IndexMap<RegionKey, RegionConfig> =
+        IndexMap::new();
+    for (name, region) in &kconfig.kernel_regions {
+        kernel_region_table.insert(
+            RegionKey::Owned {
+                task_index: 0,
+                chunk_index: 0,
+                memory_name: name.clone(),
+            },
+            *region,
+        );
+    }
+
+    // We are done mutating this.
+    let kernel_region_table = kernel_region_table;
+
+    let kernel_region_descs = kernel_region_table
+        .into_iter()
+        .map(|(_k, region)| fmt_region(&region, true))
+        .collect();
+
+    let mut task_region_table = IndexMap::new();
 
     // We reserve the first entry (index 0) for the "null" region. This gives no
     // access, and plays the important role of intercepting null pointer
     // dereferences _in the kernel._
-    region_table.insert(
+    task_region_table.insert(
         RegionKey::Null,
         RegionConfig {
             base: 0,
@@ -92,7 +114,7 @@ fn process_config() -> Result<Generated> {
 
     // We'll do the shared bits next.
     for (name, region) in &kconfig.shared_regions {
-        region_table.insert(RegionKey::Shared(name.clone()), *region);
+        task_region_table.insert(RegionKey::Shared(name.clone()), *region);
     }
 
     // Finally, the task-specific regions.
@@ -106,7 +128,7 @@ fn process_config() -> Result<Generated> {
                     attributes: region.attributes,
                 };
                 base += size;
-                region_table.insert(
+                task_region_table.insert(
                     RegionKey::Owned {
                         task_index: i,
                         chunk_index: j,
@@ -119,7 +141,7 @@ fn process_config() -> Result<Generated> {
     }
 
     // We are done mutating this.
-    let region_table = region_table;
+    let task_region_table = task_region_table;
 
     // Now, generate the TaskDesc literals. These rely on the region table
     // because they address it by index at the moment.
@@ -129,13 +151,13 @@ fn process_config() -> Result<Generated> {
         // Work out the region indices for each of this task's regions.
         let mut regions = vec![
             // Always include the null region.
-            region_table.get_index_of(&RegionKey::Null).unwrap(),
+            task_region_table.get_index_of(&RegionKey::Null).unwrap(),
         ];
 
         for (name, region) in &task.owned_regions {
             for j in 0..region.sizes.len() {
                 regions.push(
-                    region_table
+                    task_region_table
                         .get_index_of(&RegionKey::Owned {
                             task_index: i,
                             chunk_index: j,
@@ -148,7 +170,7 @@ fn process_config() -> Result<Generated> {
 
         for name in &task.shared_regions {
             regions.push(
-                region_table
+                task_region_table
                     .get_index_of(&RegionKey::Shared(name.clone()))
                     .with_context(|| {
                         format!("task {i} uses unknown device {name}")
@@ -165,14 +187,18 @@ fn process_config() -> Result<Generated> {
         //
         // THIS IS IMPORTANT. The kernel exploits this property to do cheaper
         // access tests.
-        regions.sort_by_key(|i| region_table.get_index(*i).unwrap().1.base);
+        regions
+            .sort_by_key(|i| task_region_table.get_index(*i).unwrap().1.base);
 
         // Translate abstract addresses in the task description into concrete
         // addresses.
         let entry_point =
-            translate_address(&region_table, i, task.entry_point.clone());
-        let initial_stack =
-            translate_address(&region_table, i, task.initial_stack.clone());
+            translate_address(&task_region_table, i, task.entry_point.clone());
+        let initial_stack = translate_address(
+            &task_region_table,
+            i,
+            task.initial_stack.clone(),
+        );
 
         let index = u16::try_from(i).expect("over 2**16 tasks??");
         let priority = task.priority;
@@ -193,9 +219,9 @@ fn process_config() -> Result<Generated> {
         });
     }
 
-    let region_descs = region_table
+    let region_descs = task_region_table
         .into_iter()
-        .map(|(_k, region)| fmt_region(&region))
+        .map(|(_k, region)| fmt_region(&region, false))
         .collect();
 
     // Now, we generate two mappings and a list:
@@ -394,7 +420,8 @@ fn process_config() -> Result<Generated> {
 
     Ok(Generated {
         tasks: task_descs,
-        regions: region_descs,
+        task_regions: region_descs,
+        kernel_regions: kernel_region_descs,
         irq_code,
     })
 }
@@ -415,7 +442,7 @@ fn translate_address(
     region_table[&key].base + address.offset
 }
 
-fn fmt_region(region: &RegionConfig) -> TokenStream {
+fn fmt_region(region: &RegionConfig, is_kern_region: bool) -> TokenStream {
     let RegionConfig {
         base,
         size,
@@ -460,7 +487,7 @@ fn fmt_region(region: &RegionConfig) -> TokenStream {
             size: #size,
             attributes: #atts,
             arch_data: crate::arch::compute_region_extension_data(
-                #base, #size, #atts,
+                #base, #size, #atts, #is_kern_region
             ),
         }
     }
@@ -514,13 +541,29 @@ fn generate_statics(gen: &Generated) -> Result<()> {
     /////////////////////////////////////////////////////////
     // Region descriptors
 
-    let regions = &gen.regions;
+    let regions = &gen.task_regions;
     let region_count = regions.len();
     writeln!(
         file,
         "{}",
         quote::quote! {
             static HUBRIS_REGION_DESCS: [RegionDesc; #region_count] = [
+                #(#regions,)*
+            ];
+        },
+    )?;
+
+    /////////////////////////////////////////////////////////
+    // Kernel Region descriptors
+
+    let regions = &gen.kernel_regions;
+    let region_count = regions.len();
+    writeln!(
+        file,
+        "{}",
+        quote::quote! {
+            #[allow(dead_code)]
+            static KERNEL_REGION_DESCS: [RegionDesc; #region_count] = [
                 #(#regions,)*
             ];
         },

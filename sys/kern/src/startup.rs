@@ -88,6 +88,9 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
         crate::arch::enable_irq(irq, false).unwrap_lite();
     }
 
+    // Now initialize memory protection
+    crate::arch::init_memory_protection(&KERNEL_REGION_DESCS, task_table);
+
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
     let first_task = crate::task::select(task_table.len() - 1, task_table);
