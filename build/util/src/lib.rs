@@ -5,7 +5,7 @@
 use anyhow::{anyhow, bail, Context, Result};
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsStr;
@@ -232,18 +232,6 @@ pub fn other_task_full_config_toml(
     other_task_full_config(name)
 }
 
-/// Returns a map of task names to their IDs.
-pub fn task_ids() -> TaskIds {
-    let tasks = crate::env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
-    TaskIds(
-        tasks
-            .split(',')
-            .enumerate()
-            .map(|(i, name)| (name.to_string(), i))
-            .collect(),
-    )
-}
-
 /// Map of task names to their IDs.
 pub struct TaskIds(BTreeMap<String, usize>);
 
@@ -335,11 +323,73 @@ pub fn build_kernel_peripherals() -> Result<()> {
     build_peripherals(kernel_peripherals())
 }
 
+fn peripheral_and_config<'a, T>(
+    peripherals: BTreeMap<String, Peripheral>,
+    name: &str,
+) -> Result<(Peripheral, T)>
+where
+    T: Default + Deserialize<'a> + Serialize,
+{
+    let periph = peripherals.get(name).unwrap_or_else(|| {
+        panic!("Missing {} device in the task 'uses'", name)
+    });
+    // try to parse configuration
+    let config_value = periph.config.as_ref().unwrap().to_owned();
+    match config_value.try_into() {
+        Ok(config) => Ok((periph.clone(), config)),
+        Err(e) => {
+            // Parsing failed, display an expected default configuration
+            let config_example = T::default();
+            let example = toml::to_string(&config_example).unwrap();
+            println!(
+                "Invalid config format, config should look like:\n\n\
+                [{}.config]\n{}",
+                name, example
+            );
+            Err(e.into())
+        }
+    }
+}
+
+pub fn task_peripheral_and_config<'a, T>(name: &str) -> Result<(Peripheral, T)>
+where
+    T: Default + Deserialize<'a> + Serialize,
+{
+    // retrieve peripheral
+    let peripherals = task_peripherals();
+    peripheral_and_config(peripherals, name)
+}
+
+pub fn kernel_peripheral_and_config<'a, T>(
+    name: &str,
+) -> Result<(Peripheral, T)>
+where
+    T: Default + Deserialize<'a> + Serialize,
+{
+    // retrieve peripheral
+    let peripherals = kernel_peripherals();
+    peripheral_and_config(peripherals, name)
+}
+
+/// Returns a map of task names to their IDs.
+pub fn task_ids() -> TaskIds {
+    let tasks = crate::env_var("HUBRIS_TASKS").expect("missing HUBRIS_TASKS");
+    TaskIds(
+        tasks
+            .split(',')
+            .enumerate()
+            .map(|(i, name)| (name.to_string(), i))
+            .collect(),
+    )
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Peripheral {
     pub address: u32,
     pub size: u32,
+    #[serde(default)]
+    pub config: Option<toml::Value>,
 }
 
 /// Parse the contents of an environment variable as toml.

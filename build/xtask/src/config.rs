@@ -713,6 +713,8 @@ pub struct Peripheral {
     pub interrupts: BTreeMap<String, u32>,
     #[serde(default)]
     pub kernel_reserved: bool,
+    #[serde(default)]
+    pub config: Option<ordered_toml::Value>,
 }
 
 pub use toml_task::Task;
