@@ -1390,6 +1390,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-ibex-timer"
+version = "0.1.0"
+dependencies = [
+ "drv-timer-api",
+ "tock-registers",
+]
+
+[[package]]
 name = "drv-ice40-spi-program"
 version = "0.1.0"
 dependencies = [
