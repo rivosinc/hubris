@@ -1387,6 +1387,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-int-ctrl-api"
+version = "0.1.0"
+dependencies = [
+ "abi",
+]
+
+[[package]]
 name = "drv-local-vpd"
 version = "0.1.0"
 dependencies = [
