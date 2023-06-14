@@ -5,6 +5,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+use abi::{InterruptDestination, InterruptSource};
+
 /// Application configuration passed into the kernel build.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KernelConfig {
@@ -16,31 +18,11 @@ pub struct KernelConfig {
     /// memory mapped peripherals.
     pub shared_regions: BTreeMap<String, RegionConfig>,
 
-    /// Interrupts hooked by the application, keyed by IRQ number.
-    pub irqs: BTreeMap<u32, InterruptConfig>,
-}
+    /// ID of the interrupt controllers
+    pub external_interrupt_controllers: BTreeMap<String, u32>,
 
-/// Configuration for a single hooked interrupt.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Serialize,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Hash,
-    Ord,
-    PartialOrd,
-)]
-pub struct InterruptConfig {
-    /// Index of task (in the application task array) that receives this
-    /// interrupt.
-    pub task_index: usize,
-    /// Notification bits that are posted to the task when the interrupt fires.
-    /// Note that this is a mask and can have multiple (or zero!) bits set; the
-    /// kernel doesn't really care.
-    pub notification: u32,
+    /// Interrupts hooked by the application, keyed by interrupt source.
+    pub irqs: BTreeMap<InterruptSource, InterruptDestination>,
 }
 
 /// Record describing a single task.

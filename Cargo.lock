@@ -329,6 +329,7 @@ dependencies = [
 name = "build-kconfig"
 version = "0.1.0"
 dependencies = [
+ "abi",
  "bitflags 2.6.0",
  "serde",
 ]

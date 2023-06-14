@@ -12,6 +12,10 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use abi::{
+    InterruptDestination, InterruptOwner, InterruptSource,
+    DEFAULT_INTERRUPT_CONTROLLER,
+};
 use anyhow::{anyhow, bail, Context, Result};
 use atty::Stream;
 use indexmap::IndexMap;
@@ -2750,6 +2754,7 @@ pub fn make_kconfig(
     let p2_required = toml.mpu_power_of_two_required();
 
     let mut flat_shared = BTreeMap::new();
+    let mut ext_int_ctrls: BTreeSet<String> = BTreeSet::new();
     for (name, p) in &toml.peripherals {
         if p2_required && !p.size.is_power_of_two() {
             bail!(
@@ -2773,7 +2778,26 @@ pub fn make_kconfig(
                 },
             },
         );
+        // list external interrupt controller and save the maximum irq number
+        if let Some(int_ctrl) = &p.interrupt_controller {
+            ext_int_ctrls.insert(int_ctrl.to_owned());
+        }
     }
+    // verify all interrupt controllers exist
+    for int_ctrl in ext_int_ctrls.iter() {
+        if toml.peripherals.get(int_ctrl).is_none() {
+            bail!(
+                "'{}' is declared as interrupt controllers but does not \
+                 exist",
+                int_ctrl
+            );
+        }
+    }
+    let ext_int_ctrls: BTreeMap<String, u32> = ext_int_ctrls
+        .iter()
+        .enumerate()
+        .map(|(i, ctrl)| (ctrl.to_owned(), i as u32 + 1))
+        .collect();
     for (name, p) in &toml.extratext {
         if p2_required && !p.size.is_power_of_two() {
             bail!(
@@ -2908,7 +2932,7 @@ pub fn make_kconfig(
         // Interrupts.
         for (irq_str, notification) in &task.interrupts {
             // The irq_str should be a reference to a peripheral.
-            let irq_num: u32 =
+            let int_src =
                 // Peripheral references are of the form "P.I", where P is
                 // the peripheral name and I is the name of one of the
                 // peripheral's defined interrupts.
@@ -2925,7 +2949,14 @@ pub fn make_kconfig(
                                 pname,
                             )
                         })?;
-                    periph.interrupts.get(iname).ok_or_else(|| {
+                    let int_ctrl = if let Some(int_ctrl) =
+                        &periph.interrupt_controller
+                    {
+                        ext_int_ctrls[int_ctrl]
+                    } else {
+                        DEFAULT_INTERRUPT_CONTROLLER
+                    };
+                    let irq_num = periph.interrupts.get(iname).ok_or_else(|| {
                         anyhow!(
                             "task {} IRQ {} references interrupt {} \
                              on peripheral {}, but that interrupt name \
@@ -2935,7 +2966,8 @@ pub fn make_kconfig(
                             iname,
                             pname,
                         )
-                    }).cloned()?
+                    }).cloned()?;
+                    InterruptSource { controller: int_ctrl, irq: irq_num }
                 } else {
                     bail!(
                         "task {}: IRQ name {} does not match any \
@@ -2956,12 +2988,32 @@ pub fn make_kconfig(
                 .context(format!("when building {name}"))?;
             assert_eq!(mask.count_ones(), 1);
             irqs.insert(
-                irq_num,
-                build_kconfig::InterruptConfig {
-                    task_index: i,
+                int_src,
+                InterruptDestination::Owner(InterruptOwner {
+                    task: i as u32,
                     notification: mask,
-                },
+                }),
             );
+        }
+
+        // add external interrupt controllers as interrupt destinations
+        for (ctrl, id) in ext_int_ctrls.iter() {
+            let periph = toml.peripherals.get(ctrl).unwrap();
+            for (_, irq) in periph.interrupts.iter() {
+                let int_ctrl =
+                    if let Some(int_ctrl) = &periph.interrupt_controller {
+                        ext_int_ctrls[int_ctrl]
+                    } else {
+                        DEFAULT_INTERRUPT_CONTROLLER
+                    };
+                irqs.insert(
+                    InterruptSource {
+                        controller: int_ctrl,
+                        irq: *irq,
+                    },
+                    InterruptDestination::Controller(*id),
+                );
+            }
         }
     }
 
@@ -2969,6 +3021,7 @@ pub fn make_kconfig(
     flat_shared.retain(|name, _v| used_shared_regions.contains(name.as_str()));
 
     Ok(build_kconfig::KernelConfig {
+        external_interrupt_controllers: ext_int_ctrls,
         irqs,
         tasks,
         shared_regions: flat_shared,

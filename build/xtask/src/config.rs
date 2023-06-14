@@ -708,6 +708,8 @@ pub struct Peripheral {
     pub address: u32,
     pub size: u32,
     #[serde(default)]
+    pub interrupt_controller: Option<String>,
+    #[serde(default)]
     pub interrupts: BTreeMap<String, u32>,
     #[serde(default)]
     pub kernel_reserved: bool,

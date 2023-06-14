@@ -9,6 +9,7 @@ use crate::descs::{RegionAttributes, RegionDesc, TaskDesc, TaskFlags};
 use crate::task::Task;
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicBool, Ordering};
+use unwrap_lite::UnwrapLite;
 
 /// Tracks when a mutable reference to the task table is floating around in
 /// kernel code, to prevent production of a second one. This forms a sort of
@@ -80,6 +81,13 @@ pub unsafe fn start_kernel(tick_divisor: u32) -> ! {
         crate::arch::reinitialize(task);
     }
 
+    // Now enable default interruptions
+    for irq in HUBRIS_DEFAULT_INTERRUPTS.iter() {
+        // Because the IRQ numbers are coming from our own table, any error
+        // here would indicate a kernel bug, _not_ bad syscall arguments.
+        crate::arch::enable_irq(irq, false).unwrap_lite();
+    }
+
     // Great! Pick our first task. We'll act like we're scheduling after the
     // last task, which will cause a scan from 0 on.
     let first_task = crate::task::select(task_table.len() - 1, task_table);
@@ -123,4 +131,7 @@ pub(crate) fn with_task_table<R>(body: impl FnOnce(&mut [Task]) -> R) -> R {
     r
 }
 
+use abi::{
+    InterruptDestination, InterruptNum, InterruptOwner, InterruptSource,
+};
 include!(concat!(env!("OUT_DIR"), "/kconfig.rs"));

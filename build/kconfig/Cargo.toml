@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+abi = { path = "../../sys/abi" }
 bitflags = { workspace = true }
 serde = { workspace = true }
 

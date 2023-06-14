@@ -87,7 +87,8 @@ impl From<u8> for Generation {
     }
 }
 
-/// Newtype wrapper for an interrupt index
+pub const DEFAULT_INTERRUPT_CONTROLLER: u32 = 0;
+
 #[derive(
     Copy,
     Clone,
@@ -108,6 +109,7 @@ impl phash::PerfectHash for InterruptNum {
         self.0.wrapping_mul(v) as usize
     }
 }
+
 impl InterruptNum {
     pub const fn invalid() -> Self {
         Self(u32::MAX)
@@ -115,6 +117,59 @@ impl InterruptNum {
     pub fn is_valid(&self) -> bool {
         self.0 != u32::MAX
     }
+}
+
+/// New type wrapper for an interrupt index
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    FromBytes,
+    Serialize,
+    Deserialize,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+)]
+pub struct InterruptSource {
+    pub controller: u32,
+    pub irq: u32,
+}
+impl InterruptSource {
+    pub const fn invalid() -> Self {
+        Self {
+            controller: u32::MAX,
+            irq: 0,
+        }
+    }
+    pub fn is_valid(&self) -> bool {
+        self.controller != u32::MAX
+    }
+}
+impl Default for InterruptSource {
+    fn default() -> Self {
+        Self::invalid()
+    }
+}
+
+/// Newtype which allows having an interrupt controller as destination
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Serialize,
+    Deserialize,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+)]
+pub enum InterruptDestination {
+    Controller(u32),
+    Owner(InterruptOwner),
 }
 
 /// Struct containing the task which waits for an interrupt, and the expected
@@ -155,15 +210,6 @@ impl InterruptOwner {
     pub fn is_valid(&self) -> bool {
         !(self.task == u32::MAX && self.notification == 0)
     }
-}
-
-/// Description of one interrupt response.
-#[derive(Clone, Debug, FromBytes, Serialize, Deserialize)]
-pub struct Interrupt {
-    /// Which interrupt number is being hooked.
-    pub irq: InterruptNum,
-    /// The owner of this interrupt.
-    pub owner: InterruptOwner,
 }
 
 /// Structure describing a lease in task memory.

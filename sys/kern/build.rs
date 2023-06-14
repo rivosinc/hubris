@@ -6,10 +6,12 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
+use abi::{
+    InterruptDestination, InterruptNum, InterruptOwner, InterruptSource,
+};
 use anyhow::{bail, Context, Result};
 use build_kconfig::{
-    InterruptConfig, KernelConfig, OwnedAddress, RegionAttributes,
-    RegionConfig, SpecialRole,
+    KernelConfig, OwnedAddress, RegionAttributes, RegionConfig, SpecialRole,
 };
 use indexmap::IndexMap;
 use proc_macro2::TokenStream;
@@ -196,12 +198,12 @@ fn process_config() -> Result<Generated> {
         .map(|(_k, region)| fmt_region(&region))
         .collect();
 
-    // Now, we generate two mappings:
-    //  irq num => abi::Interrupt
-    //  (task, notifications) => abi::InterruptSet
+    // Now, we generate two mappings and a list:
+    //  InterruptSource => InterruptOwner
+    //  InterruptOwner => InterruptSource
     //
     // The first table allows for efficient implementation of the default
-    // interrupt handler, which needs to look up the task corresponding with a
+    // interrupt handler, which needs to look up the destination of a
     // given interrupt.
     //
     // The second table allows for efficient implementation of `irq_control`,
@@ -209,21 +211,58 @@ fn process_config() -> Result<Generated> {
     // masks.
     //
     // The form of the mapping will depend on the target architecture, below.
+    //
+    // The list contains the interrupts to enable by default.
     let irq_task_map = kconfig
         .irqs
         .iter()
         .map(|(&k, &v)| (k, v))
         .collect::<Vec<_>>();
+    let ext_int_ctrl_num = kconfig.external_interrupt_controllers.len();
+    let int_ctrl_num = ext_int_ctrl_num + 1; // add default interrupt controller
 
     let mut per_task_irqs: HashMap<_, Vec<_>> = HashMap::new();
-    for (irq, cfg) in &kconfig.irqs {
-        let o = abi::InterruptOwner {
-            task: cfg.task_index as u32,
-            notification: cfg.notification,
-        };
-        per_task_irqs.entry(o).or_default().push(*irq)
+    let mut default_interrupts = Vec::new();
+    for (irq, cfg) in &irq_task_map {
+        match cfg {
+            InterruptDestination::Owner(owner) => {
+                per_task_irqs.entry(*owner).or_default().push(*irq)
+            }
+            // Interrupt controllers are not linked to a task
+            InterruptDestination::Controller(_) => {
+                default_interrupts.push(*irq)
+            }
+        }
     }
     let task_irq_map = per_task_irqs.into_iter().collect::<Vec<_>>();
+    let mut irq_task_maps: Vec<Vec<(InterruptNum, InterruptDestination)>> =
+        Vec::new();
+    for i in 0..int_ctrl_num {
+        // get interrupts linked to an interrupt controller
+        let ctrl_irq_task_map = irq_task_map
+            .iter()
+            .filter(|(k, _)| k.controller == i as u32)
+            .map(|(k, v)| (InterruptNum(k.irq), v.to_owned()))
+            .collect();
+        irq_task_maps.push(ctrl_irq_task_map);
+    }
+    let irq_task_maps = irq_task_maps;
+
+    // build the default interrupt list
+    let default_interrupts_num = default_interrupts.len();
+    let default_interrupts: Vec<_> = default_interrupts
+        .iter()
+        .map(|InterruptSource { controller, irq }| {
+            quote::quote! {
+                InterruptSource { controller: #controller, irq: #irq }
+            }
+        })
+        .collect();
+    let default_interrupts = quote::quote! {
+        pub const HUBRIS_DEFAULT_INTERRUPTS: [InterruptSource; #default_interrupts_num] = [
+            #(#default_interrupts),*
+        ];
+    };
 
     let target = build_util::target();
     let irq_code = if target.starts_with("thumbv6m") {
@@ -235,25 +274,31 @@ fn process_config() -> Result<Generated> {
         // instead of O(1), but these parts also tend to have few interrupts,
         // so, not the end of the world.
 
+        // Generate text for task => irq, stored in the sorted lists
         let task_irq_map = phash_gen::OwnedSortedList::build(task_irq_map)
             .context("building task-to-IRQ map")?;
-        let irq_task_map = phash_gen::OwnedSortedList::build(irq_task_map)
-            .context("building IRQ-to-task map")?;
-
-        // Generate text for the Interrupt and InterruptSet tables stored in the
-        // sorted lists
-        let irq_task_literal = fmt_sorted_list(&irq_task_map, fmt_irq_task);
         let task_irq_literal = fmt_sorted_list(&task_irq_map, fmt_task_irq);
+
+        // Generate text for irq => interrupt controller/task, stored in the sorted lists
+        let mut irq_task_literals = Vec::new();
+        for map in irq_task_maps.iter() {
+            // get interrupts linked to an interrupt controller
+            let irq_task_map = phash_gen::OwnedSortedList::build(map.clone())
+                .context("building IRQ-to-task map")?;
+            let irq_task_literal = fmt_sorted_list(&irq_task_map, fmt_irq_task);
+            irq_task_literals.push(irq_task_literal);
+        }
 
         quote::quote! {
             pub const HUBRIS_IRQ_TASK_LOOKUP:
-                phash::SortedList<'_, abi::InterruptNum, abi::InterruptOwner>
-                = #irq_task_literal;
+                [phash::SortedList<'_, InterruptNum, InterruptDestination>; #int_ctrl_num]
+                = [#(#irq_task_literals),*];
             pub const HUBRIS_TASK_IRQ_LOOKUP:
                 phash::SortedList<'_,
-                abi::InterruptOwner,
-                &'static [abi::InterruptNum],
+                InterruptOwner,
+                &'static [InterruptSource],
                 > = #task_irq_literal;
+            #default_interrupts
         }
     } else if target.starts_with("thumbv7m")
         || target.starts_with("thumbv7em")
@@ -268,10 +313,9 @@ fn process_config() -> Result<Generated> {
                 fmt_perfect_hash_map(&task_irq_map, fmt_opt_task_irq);
             quote::quote! {
                 pub const HUBRIS_TASK_IRQ_LOOKUP:
-                    phash::PerfectHashMap<
-                    '_,
-                    abi::InterruptOwner,
-                    &'static [abi::InterruptNum],
+                    phash::PerfectHashMap<'_,
+                    InterruptOwner,
+                    &'static [InterruptSource],
                     > = #map_literal;
             }
         } else {
@@ -283,45 +327,66 @@ fn process_config() -> Result<Generated> {
                 fmt_nested_perfect_hash_map(&task_irq_map, fmt_opt_task_irq);
             quote::quote! {
                 pub const HUBRIS_TASK_IRQ_LOOKUP:
-                    phash::NestedPerfectHashMap<
-                    abi::InterruptOwner,
-                    &'static [abi::InterruptNum],
+                    phash::NestedPerfectHashMap<'_,
+                    InterruptOwner,
+                    &'static [InterruptSource],
                     > = #task_irq_literal;
             }
         };
 
         // And now repeat the process for the IRQ-to-task direction.
-        let map2 = if let Ok(irq_task_map) =
-            phash_gen::OwnedPerfectHashMap::build(irq_task_map.clone())
-        {
-            let map_literal =
-                fmt_perfect_hash_map(&irq_task_map, fmt_opt_irq_task);
-            quote::quote! {
-                pub const HUBRIS_IRQ_TASK_LOOKUP:
-                    phash::PerfectHashMap<
-                    '_,
-                    abi::InterruptNum,
-                    abi::InterruptOwner,
-                    > = #map_literal;
+        let map2 = 'map: {
+            let mut map_literals = Vec::new();
+            for map in irq_task_maps.iter() {
+                if let Ok(irq_task_map) =
+                    phash_gen::OwnedPerfectHashMap::build(map.clone())
+                {
+                    let map_literal =
+                        fmt_perfect_hash_map(&irq_task_map, fmt_opt_irq_task);
+                    map_literals.push(map_literal);
+                } else {
+                    map_literals.clear();
+                    break;
+                }
             }
-        } else {
-            let irq_task_map =
-                phash_gen::OwnedNestedPerfectHashMap::build(irq_task_map)
-                    .context("building IRQ-to-task perfect hash")?;
-            let map_literal =
-                fmt_nested_perfect_hash_map(&irq_task_map, fmt_opt_irq_task);
+
+            if !map_literals.is_empty() {
+                // single level hash map succeeded
+                break 'map quote::quote! {
+                    pub const HUBRIS_IRQ_TASK_LOOKUP:
+                        [phash::PerfectHashMap<
+                        '_,
+                        InterruptNum,
+                        InterruptDestination,
+                        >; #int_ctrl_num] = [#(#map_literals),*];
+                };
+            }
+
+            // single level hash map failed
+            for map in irq_task_maps.iter() {
+                let irq_task_map =
+                    phash_gen::OwnedNestedPerfectHashMap::build(map.clone())
+                        .context("building IRQ-to-task perfect hash")?;
+                let map_literal = fmt_nested_perfect_hash_map(
+                    &irq_task_map,
+                    fmt_opt_irq_task,
+                );
+                map_literals.push(map_literal);
+            }
+
             quote::quote! {
                 pub const HUBRIS_IRQ_TASK_LOOKUP:
-                    phash::NestedPerfectHashMap<
-                    abi::InterruptNum,
-                    abi::InterruptOwner,
-                    > = #map_literal;
+                    [phash::NestedPerfectHashMap<
+                    InterruptNum,
+                    InterruptDestination,
+                    >; #int_ctrl_num] = [#(#map_literals),*];
             }
         };
 
         quote::quote! {
             #map1
             #map2
+            #default_interrupts
         }
     } else {
         panic!("Don't know the target {target}");
@@ -473,42 +538,62 @@ fn generate_statics(gen: &Generated) -> Result<()> {
 }
 
 fn fmt_opt_task_irq(
-    v: Option<&(abi::InterruptOwner, Vec<u32>)>,
+    v: Option<&(InterruptOwner, Vec<InterruptSource>)>,
 ) -> TokenStream {
     match v {
         Some((owner, irqs)) => fmt_task_irq(owner, irqs),
         None => quote::quote! {
-            (abi::InterruptOwner::invalid(), &[])
+            (InterruptOwner::invalid(), &[])
         },
     }
 }
 
-fn fmt_task_irq(owner: &abi::InterruptOwner, irqs: &Vec<u32>) -> TokenStream {
+#[allow(clippy::ptr_arg)] // The function signature is enforced by its use.
+fn fmt_task_irq(
+    owner: &InterruptOwner,
+    irqs: &Vec<InterruptSource>,
+) -> TokenStream {
     let (task, not) = (owner.task, owner.notification);
+    let ctrls: Vec<_> = irqs.iter().map(|t| t.controller).collect();
+    let irq_nums: Vec<_> = irqs.iter().map(|t| t.irq).collect();
     quote::quote! {
         (
-            abi::InterruptOwner { task: #task, notification: #not },
-            &[#(abi::InterruptNum(#irqs)),*],
+            InterruptOwner { task: #task, notification: #not },
+            &[#(InterruptSource { controller: #ctrls, irq: #irq_nums }),*],
         )
     }
 }
 
-fn fmt_opt_irq_task(v: Option<&(u32, InterruptConfig)>) -> TokenStream {
+fn fmt_opt_irq_task(
+    v: Option<&(InterruptNum, InterruptDestination)>,
+) -> TokenStream {
     match v {
         Some((irq, owner)) => fmt_irq_task(irq, owner),
-        None => quote::quote! {
-            (abi::InterruptNum::invalid(), abi::InterruptOwner::invalid())
+        None => quote::quote! { (
+                InterruptNum::invalid(),
+                InterruptDestination::Owner(InterruptOwner::invalid()),
+                )
         },
     }
 }
 
-fn fmt_irq_task(irq: &u32, owner: &InterruptConfig) -> TokenStream {
-    let (task, not) = (owner.task_index as u32, owner.notification);
-    quote::quote! {
-        (
-            abi::InterruptNum(#irq),
-            abi::InterruptOwner { task: #task, notification: #not },
-        )
+fn fmt_irq_task(
+    irq: &InterruptNum,
+    dest: &InterruptDestination,
+) -> TokenStream {
+    let irq = irq.0;
+    match dest {
+        InterruptDestination::Controller(ctrl) => {
+            quote::quote! { (InterruptNum(#irq), InterruptDestination::Controller(#ctrl))}
+        }
+        InterruptDestination::Owner(InterruptOwner { task, notification }) => {
+            quote::quote! { (
+                    InterruptNum(#irq),
+                    InterruptDestination::Owner(InterruptOwner {
+                        task: #task, notification: #notification
+                    }))
+            }
+        }
     }
 }
 

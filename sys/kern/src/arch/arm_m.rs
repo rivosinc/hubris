@@ -83,7 +83,10 @@ use crate::time::Timestamp;
 use crate::umem::USlice;
 #[cfg(any(armv7m, armv8m))]
 use abi::FaultSource;
-use abi::{FaultInfo, InterruptNum, UsageError};
+use abi::{
+    FaultInfo, InterruptDestination, InterruptNum, InterruptSource, UsageError,
+    DEFAULT_INTERRUPT_CONTROLLER,
+};
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
 use unwrap_lite::UnwrapLite;
@@ -95,6 +98,8 @@ macro_rules! uassert {
         }
     };
 }
+
+pub mod descs {}
 
 /// On ARMvx-M we have to use a global to record the current task pointer, since
 /// we don't have a scratch register.
@@ -1228,15 +1233,29 @@ pub unsafe extern "C" fn DefaultHandler() {
         x if x >= 16 => {
             // Hardware interrupt
             let irq_num = exception_num - 16;
-            let owner = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
-                .get(abi::InterruptNum(irq_num))
+            let dest = crate::startup::HUBRIS_IRQ_TASK_LOOKUP
+                [DEFAULT_INTERRUPT_CONTROLLER as usize]
+                .get(InterruptNum(irq_num))
                 .unwrap_or_else(|| panic!("unhandled IRQ {irq_num}"));
+            let owner = match dest {
+                InterruptDestination::Controller(_) => {
+                    panic!("unexpected external interrupt controller")
+                }
+                InterruptDestination::Owner(owner) => owner,
+            };
 
             let switch = with_task_table(|tasks| {
                 // This can only fail if the IRQ number is out of range, which
                 // in this case would mean the hardware is conspiring against
                 // us. So ignore it to ensure we don't generate a bogus check.
-                disable_irq(irq_num, false).ok();
+                disable_irq(
+                    &InterruptSource {
+                        controller: DEFAULT_INTERRUPT_CONTROLLER,
+                        irq: irq_num,
+                    },
+                    false,
+                )
+                .ok();
 
                 // Now, post the notification and return the
                 // scheduling hint.
@@ -1253,7 +1272,10 @@ pub unsafe extern "C" fn DefaultHandler() {
     crate::profiling::event_isr_exit();
 }
 
-pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
+pub fn disable_irq(
+    InterruptSource { irq: n, .. }: &InterruptSource,
+    also_clear_pending: bool,
+) -> Result<(), UsageError> {
     // Disable the interrupt by poking the Interrupt Clear Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
@@ -1275,7 +1297,10 @@ pub fn disable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
     Ok(())
 }
 
-pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
+pub fn enable_irq(
+    InterruptSource { irq: n, .. }: &InterruptSource,
+    also_clear_pending: bool,
+) -> Result<(), UsageError> {
     // Enable the interrupt by poking the Interrupt Set Enable Register.
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
@@ -1300,7 +1325,9 @@ pub fn enable_irq(n: u32, also_clear_pending: bool) -> Result<(), UsageError> {
 
 /// Looks up an interrupt in the NVIC and returns a cross-platform
 /// representation of that interrupt's status.
-pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
+pub fn irq_status(
+    InterruptSource { irq: n, .. }: &InterruptSource,
+) -> Result<abi::IrqStatus, UsageError> {
     let mut status = abi::IrqStatus::empty();
 
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
@@ -1322,7 +1349,7 @@ pub fn irq_status(n: u32) -> Result<abi::IrqStatus, UsageError> {
 }
 
 pub fn pend_software_irq(
-    InterruptNum(n): InterruptNum,
+    InterruptSource { irq: n, .. }: &InterruptSource,
 ) -> Result<(), UsageError> {
     let nvic = unsafe { &*cortex_m::peripheral::NVIC::PTR };
     let reg_num = (n / 32) as usize;
