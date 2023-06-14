@@ -1,0 +1,8 @@
+[package]
+name = "drv-riscv-plic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+drv-int-ctrl-api = { path = "../../drv/int-ctrl-api" }
+tock-registers = { workspace = true }

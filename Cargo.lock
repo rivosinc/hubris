@@ -1843,6 +1843,14 @@ name = "drv-qspi-api"
 version = "0.1.0"
 
 [[package]]
+name = "drv-riscv-plic"
+version = "0.1.0"
+dependencies = [
+ "drv-int-ctrl-api",
+ "tock-registers",
+]
+
+[[package]]
 name = "drv-rng-api"
 version = "0.1.0"
 dependencies = [
@@ -6096,6 +6104,12 @@ dependencies = [
  "tlvc",
  "zerocopy 0.6.6",
 ]
+
+[[package]]
+name = "tock-registers"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "696941a0aee7e276a165a978b37918fd5d22c55c3d6bda197813070ca9c0f21c"
 
 [[package]]
 name = "toml"
