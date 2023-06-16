@@ -2040,6 +2040,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sifive-uart"
+version = "0.1.0"
+dependencies = [
+ "tock-registers",
+]
+
+[[package]]
 name = "drv-sp-ctrl-api"
 version = "0.1.0"
 dependencies = [
