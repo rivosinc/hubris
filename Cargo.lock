@@ -2047,6 +2047,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-sifive-uart-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-sifive-uart",
+ "drv-usart-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "task-config",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-sp-ctrl-api"
 version = "0.1.0"
 dependencies = [
