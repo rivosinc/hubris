@@ -3313,6 +3313,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lib-util"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
