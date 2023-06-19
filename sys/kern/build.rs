@@ -14,6 +14,7 @@ use build_kconfig::{
     KernelConfig, OwnedAddress, RegionAttributes, RegionConfig, SpecialRole,
 };
 use indexmap::IndexMap;
+use lib_util::Hex;
 use proc_macro2::TokenStream;
 
 fn main() -> Result<()> {
@@ -215,6 +216,10 @@ fn process_config() -> Result<Generated> {
         } else {
             quote::quote! { TaskFlags::empty() }
         };
+
+        // convert fields into hex values
+        let entry_point = Hex(entry_point);
+        let initial_stack = Hex(initial_stack);
         task_descs.push(quote::quote! {
             TaskDesc {
                 regions: [#(&HUBRIS_REGION_DESCS[#regions]),*],
@@ -524,6 +529,10 @@ fn fmt_region(region: &RegionConfig, is_kern_region: bool) -> TokenStream {
             }
         }
     };
+
+    // convert fields into hex values
+    let base = Hex(*base);
+    let size = Hex(*size);
 
     quote::quote! {
         RegionDesc {

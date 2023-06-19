@@ -3233,6 +3233,7 @@ dependencies = [
  "drv-chip-api",
  "indexmap 1.9.1",
  "kerncore",
+ "lib-util",
  "phash",
  "phash-gen",
  "proc-macro2",
