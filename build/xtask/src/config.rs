@@ -21,6 +21,8 @@ use crate::auxflash::{build_auxflash, AuxFlash, AuxFlashData};
 struct RawConfig {
     name: String,
     target: String,
+    #[serde(default)]
+    target_features: Vec<String>,
     board: String,
     chip: String,
     #[serde(default)]
@@ -48,6 +50,7 @@ struct RawConfig {
 pub struct Config {
     pub name: String,
     pub target: String,
+    pub target_features: Vec<String>,
     pub board: String,
     pub chip: String,
     pub epoch: u32,
@@ -171,6 +174,7 @@ impl Config {
         Ok(Config {
             name: toml.name,
             target: toml.target,
+            target_features: toml.target_features,
             board: toml.board,
             image_names: img_names,
             chip: toml.chip,

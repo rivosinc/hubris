@@ -2076,6 +2076,12 @@ fn build(
             output
         });
 
+    let target_features = if cfg.toml.target_features.is_empty() {
+        "".to_string()
+    } else {
+        format!("-C target-feature={}", cfg.toml.target_features.join(","))
+    };
+
     let mut rustflags: String = format!(
         "
          -C link-arg=-z -C link-arg=common-page-size=0x20 \
@@ -2084,9 +2090,10 @@ fn build(
          -Z emit-stack-sizes \
          -C overflow-checks=y \
          -C metadata={} \
+         {} \
          {}
          ",
-        cfg.link_script_hash, remap_path_prefix,
+        cfg.link_script_hash, remap_path_prefix, target_features,
     );
 
     match cfg.target_arch {
