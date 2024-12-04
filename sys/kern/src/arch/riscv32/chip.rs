@@ -21,6 +21,20 @@ pub unsafe fn set_chip_reference(chip: &'static mut dyn ChipApi) {
     }
 }
 
+pub use crate::descs::{RegionAttributes, RegionDesc};
+pub(super) static mut ADDITIONAL_KERNEL_REGIONS: Option<&'static [RegionDesc]> =
+    None;
+
+/// Set the reference to additional kernel regions
+/// These can be used to add a RISC-V debug module
+/// # Safety
+/// this must be called before the kernel is started with a valid ref
+pub unsafe fn set_additional_kernel_regions(regions: &'static [RegionDesc]) {
+    unsafe {
+        ADDITIONAL_KERNEL_REGIONS = Some(regions);
+    }
+}
+
 /// Initialize the timer, should be called once
 pub fn init_timer() {
     unsafe {

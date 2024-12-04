@@ -49,13 +49,18 @@ pub fn init_memory_protection(
 
     cfg_if! {
         if #[cfg(feature = "riscv-epmp-mmwp")] {
+            // # Safety
+            // This variable is meant to be set before starting the kernel, no other
+            // access is done.
+            if let Some(regions) = unsafe { chip::ADDITIONAL_KERNEL_REGIONS } {
+                for region in regions {
+                    pmp_idx =
+                        helpers::write_pmp_cfg(pmp_idx, &region.arch_data);
+                }
+            }
+
             for region in kernel_regions {
-                pmp_idx = helpers::write_pmp_region(
-                    region,
-                    pmp_idx,
-                    ExecTarget::Kernel,
-                    true,
-                );
+                pmp_idx = helpers::write_pmp_cfg(pmp_idx, &region.arch_data);
             }
         } else {
             // ignore unused argument
