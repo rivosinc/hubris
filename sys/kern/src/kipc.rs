@@ -462,7 +462,7 @@ fn software_irq(
             UsageError::NoIrq,
         )))?;
 
-    for &irq in irqs.iter() {
+    for irq in irqs.iter() {
         // Any error here would be a problem in our dispatch table, not the
         // caller, so we panic because we want to hear about it.
         crate::arch::pend_software_irq(irq).unwrap_lite();
