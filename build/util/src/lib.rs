@@ -322,6 +322,19 @@ pub fn build_task_peripherals() -> Result<()> {
     build_peripherals(task_peripherals())
 }
 
+pub fn kernel_peripherals() -> BTreeMap<String, Peripheral> {
+    ron::de::from_str(
+        env_var("HUBRIS_KERNEL_PERIPHERALS")
+            .expect("missing HUBRIS_KERNEL_PERIPHERALS")
+            .as_str(),
+    )
+    .expect("Was not able to deserialize HUBRIS_KERNEL_PERIPHERALS")
+}
+
+pub fn build_kernel_peripherals() -> Result<()> {
+    build_peripherals(kernel_peripherals())
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Peripheral {

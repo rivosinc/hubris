@@ -312,6 +312,18 @@ impl Config {
         for (var, value) in extra_env {
             out.env.insert(var.to_string(), value.to_string());
         }
+        // list peripherals used by the kernel
+        let mut kernel_peripherals: BTreeMap<String, Peripheral> =
+            BTreeMap::new();
+        for (name, peripheral) in self.peripherals.iter() {
+            if peripheral.kernel_reserved {
+                kernel_peripherals.insert(name.to_string(), peripheral.clone());
+            }
+        }
+        out.env.insert(
+            "HUBRIS_KERNEL_PERIPHERALS".to_string(),
+            ron::ser::to_string(&kernel_peripherals).unwrap(),
+        );
         out
     }
 
@@ -375,6 +387,40 @@ impl Config {
         out.env.insert(
             "HUBRIS_TASK_EXTERN_REGIONS".to_string(),
             toml::to_string(&extern_regions).unwrap(),
+        );
+
+        //
+        // Expose information about the peripherals used by the task
+        //
+        let mut task_peripherals: BTreeMap<String, Peripheral> =
+            BTreeMap::new();
+
+        let peripherals = &task_toml.uses;
+
+        for name in peripherals {
+            match self.peripherals.get(name) {
+                Some(peripheral) => {
+                    if peripheral.kernel_reserved {
+                        panic!(
+                        "Task {} uses peripheral {} which is reserved for the kernel",
+                        task_name,
+                        name
+                    );
+                    } else {
+                        task_peripherals
+                            .insert(name.to_string(), peripheral.clone());
+                    }
+                }
+                None => panic!(
+                    "Task {} uses non-existing peripheral {}",
+                    task_name, name
+                ),
+            };
+        }
+
+        out.env.insert(
+            "HUBRIS_TASK_PERIPHERALS".to_string(),
+            ron::ser::to_string(&task_peripherals).unwrap(),
         );
 
         Ok(out)
@@ -663,6 +709,8 @@ pub struct Peripheral {
     pub size: u32,
     #[serde(default)]
     pub interrupts: BTreeMap<String, u32>,
+    #[serde(default)]
+    pub kernel_reserved: bool,
 }
 
 pub use toml_task::Task;
