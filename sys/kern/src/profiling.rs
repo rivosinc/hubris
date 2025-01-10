@@ -130,12 +130,14 @@ pub(crate) fn event_syscall_exit() {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn event_secondary_syscall_enter() {
     if let Some(t) = table() {
         (t.secondary_syscall_enter)()
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn event_secondary_syscall_exit() {
     if let Some(t) = table() {
         (t.secondary_syscall_exit)()

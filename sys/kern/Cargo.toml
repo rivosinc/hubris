@@ -7,17 +7,27 @@ edition = "2021"
 bitflags = { workspace = true }
 byteorder = { workspace = true }
 cfg-if = { workspace = true }
-cortex-m = { workspace = true }
 serde = { workspace = true }
 ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
 abi = { path = "../abi" }
-armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
 atomic-hack = { path = "../../lib/atomic-hack" }
 kerncore = { path = "../kerncore" }
 phash = { path = "../../lib/phash" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
+
+[target.'cfg(target_arch = "arm")'.dependencies]
+cortex-m = { workspace = true }
+cortex-m-semihosting = { workspace = true }
+
+armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+riscv = { workspace = true }
+riscv-semihosting = { workspace = true, features = ["default", "user-mode"] }
+
+drv-chip-api = { path = "../../drv/chip-api" }
 
 [build-dependencies]
 anyhow = { workspace = true }
@@ -37,6 +47,10 @@ phash-gen = { path = "../../build/phash-gen" }
 [features]
 dump = []
 nano = []
+riscv-epmp-mml = []
+riscv-epmp-mmwp = []
+riscv-epmp-no-rlb = []
+riscv-custom-interrupts = []
 
 [lib]
 test = false

@@ -108,7 +108,7 @@ pub unsafe extern "C" fn syscall_entry(nr: u32, task: *mut Task) {
                 let next = task::select(idx, tasks);
                 // Safety: this is a valid task from the tasks table, meeting
                 // switch_to's requirements.
-                unsafe { switch_to(next) }
+                unsafe { switch_to(next) };
             }
         }
     });

@@ -252,6 +252,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 
 [[package]]
+name = "bit_field"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc827186963e592360843fb5ba4b973e145841266c1357f7180c43526f2e5b61"
+
+[[package]]
 name = "bitfield"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -682,6 +688,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.94",
+]
+
+[[package]]
+name = "cortex-m-semihosting"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c23234600452033cc77e4b761e740e02d2c4168e11dbf36ab14a0f58973592b0"
+dependencies = [
+ "cortex-m",
 ]
 
 [[package]]
@@ -3214,12 +3229,16 @@ dependencies = [
  "call_rustfmt",
  "cfg-if",
  "cortex-m",
+ "cortex-m-semihosting",
+ "drv-chip-api",
  "indexmap 1.9.1",
  "kerncore",
  "phash",
  "phash-gen",
  "proc-macro2",
  "quote",
+ "riscv 0.9.0",
+ "riscv-semihosting",
  "ron",
  "serde",
  "ssmarshal",
@@ -4161,6 +4180,37 @@ version = "0.2.0"
 dependencies = [
  "counters",
  "static-cell",
+]
+
+[[package]]
+name = "riscv"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e2856a701069e2d262b264750d382407d272d5527f7a51d3777d1805b4e2d3c"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+]
+
+[[package]]
+name = "riscv"
+version = "0.9.0"
+source = "git+https://github.com/rivosinc/riscv?branch=rivos/main#24347786281744d4ec15d96df4e29996ee21990d"
+dependencies = [
+ "bare-metal 1.0.0",
+ "bit_field",
+ "embedded-hal",
+ "volatile-register",
+]
+
+[[package]]
+name = "riscv-semihosting"
+version = "0.0.1"
+source = "git+https://github.com/rivosinc/riscv-semihosting?branch=dev/fawaz/privilege-features#ec93c72f47c08d2e852c5e080bbe2e790ec2222d"
+dependencies = [
+ "cfg-if",
+ "riscv 0.8.0",
 ]
 
 [[package]]

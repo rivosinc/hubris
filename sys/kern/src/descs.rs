@@ -153,7 +153,7 @@ impl kerncore::MemoryRegion for RegionDesc {
 // This is defined outside the bitflags! macro so that we can write our own
 // const constructor fn, below.
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RegionAttributes(u32);
 
 bitflags::bitflags! {

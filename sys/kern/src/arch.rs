@@ -25,6 +25,10 @@ cfg_if::cfg_if! {
         #[macro_use]
         pub mod arm_m;
         pub use arm_m::*;
+    } else if #[cfg(target_arch = "riscv32")] {
+    #[macro_use]
+    pub mod riscv32;
+    pub use riscv32::*;
     } else {
         compile_error!("support for this architecture not implemented");
     }

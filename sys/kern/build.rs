@@ -112,8 +112,12 @@ fn process_config() -> Result<Generated> {
         },
     );
 
-    // We'll do the shared bits next.
-    for (name, region) in &kconfig.shared_regions {
+    // We'll do the shared bits next, ignoring empty regions.
+    for (name, region) in kconfig
+        .shared_regions
+        .iter()
+        .filter(|(_, region)| region.size > 0)
+    {
         task_region_table.insert(RegionKey::Shared(name.clone()), *region);
     }
 
@@ -168,7 +172,11 @@ fn process_config() -> Result<Generated> {
             }
         }
 
-        for name in &task.shared_regions {
+        for name in task
+            .shared_regions
+            .iter()
+            .filter(|&name| kconfig.shared_regions[name].size > 0)
+        {
             regions.push(
                 task_region_table
                     .get_index_of(&RegionKey::Shared(name.clone()))
@@ -249,13 +257,15 @@ fn process_config() -> Result<Generated> {
 
     let mut per_task_irqs: HashMap<_, Vec<_>> = HashMap::new();
     let mut default_interrupts = Vec::new();
+    let mut int_ctrl_tree: HashMap<_, Vec<_>> = HashMap::new();
     for (irq, cfg) in &irq_task_map {
         match cfg {
             InterruptDestination::Owner(owner) => {
                 per_task_irqs.entry(*owner).or_default().push(*irq)
             }
             // Interrupt controllers are not linked to a task
-            InterruptDestination::Controller(_) => {
+            InterruptDestination::Controller(ctrl) => {
+                int_ctrl_tree.entry(irq.controller).or_default().push(*ctrl);
                 default_interrupts.push(*irq)
             }
         }
@@ -291,7 +301,9 @@ fn process_config() -> Result<Generated> {
     };
 
     let target = build_util::target();
-    let irq_code = if target.starts_with("thumbv6m") {
+    let irq_code = if target.starts_with("thumbv6m")
+        || target.starts_with("riscv")
+    {
         // On ARMv6-M we have no hardware division, which the perfect hash table
         // relies on (to get efficient integer remainder). Fall back to a good
         // old sorted list with binary search instead.
@@ -416,6 +428,38 @@ fn process_config() -> Result<Generated> {
         }
     } else {
         panic!("Don't know the target {target}");
+    };
+
+    // compute the depth on the interrupt controller tree
+    // Initial value is 1 as there is always the default interrupt controller
+    let mut depth = 1_usize;
+    if !int_ctrl_tree.is_empty() {
+        // get children from the default interrupt controller
+        let mut branches = int_ctrl_tree
+            .get(&0)
+            .context("Missing default interrupt controller")?
+            .clone();
+        loop {
+            depth += 1;
+            let mut branches_to_explore = Vec::new();
+            for branch in branches {
+                if let Some(next_branches) = int_ctrl_tree.get(&branch) {
+                    branches_to_explore.extend(next_branches);
+                }
+            }
+            if branches_to_explore.is_empty() {
+                // we have explored all the levels of the tree
+                break;
+            }
+            branches = branches_to_explore;
+        }
+    }
+
+    let irq_code = quote::quote! {
+        #irq_code
+
+        #[allow(dead_code)]
+        pub const MAX_NESTED_INTR_CTRL: usize = #depth;
     };
 
     Ok(Generated {

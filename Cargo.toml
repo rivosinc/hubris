@@ -142,7 +142,7 @@ vsc7448-pac = { git = "https://github.com/oxidecomputer/vsc7448", default-featur
 
 # Rivos forks and repos
 hubtools = { git = "https://github.com/rivosinc/hubtools", rev="65ef2b6c969cf9e08241d7a4948600439a9cb4eb", default-features = false }
-riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/dev" }
+riscv = { git = "https://github.com/rivosinc/riscv", branch = "rivos/main" }
 riscv-semihosting = { git = "https://github.com/rivosinc/riscv-semihosting", branch = "dev/fawaz/privilege-features" }
 tock-registers = { version = "0.8.1" }
 
