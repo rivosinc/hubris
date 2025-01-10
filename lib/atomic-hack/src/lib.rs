@@ -32,7 +32,7 @@
 #[macro_export]
 macro_rules! use_atomic_bool_ext {
     () => {
-        #[cfg(armv6m)]
+        #[cfg(any(armv6m, riscv_no_atomics))]
         use $crate::AtomicBoolExt;
     };
 }
@@ -40,13 +40,130 @@ macro_rules! use_atomic_bool_ext {
 #[macro_export]
 macro_rules! use_atomic_u32_ext {
     () => {
-        #[cfg(armv6m)]
+        #[cfg(any(armv6m, riscv_no_atomics))]
         use $crate::AtomicU32Ext;
     };
 }
 
 use core::sync::atomic::Ordering;
-pub use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32};
+
+cfg_if::cfg_if! {
+    if #[cfg(riscv_no_atomics)] {
+        // Here we assume that RISC-V CPU without atomic support are single
+        // core CPUs. It is fine to not have atomic as the RISC-V
+        // implementation does not enable nested interrupts, we don't have
+        // any case of pre-emption either in the kernel nor in the tasks.
+        // (we do have task pre-emption but the task will resume at the same
+        // point with no modification to its context)
+        use core::cell::UnsafeCell;
+
+        #[repr(C, align(1))]
+        pub struct AtomicBool {
+            v: UnsafeCell<u8>
+        }
+
+        impl Default for AtomicBool {
+            /// Creates an `AtomicBool` initialized to `false`.
+            #[inline]
+            fn default() -> Self {
+                Self::new(false)
+            }
+        }
+
+        unsafe impl Sync for AtomicBool {}
+
+        #[cfg_attr(target_pointer_width = "16", repr(C, align(2)))]
+        #[cfg_attr(target_pointer_width = "32", repr(C, align(4)))]
+        #[cfg_attr(target_pointer_width = "64", repr(C, align(8)))]
+        pub struct AtomicPtr<T> {
+            p: UnsafeCell<*mut T>,
+        }
+
+        unsafe impl<T> Sync for AtomicPtr<T> {}
+
+        #[repr(C, align(4))]
+        pub struct AtomicU32 {
+            v: UnsafeCell<u32>
+        }
+
+        unsafe impl Sync for AtomicU32 {}
+
+        impl AtomicBool {
+            #[inline]
+            #[must_use]
+            pub const fn new(v: bool) -> AtomicBool {
+                AtomicBool {
+                    v: UnsafeCell::new(v as u8),
+                }
+            }
+
+            #[inline]
+            pub fn load(&self, _order: Ordering) -> bool {
+                unsafe {
+                    let ptr = self.v.get();
+                    *ptr != 0
+                }
+            }
+
+            #[inline]
+            pub fn store(&self, val: bool, _order: Ordering) {
+                unsafe {
+                    let ptr = self.v.get();
+                    *ptr = val as u8;
+                }
+            }
+        }
+
+        impl<T> AtomicPtr<T> {
+            #[inline]
+            pub const fn new(p: *mut T) -> AtomicPtr<T> {
+                AtomicPtr {
+                    p: UnsafeCell::new(p),
+                }
+            }
+
+            #[inline]
+            pub fn load(&self, _order: Ordering) -> *mut T {
+                unsafe {
+                    let ptr = self.p.get();
+                    *ptr
+                }
+            }
+
+            #[inline]
+            pub fn store(&self, ptr: *mut T, _order: Ordering) {
+                unsafe {
+                    let p = self.p.get();
+                    *p = ptr;
+                }
+            }
+        }
+
+        impl AtomicU32 {
+            pub const fn new(v: u32) -> Self {
+                Self {v: UnsafeCell::new(v)}
+            }
+
+            #[inline]
+            pub fn load(&self, _order: Ordering) -> u32 {
+                unsafe {
+                    let ptr = self.v.get();
+                    *ptr
+                }
+            }
+
+            #[inline]
+            pub fn store(&self, val: u32, _order: Ordering) {
+                unsafe {
+                    let ptr = self.v.get();
+                    *ptr = val;
+                }
+            }
+        }
+    } else {
+        pub use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32};
+    }
+}
 
 pub trait AtomicU32Ext {
     fn swap(&self, val: u32, order: Ordering) -> u32;
@@ -55,7 +172,7 @@ pub trait AtomicU32Ext {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(armv6m)] {
+    if #[cfg(any(armv6m, riscv_no_atomics))] {
         impl AtomicU32Ext for AtomicU32 {
             #[inline]
             fn swap(&self, val: u32, order: Ordering) -> u32 {
@@ -106,7 +223,7 @@ pub trait AtomicBoolExt {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(armv6m)] {
+    if #[cfg(any(armv6m, riscv_no_atomics))] {
         impl AtomicBoolExt for AtomicBool {
             #[inline]
             fn swap(&self, new: bool, order: Ordering) -> bool {
@@ -126,7 +243,7 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(armv6m)]
+#[cfg(any(armv6m, riscv_no_atomics))]
 fn rmw_ordering(o: Ordering) -> (Ordering, Ordering) {
     match o {
         Ordering::AcqRel => (Ordering::Acquire, Ordering::Release),
