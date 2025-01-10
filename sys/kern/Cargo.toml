@@ -14,9 +14,10 @@ zerocopy = { workspace = true }
 
 abi = { path = "../abi" }
 armv8-m-mpu = { path = "../../lib/armv8-m-mpu" }
+atomic-hack = { path = "../../lib/atomic-hack" }
+kerncore = { path = "../kerncore" }
 phash = { path = "../../lib/phash" }
 unwrap-lite = { path = "../../lib/unwrap-lite" }
-kerncore.path = "../kerncore"
 
 [build-dependencies]
 anyhow = { workspace = true }

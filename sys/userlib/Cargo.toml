@@ -21,7 +21,7 @@ ssmarshal = { workspace = true }
 zerocopy = { workspace = true }
 
 abi.path = "../abi"
-armv6m-atomic-hack.path = "../../lib/armv6m-atomic-hack"
+atomic-hack.path = "../../lib/atomic-hack"
 unwrap-lite.path = "../../lib/unwrap-lite"
 volatile-const.path = "../../lib/volatile-const"
 

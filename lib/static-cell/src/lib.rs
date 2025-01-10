@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #![no_std]
-use armv6m_atomic_hack::AtomicBoolExt;
+use atomic_hack::{AtomicBool, AtomicBoolExt};
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 
 /// A RefCell-style container that can be used in a static for cases where only
 /// a single borrow needs to happen at any given time.

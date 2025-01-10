@@ -1,7 +1,10 @@
 [package]
-name = "armv6m-atomic-hack"
+name = "atomic-hack"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+cfg-if = { workspace = true }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

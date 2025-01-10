@@ -150,7 +150,7 @@ impl<'input> CountGenerator<'input> {
                 fn count(&self, counters: &Self::Counters) {
                     // This extension trait may not be used on non-v6m targets.
                     #[allow(unused_imports)]
-                    use counters::armv6m_atomic_hack::AtomicU32Ext;
+                    use counters::atomic_hack::AtomicU32Ext;
 
                     match self {
                         #(#variant_patterns),*
@@ -248,11 +248,9 @@ impl<'input> CountGenerator<'input> {
                 "`]"
             )]
             #[doc = " has been recorded by this set of counters."]
-            pub #variant_name: core::sync::atomic::AtomicU32
+            pub #variant_name: counters::AtomicU32
         });
-        field_inits.push(
-            quote! { #variant_name: core::sync::atomic::AtomicU32::new(0) },
-        );
+        field_inits.push(quote! { #variant_name: counters::AtomicU32::new(0) });
     }
 
     /// Generate a field def and field initializer for a variant *with*

@@ -121,13 +121,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "armv6m-atomic-hack"
-version = "0.1.0"
-dependencies = [
- "build-util",
-]
-
-[[package]]
 name = "armv8-m-mpu"
 version = "0.1.0"
 dependencies = [
@@ -154,6 +147,14 @@ name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
+
+[[package]]
+name = "atomic-hack"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "cfg-if",
+]
 
 [[package]]
 name = "atomic-polyfill"
@@ -687,7 +688,7 @@ dependencies = [
 name = "counters"
 version = "0.1.0"
 dependencies = [
- "armv6m-atomic-hack",
+ "atomic-hack",
  "counters-derive",
 ]
 
@@ -3073,7 +3074,7 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 [[package]]
 name = "idol"
 version = "0.4.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#52c37586066b793584a18852db77b57ded70fd52"
+source = "git+https://github.com/rivosinc/idolatry.git?branch=rivos/main#ea02618f55f5eed1e9e500f200aeb1f9bb210403"
 dependencies = [
  "indexmap 1.9.1",
  "once_cell",
@@ -3090,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "idol-runtime"
 version = "0.1.0"
-source = "git+https://github.com/oxidecomputer/idolatry.git#52c37586066b793584a18852db77b57ded70fd52"
+source = "git+https://github.com/rivosinc/idolatry.git?branch=rivos/main#ea02618f55f5eed1e9e500f200aeb1f9bb210403"
 dependencies = [
  "counters",
  "userlib",
@@ -3205,6 +3206,7 @@ dependencies = [
  "abi",
  "anyhow",
  "armv8-m-mpu",
+ "atomic-hack",
  "bitflags 2.6.0",
  "build-kconfig",
  "build-util",
@@ -4701,7 +4703,7 @@ dependencies = [
 name = "static-cell"
 version = "0.1.0"
 dependencies = [
- "armv6m-atomic-hack",
+ "atomic-hack",
  "build-util",
 ]
 
@@ -5032,7 +5034,7 @@ name = "task-hiffy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "armv6m-atomic-hack",
+ "atomic-hack",
  "build-i2c",
  "build-util",
  "byteorder",
@@ -5135,7 +5137,7 @@ version = "0.1.0"
 dependencies = [
  "abi",
  "anyhow",
- "armv6m-atomic-hack",
+ "atomic-hack",
  "build-util",
  "cfg-if",
  "hubpack",
@@ -5744,7 +5746,6 @@ dependencies = [
 name = "test-runner"
 version = "0.1.0"
 dependencies = [
- "armv6m-atomic-hack",
  "build-util",
  "cfg-if",
  "cortex-m",
@@ -6048,7 +6049,7 @@ name = "userlib"
 version = "0.1.0"
 dependencies = [
  "abi",
- "armv6m-atomic-hack",
+ "atomic-hack",
  "bstringify",
  "build-util",
  "cfg-if",

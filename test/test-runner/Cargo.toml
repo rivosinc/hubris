@@ -10,7 +10,6 @@ num-traits = { workspace = true }
 zerocopy = { workspace = true }
 ringbuf = { path = "../../lib/ringbuf" }
 
-armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
 hubris-num-tasks = { path = "../../sys/num-tasks" }
 test-api = { path = "../test-api" }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }

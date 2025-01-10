@@ -71,7 +71,7 @@
 //! We'll see.
 
 use core::arch::{self, global_asm};
-use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, Ordering};
+use core::sync::atomic::Ordering;
 
 use zerocopy::FromBytes;
 
@@ -89,6 +89,7 @@ use abi::{
 };
 #[cfg(armv8m)]
 use armv8_m_mpu::{disable_mpu, enable_mpu};
+use atomic_hack::{AtomicBool, AtomicPtr, AtomicU32};
 use unwrap_lite::UnwrapLite;
 
 macro_rules! uassert {

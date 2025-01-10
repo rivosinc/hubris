@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-armv6m-atomic-hack = {path = "../armv6m-atomic-hack"}
+atomic-hack = { path = "../../lib/atomic-hack" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

@@ -28,7 +28,9 @@
 //! See the `task::ArchState` trait for details.
 
 #[cfg(hubris_phantom_svc_mitigation)]
-use core::sync::atomic::{AtomicBool, Ordering};
+use atomic_hack::AtomicBool;
+#[cfg(hubris_phantom_svc_mitigation)]
+use core::sync::atomic::Ordering;
 
 use abi::{
     FaultInfo, IrqControlArg, IrqStatus, LeaseAttributes, SchedState, Sysnum,

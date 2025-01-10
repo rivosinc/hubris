@@ -11,8 +11,9 @@
 //! and the [`counters!`] macro, which declares a set of static counters
 
 #![no_std]
-pub use armv6m_atomic_hack;
-use core::sync::atomic::{AtomicU32, Ordering};
+pub use atomic_hack;
+pub use atomic_hack::AtomicU32;
+use core::sync::atomic::Ordering;
 #[cfg(feature = "derive")]
 pub use counters_derive::Count;
 
@@ -125,7 +126,7 @@ impl<T: Count> Count for Option<T> {
         match self {
             Some(t) => t.count(&counters.Some),
             None => {
-                armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+                atomic_hack::AtomicU32Ext::fetch_add(
                     &counters.None,
                     1,
                     Ordering::Relaxed,
@@ -163,7 +164,7 @@ impl<T: Count> Count for &'_ Option<T> {
         match self {
             Some(t) => t.count(&counters.Some),
             None => {
-                armv6m_atomic_hack::AtomicU32Ext::fetch_add(
+                atomic_hack::AtomicU32Ext::fetch_add(
                     &counters.None,
                     1,
                     Ordering::Relaxed,
@@ -190,11 +191,7 @@ impl Count for () {
     const NEW_COUNTERS: Self::Counters = AtomicU32::new(0);
 
     fn count(&self, counters: &Self::Counters) {
-        armv6m_atomic_hack::AtomicU32Ext::fetch_add(
-            counters,
-            1,
-            Ordering::Relaxed,
-        );
+        atomic_hack::AtomicU32Ext::fetch_add(counters, 1, Ordering::Relaxed);
     }
 }
 
@@ -225,6 +222,6 @@ impl Count for bool {
             false => &counters.r#false,
         };
 
-        armv6m_atomic_hack::AtomicU32Ext::fetch_add(ctr, 1, Ordering::Relaxed);
+        atomic_hack::AtomicU32Ext::fetch_add(ctr, 1, Ordering::Relaxed);
     }
 }

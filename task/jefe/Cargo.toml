@@ -14,7 +14,7 @@ humpty = { workspace = true }
 cfg-if = { workspace = true }
 
 abi = { path = "../../sys/abi" }
-armv6m-atomic-hack = { path = "../../lib/armv6m-atomic-hack" }
+atomic-hack = { path = "../../lib/atomic-hack" }
 hubris-num-tasks = { path = "../../sys/num-tasks", features = ["task-enum"] }
 ringbuf = { path = "../../lib/ringbuf"  }
 task-jefe-api = { path = "../jefe-api" }

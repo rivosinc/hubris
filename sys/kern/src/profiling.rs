@@ -44,7 +44,8 @@
 //! 3. Compute the code corresponding to each task index as
 //!    `(HUBRIS_TASK_TABLE_SPACE + index * size) >> 4 & PINS_EXPOSED`.
 
-use core::sync::atomic::{AtomicPtr, Ordering};
+use atomic_hack::AtomicPtr;
+use core::sync::atomic::Ordering;
 
 /// Hooks that must be provided by the board setup code if it wants to enable
 /// kernel profiling.
