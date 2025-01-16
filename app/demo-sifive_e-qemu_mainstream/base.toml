@@ -1,0 +1,32 @@
+name = "demo-sifive_e-qemu_mainstream"
+target = "riscv32imac-unknown-none-elf"
+board = "sifive_e-qemu"
+chip = "../../chips/sifive_e-qemu_mainstream"
+stacksize = 896
+
+
+[kernel]
+name = "demo-sifive_e-qemu_mainstream"
+requires = {flash = 32768, ram = 2656}
+features = []
+
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+start = true
+stacksize = 1024
+notifications = ["fault", "timer"]
+
+
+[tasks.idle]
+name = "task-idle"
+priority = 255
+max-sizes = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+
+[config]
+[config.timer]
+clock-frequency = 32768
