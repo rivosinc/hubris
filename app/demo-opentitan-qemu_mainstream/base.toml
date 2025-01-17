@@ -1,0 +1,33 @@
+name = "demo-opentitan-qemu_mainstream"
+target = "riscv32imc-unknown-none-elf"
+board = "opentitan-qemu"
+chip = "../../chips/opentitan-qemu_mainstream"
+stacksize = 896
+
+
+[kernel]
+name = "demo-opentitan-qemu_mainstream"
+requires = {flash = 32768, ram = 2656}
+features = []
+
+
+[tasks.jefe]
+name = "task-jefe"
+priority = 0
+max-sizes = { flash = 16384, ram = 2048 }
+start = true
+stacksize = 1536
+notifications = ["fault", "timer"]
+
+
+[tasks.idle]
+name = "task-idle"
+priority = 255
+max-sizes = {flash = 256, ram = 256}
+stacksize = 256
+start = true
+
+
+[config]
+[config.timer]
+clock-frequency = 10_000

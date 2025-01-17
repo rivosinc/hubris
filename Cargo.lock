@@ -517,6 +517,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chip-opentitan-qemu_mainstream"
+version = "0.1.0"
+dependencies = [
+ "build-kconfig",
+ "build-util",
+ "call_rustfmt",
+ "drv-chip-api",
+ "drv-int-chip-api",
+ "drv-int-ctrl-api",
+ "drv-qemu_mainstream-ibex-timer",
+ "drv-riscv-plic",
+ "drv-timer-api",
+ "quote",
+ "ron",
+ "serde",
+]
+
+[[package]]
 name = "chip-sifive_e-qemu_mainstream"
 version = "0.1.0"
 dependencies = [
@@ -885,6 +903,17 @@ dependencies = [
  "darling_core 0.20.3",
  "quote",
  "syn 2.0.52",
+]
+
+[[package]]
+name = "demo-opentitan-qemu_mainstream"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "chip-opentitan-qemu_mainstream",
+ "kern",
+ "riscv 0.9.0",
+ "riscv-rt-wrapper",
 ]
 
 [[package]]

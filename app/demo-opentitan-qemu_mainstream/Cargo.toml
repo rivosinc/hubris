@@ -1,0 +1,24 @@
+[package]
+edition = "2021"
+readme = "README.md"
+name = "demo-opentitan-qemu_mainstream"
+version = "0.1.0"
+
+[dependencies]
+riscv = { workspace = true }
+riscv-rt-wrapper = { path = "../../lib/riscv-rt-wrapper", features = [ "vectored-interrupts" ] }
+chip-opentitan-qemu_mainstream = { path = "../../chips/opentitan-qemu_mainstream" }
+
+[dependencies.kern]
+path = "../../sys/kern"
+default-features = false
+features = [ "riscv-epmp-mml", "riscv-epmp-mmwp" ]
+
+[build-dependencies]
+build-util = {path = "../../build/util"}
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "demo-opentitan-qemu_mainstream"
+test = false
+bench = false
