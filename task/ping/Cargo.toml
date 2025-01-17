@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cortex-m = { workspace = true }
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
 

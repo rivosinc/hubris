@@ -8,8 +8,6 @@ panic-messages = ["userlib/panic-messages"]
 no-ipc-counters = ["idol/no-counters"]
 
 [dependencies]
-cortex-m = { workspace = true }
-
 drv-user-leds-api = { path = "../../drv/user-leds-api" }
 userlib = { path = "../../sys/userlib" }
 
