@@ -1,0 +1,31 @@
+[timer]
+address = 0x4010_0000
+kernel-reserved = true
+size = 0x200
+[timer.interrupts]
+time = 7
+
+[plic]
+address = 0x4800_0000
+kernel-reserved = true
+size = 0x800_0000
+[plic.config]
+pbits = 3
+context_id = 0
+max_irq = 180
+[plic.interrupts]
+irq = 11
+
+[uart0]
+address = 0x4000_0000
+interrupt-controller = "plic"
+size = 0x40
+[uart0.interrupts]
+rx_break_err = 6
+rx_frame_err = 5
+rx_overflow = 4
+rx_parity_err = 8
+rx_timeout = 7
+rx_watermark = 2
+tx_empty = 3
+tx_watermark = 1

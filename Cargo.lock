@@ -1869,7 +1869,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "drv-qemu-mainstream-ibex-timer"
+name = "drv-qemu_mainstream-ibex-timer"
 version = "0.1.0"
 dependencies = [
  "drv-timer-api",
