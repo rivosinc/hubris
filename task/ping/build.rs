@@ -4,5 +4,7 @@
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_util::expose_cpu_info()?;
+    build_util::build_notifications()?;
+
     Ok(())
 }

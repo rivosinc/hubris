@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 userlib = { path = "../../sys/userlib", features = ["panic-messages"] }
+drv-usart-api = { path = "../../drv/usart-api" }
 
 [build-dependencies]
 build-util = { path = "../../build/util" }

@@ -5465,6 +5465,7 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cortex-m",
+ "drv-usart-api",
  "idol",
  "userlib",
 ]

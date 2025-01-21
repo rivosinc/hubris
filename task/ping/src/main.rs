@@ -6,6 +6,8 @@
 #![no_main]
 
 use userlib::*;
+#[cfg(feature = "uart")]
+use drv_usart_api::UsartApi;
 
 task_slot!(PEER, peer);
 #[cfg(feature = "uart")]
@@ -78,13 +80,12 @@ fn main() -> ! {
 
 #[cfg(feature = "uart")]
 fn uart_send(text: &[u8]) {
-    let peer = UART.get_task_id();
+    let uart: UsartApi = UART.get_task_id().into();
 
-    const OP_WRITE: u16 = 1;
-    let (code, _) =
-        sys_send(peer, OP_WRITE, &[], &mut [], &[Lease::from(text)]);
-    assert_eq!(0, code);
+    let _ = uart.write(text);
 }
 
 #[cfg(not(feature = "uart"))]
 fn uart_send(_: &[u8]) {}
+
+include!(concat!(env!("OUT_DIR"), "/notifications.rs"));
