@@ -1,0 +1,15 @@
+Interface(
+    name: "UsartApi",
+    ops: {
+        "write": (
+            doc: "Write bytes from `source` and to uart device",
+            leases: {
+                "data": (type: "[u8]", read: true, max_len: Some(256)),
+            },
+            reply: Result(
+                ok: "()",
+                err: CLike("UsartApiError"),
+            ),
+        ),
+    },
+)

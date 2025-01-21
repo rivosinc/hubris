@@ -2477,6 +2477,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-usart-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "build-util",
+ "call_rustfmt",
+ "counters",
+ "derive-idol-err",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "task-config",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-user-leds"
 version = "0.1.0"
 dependencies = [
@@ -5445,7 +5465,6 @@ version = "0.1.0"
 dependencies = [
  "build-util",
  "cortex-m",
- "drv-user-leds-api",
  "idol",
  "userlib",
 ]
