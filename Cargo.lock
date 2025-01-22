@@ -2075,6 +2075,9 @@ name = "drv-stm32fx-usart"
 version = "0.1.0"
 dependencies = [
  "build-util",
+ "drv-usart-api",
+ "idol",
+ "idol-runtime",
  "num-traits",
  "stm32f3",
  "stm32f4",
