@@ -1,0 +1,12 @@
+[[flash]]
+address = 0x2040_0000
+size = 0x1fc0_0000
+read = true
+execute = true
+
+[[ram]]
+address = 0x8000_0000
+size = 0x4000
+read = true
+write = true
+execute = false  # let's assume XN until proven otherwise

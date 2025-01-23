@@ -1,0 +1,25 @@
+[sifive_clint]
+address = 0x200_0000
+kernel-reserved = true
+size = 32
+[sifive_clint.interrupts]
+soft = 3
+time = 7
+
+[plic]
+address = 0xc00_0000
+kernel-reserved = true
+size = 0x400_0000
+[plic.config]
+pbits = 3
+context_id = 0
+max_irq = 26
+[plic.interrupts]
+irq = 11
+
+[uart0]
+address = 0x1001_3000
+interrupt-controller = "plic"
+size = 0x1000
+[uart0.interrupts]
+irq = 5
