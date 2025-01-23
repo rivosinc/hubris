@@ -1906,6 +1906,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "drv-qemu_mainstream-ibex-uart-server"
+version = "0.1.0"
+dependencies = [
+ "build-util",
+ "drv-usart-api",
+ "idol",
+ "idol-runtime",
+ "num-traits",
+ "task-config",
+ "tock-registers",
+ "userlib",
+ "zerocopy 0.6.6",
+]
+
+[[package]]
 name = "drv-qspi-api"
 version = "0.1.0"
 
