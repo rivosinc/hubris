@@ -1,0 +1,15 @@
+[package]
+name = "riscv-rt-wrapper"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+riscv = { workspace = true }
+riscv-rt = { version = "0.11", default-features = false }
+cfg-if = { workspace = true }
+
+[features]
+vectored-interrupts = []
+
+[lints]
+workspace = true
